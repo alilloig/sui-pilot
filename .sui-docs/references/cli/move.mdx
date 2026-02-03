@@ -1,0 +1,130 @@
+---
+title: Sui Move CLI
+description: The Sui CLI move command provides commands for working with Move source code directly from a terminal or console.
+keywords: [ sui move, sui move help, move, move reference, move commands, sui move commands, use move cli, cli move, create a move project, interact with move project, move project, move project cli ]
+---
+
+The Sui CLI `move` command provides several commands for working with Move source code. A typical usage of `sui move` is to compile and test the Move code, or to generate a new Move project by using `sui move new project_name`, which creates the needed directories and the `Move.toml` file.
+
+<ImportContent source="cli-check-install.mdx" mode="snippet" />
+
+## Commands
+
+```sh
+$ sui move --help
+```
+
+<ImportContent source="console-output/sui-move-help.mdx" mode="snippet" />
+
+## Examples
+
+The following examples demonstrate some of the most often used commands.
+
+### Create a new Move project
+
+To create a new Move project that automatically adds the necessary dependencies in a `Move.toml` file, run `sui move new [<PROJECT-NAME>]`.
+
+```sh
+$ sui move new smart_contract_test
+```
+```sh
+$ ls -l smart_contract_test
+```
+```sh
+Move.toml
+Sources
+```
+Display the contents of Move.toml file.
+
+```sh
+$ cat smart_contract_test/Move.toml
+```
+
+```sh
+[package]
+name = "smart_contract_test"
+version = "0.0.1"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+
+[addresses]
+smart_contract_test = "0x0"
+```
+
+### Build a Move project
+
+Use `sui move build` at the root of your Move project to build the package.
+
+```sh
+$ sui move build
+```
+```sh
+UPDATING GIT DEPENDENCY https://github.com/MystenLabs/sui.git
+INCLUDING DEPENDENCY Sui
+INCLUDING DEPENDENCY MoveStdlib
+BUILDING smart_contract_test
+```
+
+### Run tests in a Move project
+
+Use `sui move test` to run the tests in a Move package.
+
+```sh
+$ sui move test
+```
+```sh
+UPDATING GIT DEPENDENCY https://github.com/MystenLabs/sui.git
+INCLUDING DEPENDENCY Sui
+INCLUDING DEPENDENCY MoveStdlib
+BUILDING smart_contract_test
+Running Move unit tests
+Test result: OK. Total tests: 0; passed: 0; failed: 0
+```
+
+### Get test coverage for a module
+
+
+:::caution
+
+This command currently only works on debug builds of the CLI.  Please build the CLI from source to use it.
+
+:::
+
+
+This example uses [`first_package`](https://github.com/MystenLabs/sui/tree/main/examples/move/first_package) Move package.
+
+To get a summary of the test coverage, you must first run the `sui move test --coverage` command, and then the `sui move coverage summary --test` to get a summary of the test coverage in the example project.
+
+```sh
+$ sui move test --coverage
+```
+```sh
+INCLUDING DEPENDENCY Sui
+INCLUDING DEPENDENCY MoveStdlib
+BUILDING first_package
+Running Move unit tests
+[ PASS    ] 0x0::example::test_module_init
+[ PASS    ] 0x0::example::test_sword_transactions
+Test result: OK. Total tests: 2; passed: 2; failed: 0
+
+$ sui move coverage summary --test
++-------------------------+
+| Move Coverage Summary   |
++-------------------------+
+Module 0000000000000000000000000000000000000000000000000000000000000000::example
+>>> % Module coverage: 92.81
++-------------------------+
+| % Move Coverage: 92.81  |
++-------------------------+
+```
+
+## Help
+
+Each command has its own help section. For example:
+
+```sh
+$ sui move build --help
+```
+
+<ImportContent source="console-output/sui-move-build-help.mdx" mode="snippet" />
