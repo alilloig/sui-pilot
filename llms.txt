@@ -1,0 +1,20 @@
+# sui-pilot
+
+> Documentation copilot for AI agents working with Sui blockchain, Walrus storage, and Seal secrets management.
+
+This repository contains 434 documentation files across three ecosystems, designed for AI agent consumption.
+
+## Docs
+
+- [Full File Index](AGENTS.md): Pipe-delimited index of every doc file, organized by ecosystem
+- [Sui blockchain docs](.sui-docs/): 336 MDX files — concepts, guides, references, standards
+- [Walrus storage docs](.walrus-docs/): 84 MDX files — blob storage, Walrus Sites, SDK, operators
+- [Seal secrets docs](.seal-docs/): 14 MDX files — encryption, key servers, access control
+
+## How to Use
+
+Read AGENTS.md first. It contains a compact, parseable index of every documentation file organized by ecosystem and directory structure. Search the appropriate `.{ecosystem}-docs/` directory for detailed content.
+
+## Important
+
+Your training data about Sui Move is likely outdated. Always search and read these docs before generating Sui/Move/Walrus/Seal code.

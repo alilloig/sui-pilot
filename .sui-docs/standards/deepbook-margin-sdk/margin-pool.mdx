@@ -82,7 +82,7 @@ The following functions query margin pool state without modifying it.
 
 Query basic pool information and configuration.
 
-<ImportContent source="packages/deepbook-v3/src/transactions/marginPool.ts" mode="code" org="MystenLabs" repo="ts-sdks" fun="getId,deepbookPoolAllowed,supplyCap,maxUtilizationRate,protocolSpread,protocolFees,minBorrow" signatureOnly />
+<ImportContent source="packages/deepbook-v3/src/transactions/marginPool.ts" mode="code" org="MystenLabs" repo="ts-sdks" fun="getId,deepbookPoolAllowed,supplyCap,maxUtilizationRate,protocolSpread,minBorrow" signatureOnly />
 
 ### Supply and borrow metrics
 
@@ -225,16 +225,3 @@ checkPoolMetrics = async (tx: Transaction) => {
 	const userAmount = tx.add(this.marginPoolContract.userSupplyAmount(coinKey, supplierCapId));
 };
 ```
-
-## Related links
-
-<RelatedLink
-	href="https://github.com/MystenLabs/deepbookv3/tree/main/packages/deepbook_margin"
-	label="DeepBook Margin package"
-	desc="The DeepBook Margin package on GitHub."
-/>
-<RelatedLink
-	href="https://www.npmjs.com/package/@mysten/deepbook-v3"
-	label="DeepBookV3 SDK node package"
-	desc="The DeepBookV3 SDK node package on NPM."
-/>

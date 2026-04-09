@@ -221,7 +221,7 @@ In checkpoint data, these events arrive as **raw BCS bytes** that need to be con
 
 1. Define the `Event` struct in Rust.
 
-    Define the same structure in Rust as declared in Move. You can do this manually or use [`move-binding`](https://github.com/MystenLabs/move-binding) to auto-generate it from on-chain packages.
+    Define the same structure in Rust as declared in Move. You can do this manually or use [`move-binding`](https://github.com/MystenLabs/move-binding) to auto-generate it from onchain packages.
 
     ```rust
     use serde::Deserialize;
@@ -265,11 +265,3 @@ In checkpoint data, these events arrive as **raw BCS bytes** that need to be con
         }
     }
     ```
-
-## Related links
-
-<RelatedLink href="https://github.com/MystenLabs/sui/tree/main/crates/sui-indexer-alt" label="Sui Indexer Alt" desc="The `sui-indexer-alt` crate in the Sui repo." />
-<RelatedLink href="https://github.com/MystenLabs/mvr/tree/main/crates/mvr-indexer" label="Move Registry" desc="The indexer that the Move Registry (MVR) implements." />
-<RelatedLink href="https://github.com/MystenLabs/deepbookv3/tree/main/crates/indexer" label="DeepBook Indexer" desc="The indexer that DeepBook implements." />
-<RelatedLink to="/concepts/data-access/custom-indexers.mdx" />
-<RelatedLink to="/concepts/data-access/pipeline-architecture.mdx" />

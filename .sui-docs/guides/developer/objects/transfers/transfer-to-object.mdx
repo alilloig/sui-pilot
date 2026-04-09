@@ -18,7 +18,7 @@ The transfer to object mechanism is not supported for [party objects](/guides/de
 
 :::
 
-A benefit of the transfer to object operation is the ability to have a stable ID for an on-chain wallet or account. Transferring an object doesn't affect its ID, regardless of the state of the object that you send it to. When you transfer an object, all of that object's child objects move with it, and the object's address remains the same whether you transfer it, wrap it, or hold it as a dynamic field.
+A benefit of the transfer to object operation is the ability to have a stable ID for an onchain wallet or account. Transferring an object doesn't affect its ID, regardless of the state of the object that you send it to. When you transfer an object, all of that object's child objects move with it, and the object's address remains the same whether you transfer it, wrap it, or hold it as a dynamic field.
 
 ## Considerations for transferring to objects
 
@@ -76,7 +76,7 @@ Because there is no difference in the result of the object transfer, you can use
 
 ## Receive objects
 
-An object must receive another object before it can use it. To receive the object, use a `Receiving(o: ObjectRef)` argument type in a [programmable transaction block (PTB)](/guides/developer/transactions/prog-txn-blocks.mdx). This argument takes an object reference containing the object's `ObjectID`, `Version`, and `Digest`, similar to address-owned object arguments. However, `Receiving` PTB arguments are not passed as an owned value or mutable reference within the transaction.
+An object must receive another object before it can use it. To receive the object, use a `Receiving(o: ObjectRef)` argument type in a [programmable transaction block (PTB)](/guides/developer/transactions/ptbs/prog-txn-blocks). This argument takes an object reference containing the object's `ObjectID`, `Version`, and `Digest`, similar to address-owned object arguments. However, `Receiving` PTB arguments are not passed as an owned value or mutable reference within the transaction.
 
 The core receiving interface in Move is defined in the [`transfer`](https://docs.sui.io/references/framework/sui_sui/transferx) module in the Sui framework:
 
@@ -244,7 +244,7 @@ You can use and couple these restrictions to create powerful expressions. For ex
 
 ## TypeScript and Rust SDKs
 
-Interact with `Receiving` transaction inputs as you would with other object arguments in the Sui TypeScript SDK. For example, if in the [Simple Account](#simple-account) example you want to send a transaction that receives a coin object with ID `0xc0ffee` that was sent to your account at `0xcafe`, you can do the following using either the [Sui TypeScript SDK](https://sdk.mystenlabs.com/typescript) or [Sui Rust SDK](https://github.com/MystenLabs/sui/tree/main/crates/sui-sdk):
+Interact with `Receiving` transaction inputs as you would with other object arguments in the Sui TypeScript SDK. For example, if in the [Simple Account](#simple-account) example you want to send a transaction that receives a coin object with ID `0xc0ffee` that was sent to your account at `0xcafe`, you can do the following using either the [Sui TypeScript SDK](https://sdk.mystenlabs.com/typescript) or [Sui Rust SDK](https://github.com/MystenLabs/sui-rust-sdk):
 
 <Tabs groupId="code-language">
 

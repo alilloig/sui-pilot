@@ -14,7 +14,7 @@ keywords:
 
 # Seal pricing
 
-- **Choose your own key server providers:** Seal supports both independent server type and committee server type key servers. Builders can select any combination of providers to form their preferred threshold configuration for encryption and decryption.
+- **Choose your own key server providers:** Seal supports both independent server type and decentralized (committee) server type key servers. Builders can select any combination of providers to form their preferred threshold configuration for encryption and decryption.
 - **Transparent pricing and features:** Each key server provider sets their own pricing and rate limits based on their service model. Builders can evaluate and choose based on what best fits their application needs.
 - **Curated discoverability:** This documentation lists a verified set of providers along with available links to their configuration details, terms, and pricing, so you can integrate with confidence.
 
@@ -103,7 +103,7 @@ Testnet key servers are provided for developer testing only and do not come with
 
 :::note
 
-The URL for any listed key server can change over time. What matters is the Object ID, which points to the on-chain key server object. That object always holds the latest URL as the source of truth.
+The URL for any listed key server can change over time. What matters is the Object ID, which points to the onchain key server object. That object always holds the latest URL as the source of truth.
 
 :::
 
@@ -121,14 +121,23 @@ Reach out to these verified key server providers:
 - [Enoki by Mysten Labs](https://enoki.mystenlabs.com/)
     - Sign up for Enoki, create your account, and request Seal key server access using the form in your dashboard.
 
-## Verified committee server type key servers
+## Verified decentralized key servers
 
-Committee server type key servers provide distributed trust through multiple committee members, with an aggregator handling client requests. These servers offer committee member rotation and better liveness guarantees.
+Decentralized key servers provide distributed trust through multiple committee members, with an aggregator handling client requests. These servers offer committee member rotation and better liveness guarantees.
 
 ### Testnet
 
-- **Committee key server object ID**: `[To be provided]`
-- **Aggregator URL**: `[To be provided]`
+- **Committee key server object ID**: `0xb012378c9f3799fb5b1a7083da74a4069e3c3f1c93de0b27212a5799ce1e1e98`
+- **Aggregator URL**: `https://seal-aggregator-testnet.mystenlabs.com`
+
+This committee is set up as a 3 out of 5 threshold committee with the following members: 
+- [Mysten Labs](https://mystenlabs.com/)
+- [Natsai](https://www.natsai.xyz/seal)
+- [Overclock](https://seal.overclock.run/)
+- [NodeInfra](https://docs.nodeinfra.com/)
+- [Ruby Nodes](https://seal.rubynodes.io/)
+
+The aggregator is ran by Mysten Labs. Basic Testnet usage does not require API credentials.
 
 ### Mainnet
 

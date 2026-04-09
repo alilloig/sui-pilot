@@ -8,9 +8,9 @@ keywords: [ walrus, indexer, custom indexer, custom indexer framework, blob, seq
 
 For uniqueness, each blob uploaded to Walrus also creates a corresponding [`Blob` NFT object on Sui](https://docs.wal.app/dev-guide/sui-struct.html#blob-and-storage-objects) with a unique ID. Furthermore, the associated `Blob` object can optionally have a `Metadata` [dynamic field](/guides/developer/objects/dynamic-fields.mdx). 
 
-`Metadata` dynamic fields are a key-value extension that allows an on-chain object’s data to be augmented at runtime. If set, this dynamic field acts as [a mapping of key-value attribute pairs](https://docs.wal.app/usage/client-cli.html?highlight=attribute#blob-attributes). 
+`Metadata` dynamic fields are a key-value extension that allows an onchain object’s data to be augmented at runtime. If set, this dynamic field acts as [a mapping of key-value attribute pairs](https://docs.wal.app/usage/client-cli.html?highlight=attribute#blob-attributes). 
 
-You can use the [custom indexer framework](/guides/developer/accessing-data/custom-indexing-framework) to extend the existing functionality of Walrus.
+You can use the [custom indexer framework](/guides/developer/accessing-data/custom-indexer) to extend the existing functionality of Walrus.
 
 :::info 
 
@@ -115,10 +115,3 @@ All Walrus blobs carry an associated lifetime, so you must track expiration chan
 - Construct PTBs that make calls to manage blob lifetime and ping the `Metadata` dynamic field in the same transaction.
 
 If you don't want to perform additional work on the write side, then you are limited to the first two options. This requires two pipelines, one to do the work in the previous section of indexing metadata, and another to index `BlobCertified` events (or `Blob` object changes.)
-
-## Related links
-
-<RelatedLink href="https://docs.wal.app/" label="Walrus Docs" desc="Walrus is a decentralized storage and data availability protocol designed specifically for large binary files, or blobs." />
-<RelatedLink to="/concepts/data-access/custom-indexers.mdx" />
-<RelatedLink to="/guides/developer/objects/dynamic-fields.mdx" />
-<RelatedLink href="https://github.com/MystenLabs/sui/tree/main/examples/rust/walrus-attributes-indexer" label="Indexer with Walrus example files" desc="Directory in the Sui repo containing the files for this example." />

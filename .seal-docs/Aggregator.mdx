@@ -1,10 +1,11 @@
 ---
 title: Aggregator Server
-description: Learn how the Aggregator Server acts as a gateway between clients and Seal MPC committee member key servers, aggregating encrypted partial key shares.
+description: Learn how the Aggregator Server acts as a gateway between clients and Seal decentralized (committee mode) key servers, aggregating encrypted partial key shares.
 keywords:
   - aggregator server
   - Seal MPC
   - key server
+  - decentralized server
   - committee members
   - encrypted signatures
   - DKG
@@ -16,7 +17,7 @@ import InfrastructureRequirements from './_InfrastructureRequirements.mdx';
 
 # Aggregator Server
 
-The Aggregator Server supports Seal MPC committees by acting as a gateway between clients and committee member key servers. It fetches encrypted partial key shares from committee members, verifies their encrypted signatures, aggregates the shares into a single encrypted key, and returns the result to the client. The aggregator authenticates to member key servers using private API keys.
+The Aggregator Server supports Seal MPC committees by acting as a gateway between clients and committee members' key servers. It fetches encrypted partial key shares from committee members, verifies their encrypted signatures, aggregates the shares into a single encrypted key, and returns the result to the client. The aggregator authenticates to a decentralized key server using private API keys.
 
 Because the aggregator never holds or stores cryptographic key material, it is trustless — anyone can run one. The aggregator's correctness can be verified independently: all partial shares are cryptographically signed by their respective committee members, so a misbehaving aggregator cannot produce a valid response without honest member participation.
 
@@ -39,9 +40,9 @@ The aggregator authenticates with each committee member's key server using priva
 
 After a fresh DKG completes, the coordinator shares the following information with the aggregator operator:
 
-- **Key server object ID** (`KEY_SERVER_OBJ_ID`): The object ID created when the committee is finalized on-chain.
+- **Key server object ID** (`KEY_SERVER_OBJ_ID`): The object ID created when the committee is finalized onchain.
 - **API credentials for all committee members**, including:
-    - The on-chain server name
+    - The onchain server name
     - The API key name
     - The API key
 
@@ -51,7 +52,7 @@ The aggregator operator configures these values in `aggregator-config.yaml` and 
 
 If new members join the committee during key rotation, the coordinator shares their API credentials with the aggregator operator. The aggregator operator adds the new credentials to `aggregator-config.yaml` and restarts the server.
 
-The aggregator configuration can include credentials for both old and new member names. The aggregator periodically reads the current committee state from the network and uses the latest on-chain member list to determine which credentials to use.
+The aggregator configuration can include credentials for both old and new member names. The aggregator periodically reads the current committee state from the network and uses the latest onchain member list to determine which credentials to use.
 
 ## Running the server
 
@@ -59,12 +60,12 @@ Edit `aggregator-config.yaml` to match your environment. Set the target network,
 ```yaml
 # The network for the object.
 network: !Testnet
-# The committee server object ID.
+# The decentralized server object ID.
 key_server_object_id: '0x0000000000000000000000000000000000000000000000000000000000000000'
 
 # API credentials for committee members.
 api_credentials:
-    server1: # on-chain server name
+    server1: # onchain server name
       api_key_name: keyname1
       api_key: key1
     server2:
