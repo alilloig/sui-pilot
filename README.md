@@ -4,63 +4,58 @@
   <img src="sui-pilot.png" alt="Sui Pilot" width="600" />
 </p>
 
-A documentation copilot and Claude Code plugin for AI agents working with Sui, Walrus, and Seal.
+A Claude Code plugin that transforms Claude into a Sui/Move development expert.
 
 ---
 
-## What is sui-pilot?
+## Why sui-pilot?
 
-sui-pilot is a curated, local knowledge base designed to be consumed by AI coding agents. It contains documentation for three ecosystems maintained by [Mysten Labs](https://github.com/MystenLabs):
+Sui Move evolves rapidly. LLM training data goes stale fast, and agents confidently generate outdated patterns, deprecated APIs, and incorrect syntax.
 
-| Ecosystem  | Directory       | Files | Topics                                                                        |
-| ---------- | --------------- | ----- | ----------------------------------------------------------------------------- |
-| **Sui**    | `.sui-docs/`    | 336   | Blockchain, Move language, objects, transactions, SDKs, DeFi standards        |
-| **Walrus** | `.walrus-docs/` | 84    | Decentralized blob storage, Walrus Sites, TypeScript SDK, HTTP API, operators |
-| **Seal**   | `.seal-docs/`   | 14    | Secrets management, encryption, key servers, access control policies          |
+sui-pilot solves this by bundling **434 documentation files** from three Mysten Labs ecosystems directly into your Claude Code environment:
 
-Sui Move evolves rapidly. LLM training data goes stale fast, and agents confidently generate outdated patterns, deprecated APIs, and incorrect syntax. sui-pilot solves this by giving agents access to current, comprehensive documentation right inside your project.
+| Ecosystem  | Files | Topics                                                                 |
+| ---------- | ----- | ---------------------------------------------------------------------- |
+| **Sui**    | 336   | Blockchain, Move language, objects, transactions, SDKs, DeFi standards |
+| **Walrus** | 84    | Decentralized blob storage, Walrus Sites, TypeScript SDK, HTTP API     |
+| **Seal**   | 14    | Secrets management, encryption, key servers, access control policies   |
 
 ---
 
-## Claude Code Plugin
+## What You Get
 
-sui-pilot is also a full Claude Code plugin that transforms Claude into a Sui/Move development expert with:
+### Bundled Documentation
 
-- **Doc-grounded guidance** — Enforces doc-first workflow before code generation
-- **Real-time LSP integration** — move-analyzer diagnostics, hover, completions, navigation
-- **Code quality skills** — Move 2024 Edition compliance and security review
-- **Test generation** — Following Move testing best practices
+All docs are local and searchable. Claude reads them before generating code — no hallucinated APIs, no deprecated patterns.
 
-### MCP Tools
+### MCP Tools (LSP Integration)
 
-| Tool                   | Description                                      |
-| ---------------------- | ------------------------------------------------ |
+Real-time feedback from `move-analyzer`:
+
+| Tool                   | Description                                       |
+| ---------------------- | ------------------------------------------------- |
 | `move_diagnostics`     | Get compiler warnings and errors for a Move file |
-| `move_hover`           | Get type information at a position               |
-| `move_completions`     | Get completion suggestions                       |
-| `move_goto_definition` | Navigate to symbol definitions                   |
+| `move_hover`           | Get type information at a position                |
+| `move_completions`     | Get completion suggestions                        |
+| `move_goto_definition` | Navigate to symbol definitions                    |
 
-### Bundled Skills
+### Skills
 
-| Skill             | Command              | Purpose                                     |
-| ----------------- | -------------------- | ------------------------------------------- |
-| move-code-quality | `/move-code-quality` | Move Book Code Quality Checklist compliance |
-| move-code-review  | `/move-code-review`  | Security and architecture review            |
-| move-tests        | `/move-tests`        | Test generation best practices              |
+| Command              | Purpose                                     |
+| -------------------- | ------------------------------------------- |
+| `/move-code-quality` | Move Book Code Quality Checklist compliance |
+| `/move-code-review`  | Security and architecture review            |
+| `/move-tests`        | Test generation best practices              |
+
+### Specialized Agent
+
+The `sui-pilot-agent` enforces a doc-first workflow: consult documentation before writing code, use LSP for real-time validation.
 
 ---
 
 ## Installation
 
-### As Documentation Only
-
-1. **Clone or copy** this repo into your workspace.
-2. **Point your AI agent at the project** — add it as context, include it in your workspace, or work within the directory.
-3. The agent reads `AGENTS.md`, discovers the doc structure, and can then search and read any file in the doc directories.
-
-### As Claude Code Plugin
-
-#### Quick Setup (Recommended)
+### Quick Setup (Recommended)
 
 ```bash
 # Clone to plugins directory
@@ -73,83 +68,40 @@ cd sui-pilot
 ```
 
 The setup script will:
-
 - Verify Node.js 18+ and pnpm are installed
 - Build the MCP server
 - Run tests to verify everything works
-- Optionally install move-analyzer (prompts for confirmation)
+- Optionally install `move-analyzer` via suiup
 
-#### Manual Installation
+**Restart Claude Code** after installation — MCP servers launch at session start.
 
-##### Prerequisites
+### Requirements
 
-| Requirement | Purpose | Check |
-|-------------|---------|-------|
-| Node.js 18+ | MCP server runtime | `node --version` |
-| pnpm | Package management | `pnpm --version` |
-| suiup | Sui toolchain manager | `suiup --version` |
-| sui + move-analyzer | Sui CLI and LSP | `sui --version && move-analyzer --version` |
+| Component            | Version      | Notes                                                                  |
+| -------------------- | ------------ | ---------------------------------------------------------------------- |
+| Node.js              | 18+          | MCP server runtime                                                     |
+| pnpm                 | Any          | `npm i -g pnpm`                                                        |
+| suiup                | Latest       | `curl -fsSL https://sui.io/install.sh \| sh`                           |
+| sui + move-analyzer  | Same version | **Must match versions** — install both via suiup                       |
+| Claude Code          | Latest       | Plugin host environment                                                |
 
-##### Install suiup (Sui Toolchain Manager)
+### Installing the Sui Toolchain
 
-[suiup](https://docs.sui.io/guides/developer/getting-started/sui-install) is the official Sui version manager, similar to rustup for Rust. It manages `sui`, `move-analyzer`, and other Sui tools.
+[suiup](https://docs.sui.io/guides/developer/getting-started/sui-install) is the official Sui version manager:
 
 ```bash
 # Install suiup
 curl -fsSL https://sui.io/install.sh | sh
+export PATH="$HOME/.local/bin:$PATH"  # Add to shell profile
 
-# Add to PATH (add this to your shell profile)
-export PATH="$HOME/.local/bin:$PATH"
-```
-
-##### Install sui and move-analyzer
-
-> **Important**: `sui` and `move-analyzer` must be the **same version**. Version mismatches cause LSP crashes.
-
-```bash
-# Install latest sui from testnet release
+# Install sui and move-analyzer (versions must match!)
 suiup install sui
-
-# Install matching move-analyzer
 suiup install move-analyzer
 
-# Verify versions match
-sui --version          # e.g., sui 1.69.2-...
-move-analyzer --version  # e.g., move-analyzer 1.69.2-...
+# Verify
+sui --version
+move-analyzer --version
 ```
-
-If you have an old `move-analyzer` installed via cargo that shadows the suiup version:
-```bash
-# Check which one is active
-which move-analyzer
-
-# If it shows ~/.cargo/bin/move-analyzer, rename it
-mv ~/.cargo/bin/move-analyzer ~/.cargo/bin/move-analyzer.bak
-```
-
-##### Alternative: Install via Cargo (Not Recommended)
-
-If you can't use suiup, you can build from source. This is slower and risks version mismatches:
-
-```bash
-# Install from official MystenLabs Sui repository
-cargo install --git https://github.com/MystenLabs/sui.git move-analyzer
-```
-
-> **Note**: This compiles ~500 crates. Takes ~5-10 minutes. Requires ~1GB disk space.
-
-##### Build MCP Server
-
-```bash
-cd ~/.claude/plugins/sui-pilot/mcp/move-lsp-mcp
-pnpm install
-pnpm build
-pnpm test  # Should show 80+ tests passing
-```
-
-##### Restart Claude Code
-
-After installation, restart Claude Code completely (close and reopen). The MCP server starts on session launch, not on plugin reload.
 
 ---
 
@@ -187,57 +139,32 @@ Check diagnostics for sources/my_module.move
 
 ---
 
-## How It Works
+## For Other AI Agents
 
-sui-pilot has three components for documentation discovery:
+sui-pilot also works as a standalone documentation source for non-Claude Code environments:
 
-- **`AGENTS.md`** — A compact, pipe-delimited index at the repo root. AI agents parse this file to discover available documentation across all three ecosystems. It includes a warning: _"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."_
+1. Clone or copy this repo into your workspace
+2. Point your AI agent at the project
+3. The agent reads `AGENTS.md` to discover available documentation
 
-- **`CLAUDE.md`** — Follows the [Vercel AI-ready project setup](https://nextjs.org/blog/next-16-2-ai#ai-ready-project-setup) pattern with an `@AGENTS.md` directive that auto-includes the index as context for Claude Code.
-
-- **`.sui-docs/`, `.walrus-docs/`, `.seal-docs/`** — The documentation directories containing MDX files organized by topic, synced from the official upstream repositories.
-
----
-
-## Documentation Coverage
-
-| Category             | Topics                                                                                                                                                                                     |
-| -------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **Sui — Concepts**   | Object model, ownership types, dynamic fields, cryptography (zkLogin, multisig, passkeys, Nautilus), tokenomics, architecture, consensus, transactions, transfers, custom indexing         |
-| **Sui — Guides**     | Getting started, developer guides, advanced topics (randomness, GraphQL, local fee markets), app examples, digital assets (coins, NFTs, tokenization), cryptography, operators, validators |
-| **Sui — References** | CLI, API, GraphQL, SDKs, framework reference, IDE support, glossary, package managers                                                                                                      |
-| **Sui — Standards**  | Closed-loop tokens, DeepBook v3, Kiosk, Wallet Standard, Payment Kit, PAS                                                                                                                  |
-| **Walrus**           | Core concepts, blob storage/reading, Walrus Sites (publishing, CI/CD, custom domains, portals), TypeScript SDK, HTTP API, operator guide, troubleshooting                                  |
-| **Seal**             | Design, getting started, using Seal, key server operations, CLI, example patterns, security best practices, pricing                                                                        |
+The `AGENTS.md` file is a compact, pipe-delimited index that any AI agent can parse. It includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
 
 ---
 
 ## Keeping Docs Up to Date
 
-sui-pilot includes sync scripts that pull the latest documentation directly from the upstream repos:
+Sync scripts pull the latest documentation from upstream:
 
 ```bash
-./sync-docs.sh           # Pull latest docs from upstream MystenLabs repos
-./generate-agents-md.sh  # Regenerate AGENTS.md index from local files
+./sync-docs.sh           # Pull from MystenLabs repos
+./generate-agents-md.sh  # Regenerate AGENTS.md index
 ```
 
-### Upstream Sources
-
-| Ecosystem | Repository                                                | Doc Path        |
-| --------- | --------------------------------------------------------- | --------------- |
-| Sui       | [MystenLabs/sui](https://github.com/MystenLabs/sui)       | `docs/content/` |
+| Ecosystem | Repository                                          | Doc Path        |
+| --------- | --------------------------------------------------- | --------------- |
+| Sui       | [MystenLabs/sui](https://github.com/MystenLabs/sui) | `docs/content/` |
 | Walrus    | [MystenLabs/walrus](https://github.com/MystenLabs/walrus) | `docs/content/` |
-| Seal      | [MystenLabs/seal](https://github.com/MystenLabs/seal)     | `docs/content/` |
-
----
-
-## AI Agent Files
-
-| File        | Purpose                                                          |
-| ----------- | ---------------------------------------------------------------- |
-| `AGENTS.md` | Pipe-delimited file index for AI agent discovery                 |
-| `CLAUDE.md` | Claude Code directive with `@AGENTS.md` auto-include             |
-| `llms.txt`  | Standard AI discoverability ([llmstxt.org](https://llmstxt.org)) |
+| Seal      | [MystenLabs/seal](https://github.com/MystenLabs/seal) | `docs/content/` |
 
 ---
 
@@ -247,26 +174,13 @@ sui-pilot includes sync scripts that pull the latest documentation directly from
 sui-pilot/
 ├── .claude-plugin/plugin.json   # Plugin manifest
 ├── agents/sui-pilot-agent.md    # Specialized Sui Move agent
-├── commands/                    # Slash commands
 ├── skills/                      # Bundled skills (quality, review, tests)
-├── mcp/move-lsp-mcp/           # MCP server wrapping move-analyzer
-├── .sui-docs/                   # Sui documentation
-├── .walrus-docs/                # Walrus documentation
-├── .seal-docs/                  # Seal documentation
+├── mcp/move-lsp-mcp/            # MCP server wrapping move-analyzer
+├── .sui-docs/                   # 336 Sui documentation files
+├── .walrus-docs/                # 84 Walrus documentation files
+├── .seal-docs/                  # 14 Seal documentation files
 └── AGENTS.md                    # Doc index for AI discovery
 ```
-
----
-
-## Requirements
-
-| Component | Version | Required | Notes |
-|-----------|---------|----------|-------|
-| Node.js | 18+ | Yes | MCP server runtime |
-| pnpm | Any | Yes | Package management (`npm i -g pnpm`) |
-| suiup | Latest | For LSP | Sui toolchain manager (`curl -fsSL https://sui.io/install.sh \| sh`) |
-| sui + move-analyzer | Same version | For LSP | **Must match versions** - install via suiup |
-| Claude Code | Latest | Yes | Plugin host environment |
 
 ---
 
@@ -274,75 +188,49 @@ sui-pilot/
 
 ### MCP tools not appearing
 
-After installing the plugin, you must **restart Claude Code completely** (close and reopen the app/terminal). MCP servers are launched at session start.
+Restart Claude Code completely (close and reopen). MCP servers launch at session start, not on plugin reload.
 
-Verify the `.mcp.json` file exists at the plugin root:
-
+Verify the `.mcp.json` file exists:
 ```bash
 cat ~/.claude/plugins/sui-pilot/.mcp.json
 ```
 
 ### LSP tools return "move-analyzer not found"
 
-Install move-analyzer using suiup (recommended):
 ```bash
 suiup install move-analyzer
+which move-analyzer  # Should show ~/.local/bin/move-analyzer
 ```
 
-Verify it's in your PATH:
-
-```bash
-which move-analyzer
-move-analyzer --version
-```
-
-If `which` returns `~/.cargo/bin/move-analyzer` instead of `~/.local/bin/move-analyzer`, you have an old cargo-installed version shadowing the suiup one. Rename or remove it:
+If it shows `~/.cargo/bin/move-analyzer`, you have an old cargo version shadowing suiup:
 ```bash
 mv ~/.cargo/bin/move-analyzer ~/.cargo/bin/move-analyzer.bak
 ```
 
 ### LSP crashes with "Max restarts exceeded"
 
-This usually means **version mismatch** between `sui` and `move-analyzer`:
+Version mismatch between `sui` and `move-analyzer`:
 
 ```bash
-# Check versions - they should match
 sui --version
-move-analyzer --version
+move-analyzer --version  # Must match!
 ```
 
-If they differ, update both to the same version:
+Fix with:
 ```bash
 suiup update sui
 suiup update move-analyzer
-suiup default set "sui@testnet-1.69.2"  # or latest
-suiup default set "move-analyzer@testnet-1.69.2"
 ```
 
-After fixing versions, **restart Claude Code completely** to reset the crash counter.
+Then restart Claude Code to reset the crash counter.
 
 ### MCP server fails to start
 
-Check the build:
-
 ```bash
 cd ~/.claude/plugins/sui-pilot/mcp/move-lsp-mcp
-ls dist/index.js  # Should exist
-pnpm test         # Should pass
-```
-
-Rebuild if needed:
-
-```bash
-pnpm install && pnpm build
-```
-
-### Tests fail
-
-Ensure you have the correct Node.js version:
-
-```bash
-node --version  # Should be 18+
+ls dist/index.js    # Should exist
+pnpm test           # Should pass
+pnpm install && pnpm build  # Rebuild if needed
 ```
 
 ---
