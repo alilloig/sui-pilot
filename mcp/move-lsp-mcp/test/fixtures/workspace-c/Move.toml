@@ -1,0 +1,3 @@
+[package]
+name = "workspace_c"
+edition = "2024"

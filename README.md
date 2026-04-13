@@ -1,6 +1,6 @@
 # sui-pilot
 
-A documentation copilot for AI agents working with Sui, Walrus, and Seal.
+A documentation copilot and Claude Code plugin for AI agents working with Sui, Walrus, and Seal.
 
 ---
 
@@ -16,25 +16,121 @@ sui-pilot is a curated, local knowledge base designed to be consumed by AI codin
 
 Sui Move evolves rapidly. LLM training data goes stale fast, and agents confidently generate outdated patterns, deprecated APIs, and incorrect syntax. sui-pilot solves this by giving agents access to current, comprehensive documentation right inside your project.
 
-## How It Works
+---
 
-sui-pilot has three components:
+## Claude Code Plugin
 
-- **`AGENTS.md`** — A compact, pipe-delimited index at the repo root. AI agents parse this file to discover available documentation across all three ecosystems. It includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
+sui-pilot is also a full Claude Code plugin that transforms Claude into a Sui/Move development expert with:
 
-- **`CLAUDE.md`** — Follows the [Vercel AI-ready project setup](https://nextjs.org/blog/next-16-2-ai#ai-ready-project-setup) pattern with an `@AGENTS.md` directive that auto-includes the index as context for Claude Code. Also provides an ecosystem routing table.
+- **Doc-grounded guidance** — Enforces doc-first workflow before code generation
+- **Real-time LSP integration** — move-analyzer diagnostics, hover, completions, navigation
+- **Code quality skills** — Move 2024 Edition compliance and security review
+- **Test generation** — Following Move testing best practices
 
-- **`.sui-docs/`, `.walrus-docs/`, `.seal-docs/`** — The documentation directories. Contains MDX files organized by topic, synced from the official upstream repositories.
+### MCP Tools
 
-There is no build step, no runtime, and no dependencies. It's a read-only reference that agents search and read as needed.
+| Tool | Description |
+|------|-------------|
+| `move_diagnostics` | Get compiler warnings and errors for a Move file |
+| `move_hover` | Get type information at a position |
+| `move_completions` | Get completion suggestions |
+| `move_goto_definition` | Navigate to symbol definitions |
 
-## Quick Start
+### Bundled Skills
+
+| Skill | Command | Purpose |
+|-------|---------|---------|
+| move-code-quality | `/move-code-quality` | Move Book Code Quality Checklist compliance |
+| move-code-review | `/move-code-review` | Security and architecture review |
+| move-tests | `/move-tests` | Test generation best practices |
+
+---
+
+## Installation
+
+### As Documentation Only
 
 1. **Clone or copy** this repo into your workspace.
 2. **Point your AI agent at the project** — add it as context, include it in your workspace, or work within the directory.
 3. The agent reads `AGENTS.md`, discovers the doc structure, and can then search and read any file in the doc directories.
 
-That's it. The agent handles the rest.
+### As Claude Code Plugin
+
+#### Prerequisites
+
+- Node.js 18+
+- pnpm
+- move-analyzer (for LSP features)
+
+#### Install move-analyzer
+
+```bash
+cargo install --git https://github.com/MystenLabs/sui.git sui-move-analyzer
+```
+
+#### Install the Plugin
+
+```bash
+# Clone to plugins directory
+cd ~/.claude/plugins
+git clone https://github.com/alilloig/sui-pilot.git
+
+# Build MCP server
+cd sui-pilot/mcp/move-lsp-mcp
+pnpm install
+pnpm build
+
+# Register with Claude Code
+claude plugin add ~/.claude/plugins/sui-pilot
+```
+
+---
+
+## Quick Start
+
+### Ask About Sui/Move
+
+```
+What are shared objects in Sui and when should I use them?
+```
+
+### Generate a Module
+
+```
+Create a Counter module in Move 2024 with increment and value functions
+```
+
+### Check Code Quality
+
+```
+/move-code-quality
+```
+
+### Security Review
+
+```
+/move-code-review
+```
+
+### Get Diagnostics
+
+```
+Check diagnostics for sources/my_module.move
+```
+
+---
+
+## How It Works
+
+sui-pilot has three components for documentation discovery:
+
+- **`AGENTS.md`** — A compact, pipe-delimited index at the repo root. AI agents parse this file to discover available documentation across all three ecosystems. It includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
+
+- **`CLAUDE.md`** — Follows the [Vercel AI-ready project setup](https://nextjs.org/blog/next-16-2-ai#ai-ready-project-setup) pattern with an `@AGENTS.md` directive that auto-includes the index as context for Claude Code.
+
+- **`.sui-docs/`, `.walrus-docs/`, `.seal-docs/`** — The documentation directories containing MDX files organized by topic, synced from the official upstream repositories.
+
+---
 
 ## Documentation Coverage
 
@@ -46,6 +142,8 @@ That's it. The agent handles the rest.
 | **Sui — Standards** | Closed-loop tokens, DeepBook v3, Kiosk, Wallet Standard, Payment Kit, PAS |
 | **Walrus** | Core concepts, blob storage/reading, Walrus Sites (publishing, CI/CD, custom domains, portals), TypeScript SDK, HTTP API, operator guide, troubleshooting |
 | **Seal** | Design, getting started, using Seal, key server operations, CLI, example patterns, security best practices, pricing |
+
+---
 
 ## Keeping Docs Up to Date
 
@@ -64,6 +162,8 @@ sui-pilot includes sync scripts that pull the latest documentation directly from
 | Walrus | [MystenLabs/walrus](https://github.com/MystenLabs/walrus) | `docs/content/` |
 | Seal | [MystenLabs/seal](https://github.com/MystenLabs/seal) | `docs/content/` |
 
+---
+
 ## AI Agent Files
 
 | File | Purpose |
@@ -71,3 +171,35 @@ sui-pilot includes sync scripts that pull the latest documentation directly from
 | `AGENTS.md` | Pipe-delimited file index for AI agent discovery |
 | `CLAUDE.md` | Claude Code directive with `@AGENTS.md` auto-include |
 | `llms.txt` | Standard AI discoverability ([llmstxt.org](https://llmstxt.org)) |
+
+---
+
+## Plugin Structure
+
+```
+sui-pilot/
+├── .claude-plugin/plugin.json   # Plugin manifest
+├── agents/sui-pilot-agent.md    # Specialized Sui Move agent
+├── commands/                    # Slash commands
+├── skills/                      # Bundled skills (quality, review, tests)
+├── mcp/move-lsp-mcp/           # MCP server wrapping move-analyzer
+├── .sui-docs/                   # Sui documentation
+├── .walrus-docs/                # Walrus documentation
+├── .seal-docs/                  # Seal documentation
+└── AGENTS.md                    # Doc index for AI discovery
+```
+
+---
+
+## Requirements
+
+- **Node.js**: 18+ (for MCP server)
+- **pnpm**: For package management
+- **move-analyzer**: For LSP features (optional but recommended)
+- **Claude Code**: Plugin host environment
+
+---
+
+## License
+
+MIT
