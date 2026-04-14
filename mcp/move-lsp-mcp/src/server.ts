@@ -386,51 +386,12 @@ export function createServer(): Server {
 
     const resolvedPath = resolve(filePath);
 
-    // Check if file exists (for file-on-disk mode)
-    if (!content && !existsSync(resolvedPath)) {
-      throw new MoveLspError(`File not found: ${resolvedPath}`, FILE_NOT_FOUND);
-    }
-
-    // Find workspace root using cached resolver
-    let workspaceRoot: string;
-    try {
-      workspaceRoot = workspaceResolver.resolve(resolvedPath);
-    } catch (err) {
-      if (err instanceof NoWorkspaceError) {
-        throw err;
-      }
-      throw new MoveLspError(`Failed to find workspace: ${err}`, NO_WORKSPACE);
-    }
-
-    // Initialize LSP client
-    await initializeLspClient(workspaceRoot);
-    if (!lspClient) {
-      throw new Error('Failed to initialize LSP client');
-    }
-
-    // Read file content if not provided
-    const fileContent = content || readFileSync(resolvedPath, 'utf8');
-    const fileUri = `file://${resolvedPath}`;
-
-    // Track document state and use appropriate LSP notification
-    const existingDoc = documentStore.get(fileUri);
-    if (existingDoc) {
-      // Document already open - use didChange with incremented version
-      const newVersion = existingDoc.version + 1;
-      documentStore.didChange(fileUri, fileContent, newVersion);
-      await lspClient.didChange(fileUri, newVersion, [{ text: fileContent }]);
-    } else {
-      // New document - use didOpen
-      documentStore.didOpen(fileUri, fileContent, 1);
-      await lspClient.didOpen(fileUri, fileContent);
-    }
-
-    // Wait briefly for LSP server to process and send diagnostics
-    // publishDiagnostics is async and may arrive after didOpen returns
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Use shared document preparation with longer delay for diagnostics
+    // Diagnostics needs 500ms for publishDiagnostics to arrive
+    const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content, 500);
 
     // Retrieve diagnostics from LSP client cache
-    const lspDiagnostics = lspClient.getDiagnostics(fileUri);
+    const lspDiagnostics = lspClient!.getDiagnostics(fileUri);
 
     // Transform LSP diagnostics to our output format
     const diagnostics = lspDiagnostics.map(d => ({
@@ -465,10 +426,12 @@ export function createServer(): Server {
   /**
    * Prepare document for LSP operations
    * Opens or updates document in LSP client based on provided content or disk file
+   * @param delay - milliseconds to wait for LSP processing (default 100, use 500 for diagnostics)
    */
   async function prepareDocument(
     resolvedPath: string,
-    content: string | undefined
+    content: string | undefined,
+    delay = 100
   ): Promise<{ workspaceRoot: string; fileUri: string; fileContent: string }> {
     // Check if file exists (for file-on-disk mode)
     if (!content && !existsSync(resolvedPath)) {
@@ -510,7 +473,7 @@ export function createServer(): Server {
     }
 
     // Wait briefly for LSP server to process
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(r => setTimeout(r, delay));
 
     return { workspaceRoot, fileUri, fileContent };
   }
