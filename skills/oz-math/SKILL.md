@@ -9,15 +9,6 @@ description: |
   (4) User explicitly invokes "/oz-math"
   Complements /move-code-review (which flags SEC-AR-* arithmetic issues) by
   providing concrete OpenZeppelin library recommendations.
-allowed-tools:
-  - Glob
-  - Grep
-  - Read
-  - mcp__move-lsp__move_diagnostics
-  - mcp__move-lsp__move_hover
-author: OpenZeppelin
-version: 1.0.0
-date: 2026-04-14
 ---
 
 # OpenZeppelin Math Analyzer
@@ -58,16 +49,19 @@ Scan each file for these arithmetic anti-patterns:
 - `amount * price / DECIMALS`
 - `value * rate / SCALE`
 
-**Risk**: The intermediate `a * b` overflows before division reduces it.
+**Risk**: The intermediate `a * b` can cause transaction abort if it exceeds type bounds, even when the final result would fit. Move aborts on overflow rather than wrapping silently.
 
 **Recommendation**:
 ```move
-use openzeppelin_math::u64::{mul_div};
+use openzeppelin_math::u64::mul_div;
 use openzeppelin_math::rounding;
 
 // Before: let result = amount * price / DECIMALS;
+// Choose rounding direction based on who should benefit:
+// - rounding::down() favors the protocol (user gets less)
+// - rounding::up() favors the user (user gets more)
 let result = mul_div(amount, price, DECIMALS, rounding::down())
-    .destroy_or!(abort EOverflow);
+    .destroy_some(); // aborts if overflow
 ```
 
 #### OZ-MD-2: Overflow-Prone Average (MEDIUM)
@@ -78,7 +72,7 @@ let result = mul_div(amount, price, DECIMALS, rounding::down())
 - `(variable + variable) / 2`
 - `(a + b) >> 1`
 
-**Risk**: The sum `a + b` overflows before division.
+**Risk**: The sum `a + b` can cause transaction abort if it exceeds type bounds, even when the average would fit.
 
 **Recommendation**:
 ```move
@@ -95,7 +89,7 @@ let mean = average(a, b, rounding::down());
 
 **Regex**: Look for `<< ` not followed by Option handling
 
-**Risk**: Silent truncation if shift pushes bits off the left.
+**Risk**: Move aborts if shift amount >= bit width. For valid shifts, bits pushed off the left are lost silently.
 
 **Recommendation**:
 ```move
@@ -103,7 +97,7 @@ use openzeppelin_math::u64::checked_shl;
 
 // Before: let scaled = value << shift;
 let scaled = checked_shl(value, shift)
-    .destroy_or!(abort EShiftOverflow);
+    .destroy_some(); // aborts if shift would overflow
 ```
 
 #### OZ-SH-2: Unchecked Right Shift (LOW)
@@ -118,7 +112,7 @@ use openzeppelin_math::u64::checked_shr;
 
 // Before: let scaled = value >> shift;
 let scaled = checked_shr(value, shift)
-    .destroy_or!(abort EShiftUnderflow);
+    .destroy_some(); // aborts if shift invalid
 ```
 
 #### OZ-DC-1: Manual Decimal Scaling (MEDIUM)
@@ -131,7 +125,7 @@ let scaled = checked_shr(value, shift)
 - `* 1000000000000000000` (10^18 - ETH decimals)
 - Explicit decimal conversion with `as u64` following arithmetic
 
-**Risk**: Inconsistent truncation/rounding, overflow in intermediate steps.
+**Risk**: Move `as` casts abort if value doesn't fit target type. Intermediate arithmetic may also abort on overflow.
 
 **Recommendation**:
 ```move
@@ -194,7 +188,7 @@ use openzeppelin_math::u64::mul_mod;
 
 // Before: let result = (a * b) % modulus;
 let result = mul_mod(a, b, modulus)
-    .destroy_or!(abort EModOverflow);
+    .destroy_some(); // aborts if overflow
 ```
 
 ### Phase 3: Type Verification with LSP
@@ -270,14 +264,11 @@ If `openzeppelin_math` is not already in Move.toml:
 
 \`\`\`toml
 [dependencies]
-openzeppelin_math = { git = "https://github.com/OpenZeppelin/contracts-sui.git", subdir = "math/core", rev = "main" }
+# Pin to a specific release tag for production stability
+openzeppelin_math = { git = "https://github.com/OpenZeppelin/contracts-sui.git", subdir = "math/core", rev = "v0.1.0" }
 \`\`\`
 
-For fixed-point types:
-
-\`\`\`toml
-openzeppelin_fp_math = { git = "https://github.com/OpenZeppelin/contracts-sui.git", subdir = "math/fixed_point", rev = "main" }
-\`\`\`
+> **Note**: Replace `v0.1.0` with the latest release tag from https://github.com/OpenZeppelin/contracts-sui/releases
 
 ### Next Steps
 
@@ -316,11 +307,18 @@ Each module provides:
 - `up()` - Round away from zero (ceiling)
 - `nearest()` - Round to closest, ties round up
 
+> **Security note**: In DeFi, always choose rounding direction based on which party benefits:
+> - Minting shares → round DOWN (user gets fewer shares, protocol protected)
+> - Redeeming shares → round UP denominator (user gets less value, protocol protected)
+> - Fee calculations → round UP (protocol extracts more)
+
 **Decimal scaling** (`openzeppelin_math::decimal_scaling`):
 - `safe_downcast_balance(raw: u256, source_decimals: u8, target_decimals: u8)` -> `u64`
 - `safe_upcast_balance(amount: u64, source_decimals: u8, target_decimals: u8)` -> `u256`
 
 ### Fixed-Point Math (`openzeppelin_fp_math`)
+
+> **Note**: Verify `openzeppelin_fp_math` availability in the latest OpenZeppelin contracts-sui release before recommending.
 
 **UD30x9** - Unsigned 9-decimal fixed-point (u128 internal):
 ```move
