@@ -12,7 +12,7 @@ import { resolve } from 'path';
 import { MoveLspClient } from './lsp-client.js';
 import { discoverBinary, getBinaryVersion } from './binary-discovery.js';
 import { parseConfig, validateConfig } from './config.js';
-import { log, setLogLevel, info, error } from './logger.js';
+import { log, setLogLevel, info, error, LogLevel } from './logger.js';
 import { WorkspaceResolver } from './workspace.js';
 import { DocumentStore } from './document-store.js';
 import { checkVersionCompatibility } from './version.js';
@@ -200,6 +200,9 @@ const TOOL_DEFINITIONS = [
   },
 ] as const;
 
+/** Tool names derived from TOOL_DEFINITIONS for compile-time safety */
+type ToolName = typeof TOOL_DEFINITIONS[number]['name'];
+
 // Module-level state for binary discovery (shared across server instances)
 let globalBinaryPath: string | null = null;
 let globalConfig: ReturnType<typeof parseConfig> | null = null;
@@ -212,7 +215,7 @@ export async function initializeBinaryOnStartup(): Promise<void> {
   if (!globalConfig) {
     globalConfig = parseConfig();
     validateConfig(globalConfig);
-    setLogLevel(globalConfig.moveLspLogLevel as any);
+    setLogLevel(globalConfig.moveLspLogLevel as LogLevel);
   }
 
   // Check VERSION.json compatibility at startup
@@ -240,7 +243,7 @@ export function createServer(): Server {
   if (!globalConfig) {
     globalConfig = parseConfig();
     validateConfig(globalConfig);
-    setLogLevel(globalConfig.moveLspLogLevel as any);
+    setLogLevel(globalConfig.moveLspLogLevel as LogLevel);
   }
   const config = globalConfig;
 
@@ -614,30 +617,34 @@ export function createServer(): Server {
   }
 
   // Tool handler dispatch map
-  const toolHandlers: Record<string, (args: any) => Promise<any>> = {
+  const toolHandlers: Record<ToolName, (args: any) => Promise<any>> = {
     move_diagnostics: handleMoveDiagnostics,
     move_hover: handleMoveHover,
     move_completions: handleMoveCompletions,
     move_goto_definition: handleMoveGotoDefinition,
   };
 
+  /** Type guard for valid tool names */
+  function isValidToolName(name: string): name is ToolName {
+    return name in toolHandlers;
+  }
+
   /**
    * Dispatch a tool call and return the result
    * Shared between production handler and test helper
    */
   async function dispatchToolCall(name: string, args: any): Promise<any> {
-    const handler = toolHandlers[name];
-    if (!handler) {
+    if (!isValidToolName(name)) {
       throw new Error(`Unknown tool: ${name}`);
     }
-    return handler(args || {});
+    return toolHandlers[name](args || {});
   }
 
   /**
    * Format a MoveLspError for MCP response
    * Shared between production handler and test helper
    */
-  function formatErrorResponse(error: MoveLspError, args: any) {
+  function formatErrorResponse(err: MoveLspError, args: any): { content: { type: string; text: string }[]; isError: true } {
     let errorWorkspaceRoot: string | null = null;
     try {
       const filePath = args?.filePath;
@@ -655,9 +662,9 @@ export function createServer(): Server {
           text: JSON.stringify({
             workspaceRoot: errorWorkspaceRoot,
             error: {
-              code: error.code,
-              message: error.message,
-              details: error.details,
+              code: err.code,
+              message: err.message,
+              details: err.details,
             },
           }, null, 2),
         },
@@ -684,14 +691,14 @@ export function createServer(): Server {
           },
         ],
       };
-    } catch (error) {
-      log('error', `Tool ${name} failed`, { error, args });
+    } catch (err) {
+      log('error', `Tool ${name} failed`, { error: err, args });
 
-      if (error instanceof MoveLspError) {
-        return formatErrorResponse(error, args);
+      if (err instanceof MoveLspError) {
+        return formatErrorResponse(err, args);
       }
 
-      throw error;
+      throw err;
     }
   });
 
@@ -722,14 +729,14 @@ export function createServer(): Server {
           return {
             content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
           };
-        } catch (error) {
-          log('error', `Tool ${name} failed`, { error, args });
+        } catch (err) {
+          log('error', `Tool ${name} failed`, { error: err, args });
 
-          if (error instanceof MoveLspError) {
-            return formatErrorResponse(error, args);
+          if (err instanceof MoveLspError) {
+            return formatErrorResponse(err, args);
           }
 
-          throw error;
+          throw err;
         }
       };
     }
