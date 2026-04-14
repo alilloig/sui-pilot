@@ -9,6 +9,9 @@
 *.svg
 *.excalidraw
 
+# Exception: mascot image for README
+!sui-pilot.jpg
+
 # Node.js
 node_modules/
 dist/

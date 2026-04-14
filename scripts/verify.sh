@@ -69,7 +69,7 @@ if command -v move-analyzer &> /dev/null; then
     fi
 else
     warn "move-analyzer not found - LSP features will be unavailable"
-    echo "      Install: cargo install --git https://github.com/MystenLabs/sui.git --branch main sui-move-lsp"
+    echo "      Install: suiup install move-analyzer"
 fi
 
 # Summary

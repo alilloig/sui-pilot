@@ -101,5 +101,30 @@ for dir in .sui-docs .walrus-docs .seal-docs .ts-sdk-docs; do
     count=$(find "$dir" -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
     echo "  $dir: $count MDX/MD files"
 done
+
+# Record sync timestamp
+if ! $DRY_RUN; then
+    TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    cat > .last-sync << EOF
+{
+  "syncTimestamp": "$TIMESTAMP",
+  "sources": {
+    "sui": "MystenLabs/sui@main",
+    "walrus": "MystenLabs/walrus@main",
+    "seal": "MystenLabs/seal@main",
+    "ts-sdks": "MystenLabs/ts-sdks@main"
+  },
+  "fileCounts": {
+    "sui": $(find .sui-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '),
+    "walrus": $(find .walrus-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '),
+    "seal": $(find .seal-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '),
+    "ts-sdks": $(find .ts-sdk-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
+  }
+}
+EOF
+    echo ""
+    echo "Recorded sync timestamp to .last-sync"
+fi
+
 echo ""
 echo "Next: run ./generate-docs-index.sh to regenerate the AGENTS.md index"

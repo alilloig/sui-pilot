@@ -151,7 +151,7 @@ describe('diagnostics integration', () => {
   });
 
   test.runIf(binaryAvailable)('should handle file outside workspace', async () => {
-    // Create a temporary file outside any Move workspace
+    // Use a path outside any Move workspace with content to bypass file existence check
     const tempFilePath = resolve('/tmp/not-in-workspace.move');
 
     const mockRequest = {
@@ -159,6 +159,7 @@ describe('diagnostics integration', () => {
         name: 'move_diagnostics',
         arguments: {
           filePath: tempFilePath,
+          content: 'module test::example {}', // Provide content to bypass file existence check
         },
       },
     };

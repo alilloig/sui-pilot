@@ -693,5 +693,134 @@ export function createServer(): Server {
     }
   };
 
-  return server;
+  // Test helper: expose handlers for integration testing
+  // The MCP SDK Server class doesn't have getRequestHandler, so we add it here
+  const serverWithTestHelpers = server as Server & {
+    getRequestHandler: (method: string) => ((request: any) => Promise<any>) | undefined;
+  };
+
+  serverWithTestHelpers.getRequestHandler = (method: string) => {
+    if (method === 'tools/list') {
+      return async () => ({
+        tools: [
+          {
+            name: 'move_diagnostics',
+            description: 'Get Move language diagnostics for a file using move-analyzer',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                filePath: { type: 'string', description: 'Path to the Move source file to analyze' },
+                content: { type: 'string', description: 'Optional file content (if not provided, reads from filePath)' },
+                scope: { type: 'string', enum: ['file', 'package', 'workspace'], description: 'Analysis scope (currently only file is supported)', default: 'file' },
+              },
+              required: ['filePath'],
+            },
+          },
+          {
+            name: 'move_hover',
+            description: 'Get hover information (type, documentation) for a symbol at a position in a Move file',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                filePath: { type: 'string', description: 'Path to the Move source file' },
+                line: { type: 'number', description: 'Line number (0-based)' },
+                character: { type: 'number', description: 'Character offset (0-based)' },
+                content: { type: 'string', description: 'Optional file content (if not provided, reads from filePath)' },
+              },
+              required: ['filePath', 'line', 'character'],
+            },
+          },
+          {
+            name: 'move_completions',
+            description: 'Get completion candidates at a position in a Move file',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                filePath: { type: 'string', description: 'Path to the Move source file' },
+                line: { type: 'number', description: 'Line number (0-based)' },
+                character: { type: 'number', description: 'Character offset (0-based)' },
+                content: { type: 'string', description: 'Optional file content (if not provided, reads from filePath)' },
+              },
+              required: ['filePath', 'line', 'character'],
+            },
+          },
+          {
+            name: 'move_goto_definition',
+            description: 'Get the definition location for a symbol at a position in a Move file. Cross-package goto-definition may not resolve due to move-analyzer limitations.',
+            inputSchema: {
+              type: 'object',
+              properties: {
+                filePath: { type: 'string', description: 'Path to the Move source file' },
+                line: { type: 'number', description: 'Line number (0-based)' },
+                character: { type: 'number', description: 'Character offset (0-based)' },
+                content: { type: 'string', description: 'Optional file content (if not provided, reads from filePath)' },
+              },
+              required: ['filePath', 'line', 'character'],
+            },
+          },
+        ],
+      });
+    }
+
+    if (method === 'tools/call') {
+      return async (request: any) => {
+        const { name, arguments: args } = request.params;
+
+        try {
+          let result: any;
+          switch (name) {
+            case 'move_diagnostics':
+              result = await handleMoveDiagnostics(args || {});
+              break;
+            case 'move_hover':
+              result = await handleMoveHover(args || {});
+              break;
+            case 'move_completions':
+              result = await handleMoveCompletions(args || {});
+              break;
+            case 'move_goto_definition':
+              result = await handleMoveGotoDefinition(args || {});
+              break;
+            default:
+              throw new Error(`Unknown tool: ${name}`);
+          }
+
+          return {
+            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          };
+        } catch (error) {
+          log('error', `Tool ${name} failed`, { error, args });
+
+          if (error instanceof MoveLspError) {
+            let errorWorkspaceRoot: string | null = null;
+            try {
+              const filePath = args?.filePath;
+              if (filePath && typeof filePath === 'string') {
+                errorWorkspaceRoot = workspaceResolver.resolve(resolve(filePath));
+              }
+            } catch {
+              // Workspace resolution failed
+            }
+
+            return {
+              content: [{
+                type: 'text',
+                text: JSON.stringify({
+                  workspaceRoot: errorWorkspaceRoot,
+                  error: { code: error.code, message: error.message, details: error.details },
+                }, null, 2),
+              }],
+              isError: true,
+            };
+          }
+
+          throw error;
+        }
+      };
+    }
+
+    return undefined;
+  };
+
+  return serverWithTestHelpers;
 }

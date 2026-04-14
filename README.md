@@ -1,7 +1,7 @@
 # sui-pilot
 
 <p align="center">
-  <img src="sui-pilot.png" alt="Sui Pilot" width="600" />
+  <img src="sui-pilot.jpg" alt="Sui Pilot" width="600" />
 </p>
 
 A Claude Code plugin that transforms Claude into a Sui/Move development expert.
@@ -249,6 +249,33 @@ ls dist/index.js    # Should exist
 pnpm test           # Should pass
 pnpm install && pnpm build  # Rebuild if needed
 ```
+
+---
+
+## Limitations
+
+sui-pilot is designed for Claude Code. Some capabilities are environment-specific:
+
+| Feature | Claude Code | Other AI Agents |
+|---------|-------------|-----------------|
+| Bundled documentation | Yes | Yes (read AGENTS.md) |
+| MCP tools (diagnostics, hover, etc.) | Yes | No |
+| Skills (/move-code-quality, etc.) | Yes | No |
+| Specialized sui-pilot-agent | Yes | No |
+
+**Other limitations:**
+
+- **move-analyzer required separately**: LSP tools require `move-analyzer` to be installed via `suiup install move-analyzer`. The plugin does not bundle move-analyzer.
+- **Version matching critical**: `sui` and `move-analyzer` must be the same version or LSP will crash.
+- **macOS and Linux only**: Windows is not officially supported.
+- **Documentation lag**: Bundled docs are point-in-time snapshots. Run `./sync-docs.sh` to update.
+
+---
+
+## Support
+
+- **Report issues**: [github.com/alilloig/sui-pilot/issues](https://github.com/alilloig/sui-pilot/issues)
+- **Verify installation**: Run `./scripts/verify.sh` to diagnose problems
 
 ---
 

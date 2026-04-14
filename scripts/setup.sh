@@ -102,12 +102,20 @@ check_version_match() {
         SUI_VERSION=$(sui --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         MA_VERSION=$(move-analyzer --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
         if [ "$SUI_VERSION" != "$MA_VERSION" ]; then
-            log_warn "Version mismatch detected!"
-            log_warn "  sui: $SUI_VERSION"
-            log_warn "  move-analyzer: $MA_VERSION"
-            log_warn "This will cause LSP crashes. Update both to the same version:"
+            log_error "Version mismatch detected!"
+            log_error "  sui: $SUI_VERSION"
+            log_error "  move-analyzer: $MA_VERSION"
+            log_error "This WILL cause LSP crashes. Update both to the same version:"
             echo "  suiup update sui"
             echo "  suiup update move-analyzer"
+            echo ""
+            read -p "Continue anyway? (NOT recommended) [y/N] " -n 1 -r
+            echo ""
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                log_error "Setup aborted. Fix version mismatch and run setup again."
+                exit 1
+            fi
+            log_warn "Continuing with mismatched versions (expect LSP errors)"
             return 1
         else
             log_success "Versions match: $SUI_VERSION"

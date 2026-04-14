@@ -13,6 +13,8 @@ description: |
 
 # Move Tests
 
+> **Doc-First Requirement**: Before generating test code, verify current testing patterns against the sui-pilot documentation in `.sui-docs/`. Test utilities and conventions evolve—`test_scenario`, `tx_context::dummy()`, and assertion helpers may have changed. When using specific test APIs, reference the doc file path.
+
 ## File Organization
 
 Tests live in the `tests/` directory at the package root, **not** in `sources/`. Name test files after the module or domain they cover.

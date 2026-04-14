@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        working-directory: mcp/move-lsp-mcp
+        run: pnpm install
+
+      - name: Build MCP server
+        working-directory: mcp/move-lsp-mcp
+        run: pnpm build
+
+      - name: Run unit tests
+        working-directory: mcp/move-lsp-mcp
+        run: pnpm test -- --reporter=verbose 2>&1 | grep -E '(✓|✗|PASS|FAIL|test/unit)'
+
+      - name: Verify plugin structure
+        run: |
+          echo "Checking plugin structure..."
+          test -f .claude-plugin/plugin.json && echo "✓ plugin.json exists"
+          test -f .mcp.json && echo "✓ .mcp.json exists"
+          test -f agents/sui-pilot-agent.md && echo "✓ agent exists"
+          test -d skills && echo "✓ skills directory exists"
+          test -f mcp/move-lsp-mcp/dist/index.js && echo "✓ MCP server built"
+          test -f LICENSE && echo "✓ LICENSE exists"
+
+      - name: Check documentation directories
+        run: |
+          echo "Checking documentation..."
+          test -d .sui-docs && echo "✓ .sui-docs exists ($(find .sui-docs -type f | wc -l) files)"
+          test -d .walrus-docs && echo "✓ .walrus-docs exists ($(find .walrus-docs -type f | wc -l) files)"
+          test -d .seal-docs && echo "✓ .seal-docs exists ($(find .seal-docs -type f | wc -l) files)"
+          test -f AGENTS.md && echo "✓ AGENTS.md exists"
+
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Install dependencies
+        working-directory: mcp/move-lsp-mcp
+        run: pnpm install
+
+      - name: Type check
+        working-directory: mcp/move-lsp-mcp
+        run: pnpm exec tsc --noEmit
