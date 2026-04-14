@@ -92,6 +92,114 @@ function severityToString(severity: number): 'error' | 'warning' | 'information'
   }
 }
 
+/**
+ * Tool definitions for the MCP server (shared between production and test handlers)
+ */
+const TOOL_DEFINITIONS = [
+  {
+    name: 'move_diagnostics',
+    description: 'Get Move language diagnostics for a file using move-analyzer',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: {
+          type: 'string',
+          description: 'Path to the Move source file to analyze',
+        },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+        scope: {
+          type: 'string',
+          enum: ['file', 'package', 'workspace'],
+          description: 'Analysis scope (currently only file is supported)',
+          default: 'file',
+        },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
+    name: 'move_hover',
+    description: 'Get hover information (type, documentation) for a symbol at a position in a Move file',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: {
+          type: 'string',
+          description: 'Path to the Move source file',
+        },
+        line: {
+          type: 'number',
+          description: 'Line number (0-based)',
+        },
+        character: {
+          type: 'number',
+          description: 'Character offset (0-based)',
+        },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath', 'line', 'character'],
+    },
+  },
+  {
+    name: 'move_completions',
+    description: 'Get completion candidates at a position in a Move file',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: {
+          type: 'string',
+          description: 'Path to the Move source file',
+        },
+        line: {
+          type: 'number',
+          description: 'Line number (0-based)',
+        },
+        character: {
+          type: 'number',
+          description: 'Character offset (0-based)',
+        },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath', 'line', 'character'],
+    },
+  },
+  {
+    name: 'move_goto_definition',
+    description: 'Get the definition location for a symbol at a position in a Move file. Cross-package goto-definition may not resolve due to move-analyzer limitations.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: {
+          type: 'string',
+          description: 'Path to the Move source file',
+        },
+        line: {
+          type: 'number',
+          description: 'Line number (0-based)',
+        },
+        character: {
+          type: 'number',
+          description: 'Character offset (0-based)',
+        },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath', 'line', 'character'],
+    },
+  },
+] as const;
+
 // Module-level state for binary discovery (shared across server instances)
 let globalBinaryPath: string | null = null;
 let globalConfig: ReturnType<typeof parseConfig> | null = null;
@@ -505,142 +613,69 @@ export function createServer(): Server {
     };
   }
 
-  // Register tools
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
+  // Tool handler dispatch map
+  const toolHandlers: Record<string, (args: any) => Promise<any>> = {
+    move_diagnostics: handleMoveDiagnostics,
+    move_hover: handleMoveHover,
+    move_completions: handleMoveCompletions,
+    move_goto_definition: handleMoveGotoDefinition,
+  };
+
+  /**
+   * Dispatch a tool call and return the result
+   * Shared between production handler and test helper
+   */
+  async function dispatchToolCall(name: string, args: any): Promise<any> {
+    const handler = toolHandlers[name];
+    if (!handler) {
+      throw new Error(`Unknown tool: ${name}`);
+    }
+    return handler(args || {});
+  }
+
+  /**
+   * Format a MoveLspError for MCP response
+   * Shared between production handler and test helper
+   */
+  function formatErrorResponse(error: MoveLspError, args: any) {
+    let errorWorkspaceRoot: string | null = null;
+    try {
+      const filePath = args?.filePath;
+      if (filePath && typeof filePath === 'string') {
+        errorWorkspaceRoot = workspaceResolver.resolve(resolve(filePath));
+      }
+    } catch {
+      // Workspace resolution failed - leave as null
+    }
+
     return {
-      tools: [
+      content: [
         {
-          name: 'move_diagnostics',
-          description: 'Get Move language diagnostics for a file using move-analyzer',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              filePath: {
-                type: 'string',
-                description: 'Path to the Move source file to analyze',
-              },
-              content: {
-                type: 'string',
-                description: 'Optional file content (if not provided, reads from filePath)',
-              },
-              scope: {
-                type: 'string',
-                enum: ['file', 'package', 'workspace'],
-                description: 'Analysis scope (currently only file is supported)',
-                default: 'file',
-              },
+          type: 'text',
+          text: JSON.stringify({
+            workspaceRoot: errorWorkspaceRoot,
+            error: {
+              code: error.code,
+              message: error.message,
+              details: error.details,
             },
-            required: ['filePath'],
-          },
-        },
-        {
-          name: 'move_hover',
-          description: 'Get hover information (type, documentation) for a symbol at a position in a Move file',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              filePath: {
-                type: 'string',
-                description: 'Path to the Move source file',
-              },
-              line: {
-                type: 'number',
-                description: 'Line number (0-based)',
-              },
-              character: {
-                type: 'number',
-                description: 'Character offset (0-based)',
-              },
-              content: {
-                type: 'string',
-                description: 'Optional file content (if not provided, reads from filePath)',
-              },
-            },
-            required: ['filePath', 'line', 'character'],
-          },
-        },
-        {
-          name: 'move_completions',
-          description: 'Get completion candidates at a position in a Move file',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              filePath: {
-                type: 'string',
-                description: 'Path to the Move source file',
-              },
-              line: {
-                type: 'number',
-                description: 'Line number (0-based)',
-              },
-              character: {
-                type: 'number',
-                description: 'Character offset (0-based)',
-              },
-              content: {
-                type: 'string',
-                description: 'Optional file content (if not provided, reads from filePath)',
-              },
-            },
-            required: ['filePath', 'line', 'character'],
-          },
-        },
-        {
-          name: 'move_goto_definition',
-          description: 'Get the definition location for a symbol at a position in a Move file. Cross-package goto-definition may not resolve due to move-analyzer limitations.',
-          inputSchema: {
-            type: 'object',
-            properties: {
-              filePath: {
-                type: 'string',
-                description: 'Path to the Move source file',
-              },
-              line: {
-                type: 'number',
-                description: 'Line number (0-based)',
-              },
-              character: {
-                type: 'number',
-                description: 'Character offset (0-based)',
-              },
-              content: {
-                type: 'string',
-                description: 'Optional file content (if not provided, reads from filePath)',
-              },
-            },
-            required: ['filePath', 'line', 'character'],
-          },
+          }, null, 2),
         },
       ],
+      isError: true,
     };
+  }
+
+  // Register tools
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return { tools: [...TOOL_DEFINITIONS] };
   });
 
   server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
 
     try {
-      let result: any;
-      switch (name) {
-        case 'move_diagnostics':
-          result = await handleMoveDiagnostics(args || {});
-          break;
-
-        case 'move_hover':
-          result = await handleMoveHover(args || {});
-          break;
-
-        case 'move_completions':
-          result = await handleMoveCompletions(args || {});
-          break;
-
-        case 'move_goto_definition':
-          result = await handleMoveGotoDefinition(args || {});
-          break;
-
-        default:
-          throw new Error(`Unknown tool: ${name}`);
-      }
-
+      const result = await dispatchToolCall(name, args);
       return {
         content: [
           {
@@ -653,33 +688,7 @@ export function createServer(): Server {
       log('error', `Tool ${name} failed`, { error, args });
 
       if (error instanceof MoveLspError) {
-        // Try to resolve workspaceRoot from filePath for error response consistency
-        let errorWorkspaceRoot: string | null = null;
-        try {
-          const filePath = args?.filePath;
-          if (filePath && typeof filePath === 'string') {
-            errorWorkspaceRoot = workspaceResolver.resolve(resolve(filePath));
-          }
-        } catch {
-          // Workspace resolution failed - leave as null
-        }
-
-        return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({
-                workspaceRoot: errorWorkspaceRoot,
-                error: {
-                  code: error.code,
-                  message: error.message,
-                  details: error.details,
-                },
-              }, null, 2),
-            },
-          ],
-          isError: true,
-        };
+        return formatErrorResponse(error, args);
       }
 
       throw error;
@@ -701,65 +710,7 @@ export function createServer(): Server {
 
   serverWithTestHelpers.getRequestHandler = (method: string) => {
     if (method === 'tools/list') {
-      return async () => ({
-        tools: [
-          {
-            name: 'move_diagnostics',
-            description: 'Get Move language diagnostics for a file using move-analyzer',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                filePath: { type: 'string', description: 'Path to the Move source file to analyze' },
-                content: { type: 'string', description: 'Optional file content (if not provided, reads from filePath)' },
-                scope: { type: 'string', enum: ['file', 'package', 'workspace'], description: 'Analysis scope (currently only file is supported)', default: 'file' },
-              },
-              required: ['filePath'],
-            },
-          },
-          {
-            name: 'move_hover',
-            description: 'Get hover information (type, documentation) for a symbol at a position in a Move file',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                filePath: { type: 'string', description: 'Path to the Move source file' },
-                line: { type: 'number', description: 'Line number (0-based)' },
-                character: { type: 'number', description: 'Character offset (0-based)' },
-                content: { type: 'string', description: 'Optional file content (if not provided, reads from filePath)' },
-              },
-              required: ['filePath', 'line', 'character'],
-            },
-          },
-          {
-            name: 'move_completions',
-            description: 'Get completion candidates at a position in a Move file',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                filePath: { type: 'string', description: 'Path to the Move source file' },
-                line: { type: 'number', description: 'Line number (0-based)' },
-                character: { type: 'number', description: 'Character offset (0-based)' },
-                content: { type: 'string', description: 'Optional file content (if not provided, reads from filePath)' },
-              },
-              required: ['filePath', 'line', 'character'],
-            },
-          },
-          {
-            name: 'move_goto_definition',
-            description: 'Get the definition location for a symbol at a position in a Move file. Cross-package goto-definition may not resolve due to move-analyzer limitations.',
-            inputSchema: {
-              type: 'object',
-              properties: {
-                filePath: { type: 'string', description: 'Path to the Move source file' },
-                line: { type: 'number', description: 'Line number (0-based)' },
-                character: { type: 'number', description: 'Character offset (0-based)' },
-                content: { type: 'string', description: 'Optional file content (if not provided, reads from filePath)' },
-              },
-              required: ['filePath', 'line', 'character'],
-            },
-          },
-        ],
-      });
+      return async () => ({ tools: [...TOOL_DEFINITIONS] });
     }
 
     if (method === 'tools/call') {
@@ -767,24 +718,7 @@ export function createServer(): Server {
         const { name, arguments: args } = request.params;
 
         try {
-          let result: any;
-          switch (name) {
-            case 'move_diagnostics':
-              result = await handleMoveDiagnostics(args || {});
-              break;
-            case 'move_hover':
-              result = await handleMoveHover(args || {});
-              break;
-            case 'move_completions':
-              result = await handleMoveCompletions(args || {});
-              break;
-            case 'move_goto_definition':
-              result = await handleMoveGotoDefinition(args || {});
-              break;
-            default:
-              throw new Error(`Unknown tool: ${name}`);
-          }
-
+          const result = await dispatchToolCall(name, args);
           return {
             content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
           };
@@ -792,26 +726,7 @@ export function createServer(): Server {
           log('error', `Tool ${name} failed`, { error, args });
 
           if (error instanceof MoveLspError) {
-            let errorWorkspaceRoot: string | null = null;
-            try {
-              const filePath = args?.filePath;
-              if (filePath && typeof filePath === 'string') {
-                errorWorkspaceRoot = workspaceResolver.resolve(resolve(filePath));
-              }
-            } catch {
-              // Workspace resolution failed
-            }
-
-            return {
-              content: [{
-                type: 'text',
-                text: JSON.stringify({
-                  workspaceRoot: errorWorkspaceRoot,
-                  error: { code: error.code, message: error.message, details: error.details },
-                }, null, 2),
-              }],
-              isError: true,
-            };
+            return formatErrorResponse(error, args);
           }
 
           throw error;
