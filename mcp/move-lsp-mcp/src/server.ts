@@ -626,23 +626,15 @@ export function createServer(): Server {
     };
   }
 
-  // Register tools
-  server.setRequestHandler(ListToolsRequestSchema, async () => {
-    return { tools: [...TOOL_DEFINITIONS] };
-  });
-
-  server.setRequestHandler(CallToolRequestSchema, async (request) => {
-    const { name, arguments: args } = request.params;
-
+  /**
+   * Handle a tool call request with dispatch, serialization, and error handling
+   * Shared between production handler and test helper
+   */
+  async function handleToolRequest(name: string, args: any): Promise<{ content: { type: string; text: string }[]; isError?: true }> {
     try {
       const result = await dispatchToolCall(name, args);
       return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify(result, null, 2),
-          },
-        ],
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
       };
     } catch (err) {
       log('error', `Tool ${name} failed`, { error: err, args });
@@ -653,6 +645,16 @@ export function createServer(): Server {
 
       throw err;
     }
+  }
+
+  // Register tools
+  server.setRequestHandler(ListToolsRequestSchema, async () => {
+    return { tools: [...TOOL_DEFINITIONS] };
+  });
+
+  server.setRequestHandler(CallToolRequestSchema, async (request) => {
+    const { name, arguments: args } = request.params;
+    return handleToolRequest(name, args);
   });
 
   // Cleanup on server shutdown
@@ -676,21 +678,7 @@ export function createServer(): Server {
     if (method === 'tools/call') {
       return async (request: any) => {
         const { name, arguments: args } = request.params;
-
-        try {
-          const result = await dispatchToolCall(name, args);
-          return {
-            content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-          };
-        } catch (err) {
-          log('error', `Tool ${name} failed`, { error: err, args });
-
-          if (err instanceof MoveLspError) {
-            return formatErrorResponse(err, args);
-          }
-
-          throw err;
-        }
+        return handleToolRequest(name, args);
       };
     }
 
