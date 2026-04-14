@@ -515,8 +515,11 @@ export function createServer(): Server {
     return { workspaceRoot, fileUri, fileContent };
   }
 
-  // Handle move_hover tool
-  async function handleMoveHover(args: any): Promise<HoverResponse> {
+  /**
+   * Validate position arguments (filePath, line, character)
+   * Throws MoveLspError if validation fails
+   */
+  function validatePositionArgs(args: any): { filePath: string; line: number; character: number; content?: string } {
     const { filePath, line, character, content } = args;
 
     if (!filePath || typeof filePath !== 'string') {
@@ -528,6 +531,13 @@ export function createServer(): Server {
     if (typeof character !== 'number' || character < 0) {
       throw new MoveLspError('character is required and must be a non-negative number', INVALID_FILE_PATH);
     }
+
+    return { filePath, line, character, content };
+  }
+
+  // Handle move_hover tool
+  async function handleMoveHover(args: any): Promise<HoverResponse> {
+    const { filePath, line, character, content } = validatePositionArgs(args);
 
     const resolvedPath = resolve(filePath);
     const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content);
@@ -549,17 +559,7 @@ export function createServer(): Server {
 
   // Handle move_completions tool
   async function handleMoveCompletions(args: any): Promise<CompletionsResponse> {
-    const { filePath, line, character, content } = args;
-
-    if (!filePath || typeof filePath !== 'string') {
-      throw new MoveLspError('filePath is required and must be a string', INVALID_FILE_PATH);
-    }
-    if (typeof line !== 'number' || line < 0) {
-      throw new MoveLspError('line is required and must be a non-negative number', INVALID_FILE_PATH);
-    }
-    if (typeof character !== 'number' || character < 0) {
-      throw new MoveLspError('character is required and must be a non-negative number', INVALID_FILE_PATH);
-    }
+    const { filePath, line, character, content } = validatePositionArgs(args);
 
     const resolvedPath = resolve(filePath);
     const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content);
@@ -582,17 +582,7 @@ export function createServer(): Server {
   // Handle move_goto_definition tool
   // Cross-package goto-definition may not resolve due to move-analyzer limitations on multi-package workspaces
   async function handleMoveGotoDefinition(args: any): Promise<GotoDefinitionResponse> {
-    const { filePath, line, character, content } = args;
-
-    if (!filePath || typeof filePath !== 'string') {
-      throw new MoveLspError('filePath is required and must be a string', INVALID_FILE_PATH);
-    }
-    if (typeof line !== 'number' || line < 0) {
-      throw new MoveLspError('line is required and must be a non-negative number', INVALID_FILE_PATH);
-    }
-    if (typeof character !== 'number' || character < 0) {
-      throw new MoveLspError('character is required and must be a non-negative number', INVALID_FILE_PATH);
-    }
+    const { filePath, line, character, content } = validatePositionArgs(args);
 
     const resolvedPath = resolve(filePath);
     const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content);
