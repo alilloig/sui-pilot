@@ -37,7 +37,7 @@ Activate this skill when:
 
 ### Phase 2: Systematic Analysis
 
-Analyze code across these **11 categories with 50+ specific rules**:
+Analyze code across these **11 categories with 45+ specific rules**:
 
 #### 1. Code Organization
 

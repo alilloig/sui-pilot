@@ -1,5 +1,8 @@
 name: CI
 
+permissions:
+  contents: read
+
 on:
   push:
     branches: [main]
@@ -34,7 +37,7 @@ jobs:
 
       - name: Run unit tests
         working-directory: mcp/move-lsp-mcp
-        run: pnpm test -- --reporter=verbose 2>&1 | grep -E '(✓|✗|PASS|FAIL|test/unit)'
+        run: set -o pipefail; pnpm test -- --reporter=verbose 2>&1 | grep -E '(✓|✗|PASS|FAIL|test/unit)'
 
       - name: Verify plugin structure
         run: |
@@ -52,6 +55,7 @@ jobs:
           test -d .sui-docs && echo "✓ .sui-docs exists ($(find .sui-docs -type f | wc -l) files)"
           test -d .walrus-docs && echo "✓ .walrus-docs exists ($(find .walrus-docs -type f | wc -l) files)"
           test -d .seal-docs && echo "✓ .seal-docs exists ($(find .seal-docs -type f | wc -l) files)"
+          test -d .ts-sdk-docs && echo "✓ .ts-sdk-docs exists ($(find .ts-sdk-docs -type f | wc -l) files)"
           test -f AGENTS.md && echo "✓ AGENTS.md exists"
 
   lint:

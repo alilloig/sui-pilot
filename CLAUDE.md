@@ -18,7 +18,7 @@ Always search and read these docs before writing code for these ecosystems.
 
 1. Read `AGENTS.md` for the full file index (pipe-delimited, one section per ecosystem)
 2. Grep the appropriate directory for your topic
-3. If unsure which ecosystem, search all three directories
+3. If unsure which ecosystem, search all four directories
 4. Walrus and Seal build on Sui — Sui docs may also be relevant
 
 ## Keeping Docs Up to Date

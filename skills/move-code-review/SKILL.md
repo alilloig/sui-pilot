@@ -117,7 +117,7 @@ Each check has a unique ID, a fixed severity, and a category. This registry is t
 | `CFG-MN-1` | S3 (4) | Numeric literals used without named constants | Obscure meaning, error-prone maintenance |
 | `CFG-MD-1` | S4 (2) | Metadata frozen before setting required fields (e.g., icon_url) | Permanently incomplete metadata |
 
-> **Source data**: The finding registry above is distilled from 40+ production Move contract reviews. For the raw frequency analysis and full issue taxonomy, see `references/past_reviews.md`.
+> **Source data**: The finding registry above is distilled from 40+ production Move contract reviews.
 
 ---
 

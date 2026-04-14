@@ -7,7 +7,7 @@ Invoke the `move-code-review` skill to perform a security and architecture revie
 
 ## What This Command Does
 
-- Audits 30+ security checks across 6 categories
+- Audits 40 checks across 6 categories (security, design, patterns, testing, quality, configuration)
 - Reviews access control, arithmetic safety, object ownership
 - Identifies shared object congestion risks
 - Flags missing test coverage gaps
