@@ -42,11 +42,12 @@ Real-time feedback from `move-analyzer`:
 
 ### Skills
 
-| Command              | Purpose                                     |
-| -------------------- | ------------------------------------------- |
-| `/move-code-quality` | Move Book Code Quality Checklist compliance |
-| `/move-code-review`  | Security and architecture review            |
-| `/move-tests`        | Test generation best practices              |
+| Command              | Purpose                                          |
+| -------------------- | ------------------------------------------------ |
+| `/move-code-quality` | Move Book Code Quality Checklist compliance      |
+| `/move-code-review`  | Security and architecture review                 |
+| `/move-tests`        | Test generation best practices                   |
+| `/oz-math`           | OpenZeppelin math library recommendations        |
 
 ### Specialized Agent
 
