@@ -8,6 +8,7 @@ await build({
   format: 'esm',
   outfile: 'dist/index.js',
   sourcemap: true,
+  minify: true,
   banner: {
     js: [
       '#!/usr/bin/env node',
