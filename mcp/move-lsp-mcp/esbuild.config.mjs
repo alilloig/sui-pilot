@@ -9,9 +9,12 @@ await build({
   outfile: 'dist/index.js',
   sourcemap: true,
   minify: true,
+  // Shim CJS-style require / __filename / __dirname inside an ESM bundle.
+  // The `__esbuild` prefix avoids collisions with any symbol the bundler
+  // inlines from user code. Invoked via `node <path>` in plugin.json, so no
+  // shebang is needed.
   banner: {
     js: [
-      '#!/usr/bin/env node',
       "import { createRequire as __esbuildCreateRequire } from 'module';",
       "import { fileURLToPath as __esbuildFileURLToPath } from 'url';",
       "import { dirname as __esbuildDirname } from 'path';",
