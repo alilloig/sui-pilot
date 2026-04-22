@@ -57,35 +57,29 @@ The `sui-pilot-agent` enforces a doc-first workflow: consult documentation befor
 
 ## Installation
 
-### Quick Setup (Recommended)
+### From the marketplace (recommended)
 
-```bash
-# Clone to plugins directory
-cd ~/.claude/plugins
-git clone https://github.com/alilloig/sui-pilot.git
+sui-pilot hosts its own Claude Code plugin marketplace. Inside Claude Code:
 
-# Run automated setup
-cd sui-pilot
-./scripts/setup.sh
+```
+/plugin marketplace add alilloig/sui-pilot
+/plugin install sui-pilot@sui-pilot
 ```
 
-The setup script will:
-- Verify Node.js 18+ and pnpm are installed
-- Build the MCP server
-- Run tests to verify everything works
-- Optionally install `move-analyzer` via suiup
+Then restart Claude Code — MCP servers launch at session start.
 
-**Restart Claude Code** after installation — MCP servers launch at session start.
+The MCP server bundle ships prebuilt with the plugin, so end users do not need Node.js or pnpm installed.
+
+> Must be added via GitHub (`alilloig/sui-pilot`) or a git URL. A raw `marketplace.json` URL will not resolve the plugin's `./` source.
 
 ### Requirements
 
 | Component            | Version      | Notes                                                                  |
 | -------------------- | ------------ | ---------------------------------------------------------------------- |
-| Node.js              | 18+          | MCP server runtime                                                     |
-| pnpm                 | Any          | `npm i -g pnpm`                                                        |
 | suiup                | Latest       | `curl -fsSL https://sui.io/install.sh \| sh`                           |
 | sui + move-analyzer  | Same version | **Must match versions** — install both via suiup                       |
 | Claude Code          | Latest       | Plugin host environment                                                |
+| Node.js              | 18+          | Used to run the bundled MCP server (usually already present)           |
 
 ### Installing the Sui Toolchain
 
@@ -208,9 +202,9 @@ sui-pilot/
 
 Restart Claude Code completely (close and reopen). MCP servers launch at session start, not on plugin reload.
 
-Verify the `.mcp.json` file exists:
+Verify the installed plugin's manifest declares the MCP server:
 ```bash
-cat ~/.claude/plugins/sui-pilot/.mcp.json
+cat ~/.claude/plugins/cache/sui-pilot/*/*/.claude-plugin/plugin.json
 ```
 
 ### LSP tools return "move-analyzer not found"
@@ -244,11 +238,18 @@ Then restart Claude Code to reset the crash counter.
 
 ### MCP server fails to start
 
+The plugin ships a prebuilt bundle at `mcp/move-lsp-mcp/dist/index.js`. Confirm it was copied into the plugin cache:
+
 ```bash
-cd ~/.claude/plugins/sui-pilot/mcp/move-lsp-mcp
-ls dist/index.js    # Should exist
-pnpm test           # Should pass
-pnpm install && pnpm build  # Rebuild if needed
+ls ~/.claude/plugins/cache/sui-pilot/*/*/mcp/move-lsp-mcp/dist/index.js
+```
+
+If the file is missing, remove and reinstall the plugin from the marketplace:
+
+```
+/plugin uninstall sui-pilot@sui-pilot
+/plugin marketplace update sui-pilot
+/plugin install sui-pilot@sui-pilot
 ```
 
 ---
@@ -273,10 +274,30 @@ sui-pilot is designed for Claude Code. Some capabilities are environment-specifi
 
 ---
 
+## Contributing / local development
+
+For local iteration on the plugin, clone the repo and load it with `--plugin-dir` instead of installing from the marketplace:
+
+```bash
+git clone https://github.com/alilloig/sui-pilot.git
+cd sui-pilot
+
+# Build the MCP bundle after changes to mcp/move-lsp-mcp/src/
+pnpm --dir mcp/move-lsp-mcp install
+pnpm --dir mcp/move-lsp-mcp build
+
+# Launch Claude Code with this checkout as the active plugin
+claude --plugin-dir "$(pwd)"
+```
+
+Commit the rebuilt `mcp/move-lsp-mcp/dist/index.js` whenever `src/` changes — the bundle ships with the plugin.
+
+---
+
 ## Support
 
 - **Report issues**: [github.com/alilloig/sui-pilot/issues](https://github.com/alilloig/sui-pilot/issues)
-- **Verify installation**: Run `./scripts/verify.sh` to diagnose problems
+- **Verify installation**: Run `./scripts/verify.sh` on a local checkout to diagnose problems
 
 ---
 

@@ -29,7 +29,7 @@ echo ""
 # Check plugin structure
 echo "Checking plugin structure..."
 [ -f "$PLUGIN_ROOT/.claude-plugin/plugin.json" ] && pass "plugin.json exists" || fail "plugin.json missing"
-[ -f "$PLUGIN_ROOT/.mcp.json" ] && pass ".mcp.json exists" || fail ".mcp.json missing"
+[ -f "$PLUGIN_ROOT/.claude-plugin/marketplace.json" ] && pass "marketplace.json exists" || fail "marketplace.json missing"
 [ -f "$PLUGIN_ROOT/agents/sui-pilot-agent.md" ] && pass "agent exists" || fail "agent missing"
 [ -d "$PLUGIN_ROOT/skills" ] && pass "skills directory exists" || fail "skills directory missing"
 

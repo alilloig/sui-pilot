@@ -1,0 +1,31 @@
+{
+  "name": "sui-pilot",
+  "owner": { "name": "alilloig" },
+  "metadata": {
+    "description": "Sui, Walrus, and Seal development copilot for Claude Code",
+    "version": "0.1.0"
+  },
+  "plugins": [
+    {
+      "name": "sui-pilot",
+      "source": "./",
+      "description": "Sui Move development plugin with LSP integration, bundled Sui/Walrus/Seal docs, and code quality tools",
+      "version": "0.1.0",
+      "author": { "name": "alilloig" },
+      "license": "MIT",
+      "homepage": "https://github.com/alilloig/sui-pilot",
+      "repository": "https://github.com/alilloig/sui-pilot",
+      "keywords": [
+        "sui",
+        "move",
+        "blockchain",
+        "smart-contracts",
+        "walrus",
+        "seal",
+        "language-server",
+        "diagnostics"
+      ],
+      "category": "development"
+    }
+  ]
+}

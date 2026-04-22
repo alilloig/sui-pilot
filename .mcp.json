@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "move-lsp": {
-      "command": "node",
-      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/move-lsp-mcp/dist/index.js"],
-      "env": {}
-    }
-  }
-}

@@ -18,5 +18,10 @@ dist/
 *.log
 .pnpm-debug.log*
 
+# Ship the prebuilt move-lsp MCP bundle so marketplace installs work
+# without a post-install build step.
+!mcp/move-lsp-mcp/dist/
+!mcp/move-lsp-mcp/dist/**
+
 # Build artifacts
 *.tsbuildinfo
