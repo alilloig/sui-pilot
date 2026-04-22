@@ -36,10 +36,13 @@ jobs:
         run: pnpm build
 
       - name: Verify committed bundle matches source
+        # Only diff the runtime bundle — sourcemap `sources` paths leak the
+        # local pnpm store layout and differ across environments, so they're
+        # not a stable reproducibility signal.
         run: |
-          if ! git diff --exit-code mcp/move-lsp-mcp/dist/; then
+          if ! git diff --exit-code mcp/move-lsp-mcp/dist/index.js; then
             echo ""
-            echo "::error::dist/ is out of sync with src/. Run 'pnpm --dir mcp/move-lsp-mcp build' and recommit."
+            echo "::error::dist/index.js is out of sync with src/. Run 'pnpm --dir mcp/move-lsp-mcp build' and recommit."
             exit 1
           fi
 
