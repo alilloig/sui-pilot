@@ -47,12 +47,15 @@ jobs:
           fi
 
       - name: Enforce MCP bundle size budget
+        # ~600 KB ceiling on the minified ESM bundle. Current size ~480 KB
+        # (mostly ajv via @modelcontextprotocol/sdk). Bumping this ceiling
+        # should be a deliberate choice, not a silent drift from dep growth.
         run: |
-          BUDGET=600000
+          BUDGET_BYTES=600000
           SIZE=$(wc -c < mcp/move-lsp-mcp/dist/index.js)
-          echo "Bundle size: ${SIZE} bytes (budget: ${BUDGET})"
-          if [ "$SIZE" -gt "$BUDGET" ]; then
-            echo "::error::MCP bundle exceeds ${BUDGET} bytes (current: ${SIZE}). Investigate dependency growth before raising the budget."
+          echo "Bundle size: ${SIZE} bytes (budget: ${BUDGET_BYTES})"
+          if [ "$SIZE" -gt "$BUDGET_BYTES" ]; then
+            echo "::error::MCP bundle exceeds ${BUDGET_BYTES} bytes (current: ${SIZE}). Investigate dependency growth before raising the budget."
             exit 1
           fi
 

@@ -258,9 +258,9 @@ find ~/.claude/plugins/cache -path '*sui-pilot*/mcp/move-lsp-mcp/dist/index.js'
 If the file is missing, remove and reinstall the plugin from the marketplace:
 
 ```
-/plugin uninstall sui-pilot@sui-pilot
-/plugin marketplace update sui-pilot
-/plugin install sui-pilot@sui-pilot
+/plugin uninstall sui-pilot@alilloig
+/plugin marketplace update alilloig
+/plugin install sui-pilot@alilloig
 ```
 
 ---

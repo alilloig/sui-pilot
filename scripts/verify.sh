@@ -38,7 +38,16 @@ echo ""
 echo "Checking MCP server..."
 [ -f "$PLUGIN_ROOT/mcp/move-lsp-mcp/dist/index.js" ] && pass "MCP server built" || fail "MCP server not built"
 
+# Same budget enforced by .github/workflows/ci.yml — keep in sync.
+BUDGET_BYTES=600000
 if [ -f "$PLUGIN_ROOT/mcp/move-lsp-mcp/dist/index.js" ]; then
+    SIZE=$(wc -c < "$PLUGIN_ROOT/mcp/move-lsp-mcp/dist/index.js" | tr -d ' ')
+    if [ "$SIZE" -le "$BUDGET_BYTES" ]; then
+        pass "MCP bundle within budget ($SIZE / $BUDGET_BYTES bytes)"
+    else
+        fail "MCP bundle exceeds budget ($SIZE / $BUDGET_BYTES bytes)"
+    fi
+
     cd "$PLUGIN_ROOT/mcp/move-lsp-mcp"
     if pnpm test 2>&1 | grep -q "passed"; then
         pass "MCP tests pass"
