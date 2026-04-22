@@ -44,6 +44,7 @@ Real-time feedback from `move-analyzer`:
 
 | Command              | Purpose                                          |
 | -------------------- | ------------------------------------------------ |
+| `/sui-pilot`         | Doc-first entry point; routes to the sui-pilot agent |
 | `/move-code-quality` | Move Book Code Quality Checklist compliance      |
 | `/move-code-review`  | Security and architecture review                 |
 | `/move-tests`        | Test generation best practices                   |
@@ -71,6 +72,14 @@ Then restart Claude Code — MCP servers launch at session start.
 The MCP server bundle ships prebuilt with the plugin, so end users do not need Node.js or pnpm installed.
 
 > Must be added via GitHub (`alilloig/sui-pilot`) or a git URL. A raw `marketplace.json` URL will not resolve the plugin's `./` source.
+
+### Upgrading from a manual install
+
+If you installed sui-pilot before the marketplace existed (git clone into `~/.claude/plugins/sui-pilot`), remove it first so the old copy doesn't shadow the marketplace install:
+
+```bash
+rm -rf ~/.claude/plugins/sui-pilot
+```
 
 ### Requirements
 
@@ -204,7 +213,7 @@ Restart Claude Code completely (close and reopen). MCP servers launch at session
 
 Verify the installed plugin's manifest declares the MCP server:
 ```bash
-cat ~/.claude/plugins/cache/sui-pilot/*/*/.claude-plugin/plugin.json
+find ~/.claude/plugins/cache -path '*sui-pilot*/.claude-plugin/plugin.json' -exec cat {} +
 ```
 
 ### LSP tools return "move-analyzer not found"
@@ -241,7 +250,7 @@ Then restart Claude Code to reset the crash counter.
 The plugin ships a prebuilt bundle at `mcp/move-lsp-mcp/dist/index.js`. Confirm it was copied into the plugin cache:
 
 ```bash
-ls ~/.claude/plugins/cache/sui-pilot/*/*/mcp/move-lsp-mcp/dist/index.js
+find ~/.claude/plugins/cache -path '*sui-pilot*/mcp/move-lsp-mcp/dist/index.js'
 ```
 
 If the file is missing, remove and reinstall the plugin from the marketplace:

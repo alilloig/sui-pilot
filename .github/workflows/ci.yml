@@ -43,7 +43,7 @@ jobs:
         run: |
           echo "Checking plugin structure..."
           test -f .claude-plugin/plugin.json && echo "✓ plugin.json exists"
-          test -f .mcp.json && echo "✓ .mcp.json exists"
+          test -f .claude-plugin/marketplace.json && echo "✓ marketplace.json exists"
           test -f agents/sui-pilot-agent.md && echo "✓ agent exists"
           test -d skills && echo "✓ skills directory exists"
           test -f mcp/move-lsp-mcp/dist/index.js && echo "✓ MCP server built"

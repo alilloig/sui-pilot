@@ -11,8 +11,7 @@
       "version": "0.1.0",
       "license": "MIT",
       "homepage": "https://github.com/alilloig/sui-pilot",
-      "repository": "https://github.com/alilloig/sui-pilot",
-      "category": "development"
+      "repository": "https://github.com/alilloig/sui-pilot"
     }
   ]
 }
