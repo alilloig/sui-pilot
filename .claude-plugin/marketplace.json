@@ -1,0 +1,13 @@
+{
+  "name": "sui-pilot",
+  "owner": {
+    "name": "nikos-terzo"
+  },
+  "plugins": [
+    {
+      "name": "sui-pilot",
+      "source": "./",
+      "description": "Claude Code plugin for full Sui Stack development (nikos-terzo fork with schema fixes)"
+    }
+  ]
+}

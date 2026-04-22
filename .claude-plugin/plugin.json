@@ -13,14 +13,6 @@
     "language-server",
     "diagnostics"
   ],
-  "commands": [
-    "../commands/sui-pilot.md",
-    "../commands/move-code-quality.md",
-    "../commands/move-code-review.md",
-    "../commands/move-tests.md"
-  ],
-  "skills": "../skills/",
-  "agents": ["../agents/sui-pilot-agent.md"],
   "mcpServers": {
     "move-lsp": {
       "command": "node",
