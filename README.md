@@ -185,7 +185,7 @@ The sync script clones or pulls each upstream repo and copies the `docs/content/
 sui-pilot/
 ├── .claude-plugin/plugin.json   # Plugin manifest
 ├── agents/sui-pilot-agent.md    # Specialized Sui Move agent
-├── skills/                      # Bundled skills (quality, review, tests)
+├── skills/                      # Bundled skills (code-quality, code-review, tests, oz-math)
 ├── mcp/move-lsp-mcp/            # MCP server wrapping move-analyzer
 ├── .sui-docs/                   # 336 Sui documentation files
 ├── .walrus-docs/                # 84 Walrus documentation files
