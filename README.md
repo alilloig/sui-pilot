@@ -40,7 +40,7 @@ Real-time feedback from `move-analyzer`:
 | `move_completions`     | Get completion suggestions                        |
 | `move_goto_definition` | Navigate to symbol definitions                    |
 
-### Skills
+### Slash commands
 
 | Command              | Purpose                                          |
 | -------------------- | ------------------------------------------------ |
@@ -49,6 +49,8 @@ Real-time feedback from `move-analyzer`:
 | `/move-code-review`  | Security and architecture review                 |
 | `/move-tests`        | Test generation best practices                   |
 | `/oz-math`           | OpenZeppelin math library recommendations        |
+
+Each command routes to a bundled skill of the same name; skills live under `skills/` and hold the actual behavior.
 
 ### Specialized Agent
 
@@ -64,7 +66,7 @@ sui-pilot hosts its own Claude Code plugin marketplace. Inside Claude Code:
 
 ```
 /plugin marketplace add alilloig/sui-pilot
-/plugin install sui-pilot@sui-pilot
+/plugin install sui-pilot@alilloig
 ```
 
 Then restart Claude Code — MCP servers launch at session start.
@@ -307,6 +309,7 @@ Commit the rebuilt `mcp/move-lsp-mcp/dist/index.js` whenever `src/` changes — 
 
 - **Report issues**: [github.com/alilloig/sui-pilot/issues](https://github.com/alilloig/sui-pilot/issues)
 - **Verify installation**: Run `./scripts/verify.sh` on a local checkout to diagnose problems
+- **Release history**: See [CHANGELOG.md](./CHANGELOG.md)
 
 ---
 

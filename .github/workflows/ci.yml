@@ -23,9 +23,9 @@ jobs:
           node-version: '20'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          package_json_file: mcp/move-lsp-mcp/package.json
 
       - name: Install dependencies
         working-directory: mcp/move-lsp-mcp
@@ -34,6 +34,24 @@ jobs:
       - name: Build MCP server
         working-directory: mcp/move-lsp-mcp
         run: pnpm build
+
+      - name: Verify committed bundle matches source
+        run: |
+          if ! git diff --exit-code mcp/move-lsp-mcp/dist/; then
+            echo ""
+            echo "::error::dist/ is out of sync with src/. Run 'pnpm --dir mcp/move-lsp-mcp build' and recommit."
+            exit 1
+          fi
+
+      - name: Enforce MCP bundle size budget
+        run: |
+          BUDGET=600000
+          SIZE=$(wc -c < mcp/move-lsp-mcp/dist/index.js)
+          echo "Bundle size: ${SIZE} bytes (budget: ${BUDGET})"
+          if [ "$SIZE" -gt "$BUDGET" ]; then
+            echo "::error::MCP bundle exceeds ${BUDGET} bytes (current: ${SIZE}). Investigate dependency growth before raising the budget."
+            exit 1
+          fi
 
       - name: Run unit tests
         working-directory: mcp/move-lsp-mcp
@@ -71,9 +89,9 @@ jobs:
           node-version: '20'
 
       - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+        uses: pnpm/action-setup@v4
         with:
-          version: 9
+          package_json_file: mcp/move-lsp-mcp/package.json
 
       - name: Install dependencies
         working-directory: mcp/move-lsp-mcp
