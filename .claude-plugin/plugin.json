@@ -1,8 +1,7 @@
 {
   "name": "sui-pilot",
-  "version": "0.1.0",
   "description": "Sui Move development plugin with LSP integration, comprehensive documentation, and code quality tools",
-  "author": {"name": "Claude Code"},
+  "author": { "name": "alilloig" },
   "keywords": [
     "sui",
     "move",
@@ -13,14 +12,6 @@
     "language-server",
     "diagnostics"
   ],
-  "commands": [
-    "../commands/sui-pilot.md",
-    "../commands/move-code-quality.md",
-    "../commands/move-code-review.md",
-    "../commands/move-tests.md"
-  ],
-  "skills": "../skills/",
-  "agents": ["../agents/sui-pilot-agent.md"],
   "mcpServers": {
     "move-lsp": {
       "command": "node",
