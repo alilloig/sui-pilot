@@ -4,6 +4,8 @@ This directory documents the process of creating, testing, and iterating on a Cl
 
 The [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/main/plugins/skill-creator) plugin provides the evaluation workflow; everything in this directory is the artifacts produced by running that workflow on this skill.
 
+**Two iterations are captured here** — iter-1 is the first pass (caveated: simulation, not real multi-agent), iter-2 is the first real multi-agent run after iter-1 feedback drove architectural changes. Compare the two side-by-side to see exactly how evaluation informs skill design.
+
 ---
 
 ## TL;DR — the loop
@@ -17,7 +19,7 @@ The [skill-creator](https://github.com/anthropics/claude-plugins-official/tree/m
      └──────────────────────────────────────────────────────┘
 ```
 
-Every iteration is one pass through the loop. The artifacts in `iteration-N/` are a snapshot of that pass. This skill had one full iteration (iter-1) captured here; iter-2 changes are documented in **Iteration 2 summary** below.
+Every iteration is one pass through the loop. The artifacts in `iteration-N/` are a snapshot of that pass. This skill has two iterations captured: iter-1 (initial, with the Task-tool limitation that forced reviewer simulation — surfaced the architectural blockers that informed iter-2) and iter-2 (real 10-agent dispatch from the main session, post-plugin-registration fix).
 
 ---
 
@@ -27,23 +29,33 @@ Every iteration is one pass through the loop. The artifacts in `iteration-N/` ar
 evals/
 ├── README.md                  ← this file
 ├── evals.json                 ← test case definitions (prompts + expected outputs)
-└── iteration-1/               ← snapshot of the first full eval run
-    ├── benchmark.md           ← aggregated stats (pass rate, time, tokens)
-    ├── benchmark.json         ← machine-readable benchmark
-    ├── feedback.json          ← human reviewer's per-run comments
+├── iteration-1/               ← first eval run — simulated 5 reviewers (Task tool unavailable)
+│   ├── benchmark.md           ← aggregated stats (pass rate, time, tokens)
+│   ├── benchmark.json         ← machine-readable benchmark
+│   ├── feedback.json          ← human reviewer's per-run comments (drove iter-2 changes)
+│   └── eval-1-se-hadron-pas-integration-pr8/
+│       ├── eval_metadata.json ← test case + assertions (9 of them)
+│       ├── with_skill/        ← run using move-pr-review (simulated)
+│       │   ├── outputs/       ← produced artifacts (review MD + .raw/ pipeline for 5 reviewers)
+│       │   └── run-1/
+│       │       ├── grading.json   ← 8/9 passed (sui-pilot-agent assertion failed by env)
+│       │       └── timing.json
+│       └── without_skill/     ← same prompt, no skill guidance (baseline)
+│           ├── outputs/
+│           └── run-1/
+│               ├── grading.json  ← 3/9 passed
+│               └── timing.json
+└── iteration-2/               ← second eval run — real 10-agent dispatch from main session
     └── eval-1-se-hadron-pas-integration-pr8/
-        ├── eval_metadata.json ← test case + assertions
-        ├── with_skill/        ← run using move-pr-review
-        │   ├── outputs/       ← produced artifacts (review MD + .raw/ pipeline)
-        │   └── run-1/
-        │       ├── grading.json   ← per-assertion pass/fail
-        │       └── timing.json    ← wall-clock + tokens
-        └── without_skill/     ← same prompt, no skill guidance (baseline)
-            ├── outputs/
+        ├── eval_metadata.json ← same 9 assertions as iter-1
+        └── with_skill/        ← run using the revised skill
+            ├── outputs/       ← 496-line review + .raw/ pipeline for 10 reviewers + consolidator
             └── run-1/
-                ├── grading.json
+                ├── grading.json   ← 9/9 passed
                 └── timing.json
 ```
+
+Iter-2 has no `without_skill/` baseline — iter-1's baseline is still a valid reference (same prompt, same repo), and re-running it would burn another ~10 min without new information. The real iter-2 story is the iter-1→iter-2 skill progression, which you can read directly by comparing the two `with_skill/outputs/SOLENG-653-pas-integration-review.md` files.
 
 ---
 
@@ -131,13 +143,54 @@ Despite the caveats, the iteration DID validate:
 
 ## Iteration 2 — changes informed by iter-1
 
-Applied directly to the skill (no iter-2 artifacts are in this PR because the plugin-registration fixes make real multi-agent dispatch possible — iter-2 would need to be exercised from the main session to be meaningful, not from a spawned subagent).
+Iter-1 feedback (see `iteration-1/feedback.json`) drove five concrete changes to the skill:
 
-1. **Main-session orchestration, mandatory.** New top-level section in SKILL.md: if the skill is invoked from a context without the `Task` tool, halt immediately. Simulation is forbidden — it defeats the whole point of independent reviewers.
+1. **Main-session orchestration, mandatory.** New top-level section in SKILL.md: if the skill is invoked from a context without the `Task` tool, halt immediately. Simulation is forbidden — it defeats the whole point of independent reviewers. (Iter-1's with_skill run was forced to simulate because the harness spawned the orchestrator as a subagent; the simulation produced fewer findings and compressed severities relative to real dispatch.)
 2. **Reviewers bumped 5 → 10.** Scripts (`consolidate.js`, `validate_schema.sh`, `coverage_matrix.sh`) updated to handle up to 10. Coverage-backfill floor tightened to `< 5 of 10` (50%).
 3. **Code-level findings only in the severity body.** Testing concerns get a dedicated `## Test & coverage plan` section (concrete test-implementation plan, not a gap list). Build / dep / bytecode concerns get `## Build reproducibility & ops`. Reviewers still tag findings with `category: testing` or `category: versioning`; the consolidator collapses them into the dedicated sections while preserving per-function detail for the plan.
 4. **`sui-pilot:sui-pilot-agent` as the primary subagent type.** Doc-first rule enforced by the agent definition itself. Fallback chain: bare `sui-pilot-agent` → halt with a message asking to enable the plugin → `general-purpose` with reviewer-prompt-enforced doc-first (loud degradation note in methodology).
-5. **Plugin registration fixed.** Involves three edits (documented in `CHANGELOG.md`): `enabledPlugins["sui-pilot@alilloig"]`, `extraKnownMarketplaces["alilloig"]`, and crucially `known_marketplaces.json` (the runtime registry — `extraKnownMarketplaces` alone isn't sufficient).
+5. **Plugin registration fixed.** Three edits: `enabledPlugins["sui-pilot@alilloig"]`, `extraKnownMarketplaces["alilloig"]`, and `known_marketplaces.json` (the runtime registry — `extraKnownMarketplaces` alone isn't sufficient).
+
+## Iteration 2 — real-run results
+
+Exercised from the main Claude Code session (with `Task` tool available) against the same test case as iter-1 (se-hadron PR #8). See `iteration-2/eval-1-.../with_skill/outputs/SOLENG-653-pas-integration-review.md` for the full report.
+
+### Iter-1 vs iter-2 — by the numbers
+
+| | Iter-1 (5 simulated) | Iter-2 (10 real parallel) | Delta |
+|---|---|---|---|
+| Raw findings | 81 | 292 | +260% |
+| Final review length | 616 lines | 496 lines | −20% (infra/testing collapsed) |
+| Severity-graded **HIGH** | 1 (infra: rev=main) | **2 (both real code bugs)** | +1 code bug |
+| Clusters at 10/10 agreement | n/a | 6 | — |
+| Clusters at ≥ 5/10 agreement | n/a | 19 | — |
+| False-positive criticals | 1 (rejected during verification) | 0 (none filed) | — |
+| Assertions passing | 8/9 | **9/9** | +1 |
+| Wall clock | ~21 min | ~26 min | +5 min |
+
+### What simulation missed that real independence caught
+
+Iter-1 simulation's single HIGH was the `Move.toml rev = "main"` infra issue — a valid concern, but one that iter-2's report-structure discipline correctly routes to `## Build reproducibility & ops` instead of the severity body. The iter-2 run's two HIGHs are **novel code-level findings** that never surfaced in simulation:
+
+- **H-1 — Cross-institution autoresolve template overwrite** in `pas_admin::update_transfer_template<T>`. Any institution with `RegisterCoinPermission` can clobber another institution's template. A DoS-via-compliance-privilege issue. Found by 1/10 reviewers (R6); consolidator verified against source. Singleton-high findings like this are exactly why the coverage floor matters — in iter-1's 5-reviewer simulation, R6's framing didn't exist, and no other reviewer caught the specific formulation.
+- **H-2 — `update_transfer_template` is a no-op post-upgrade**. `register_transfer_template` uses `type_name::with_defining_ids<TransferApproval<T>>()` which pins to the v1 package address; after `version::migrate`, the documented recovery path re-runs the same resolution and writes the same stale address. Found by 9/10 reviewers — overwhelming agreement. In iter-1 simulation, the single reasoner shared its own blind spot across all its "lenses" and missed this entirely.
+
+### What the report-structure discipline prevented
+
+Out of 292 raw findings, **17 reviewers filed HIGH-severity claims in `category: testing` or `category: versioning` or `category: scripts` (infra)**. Without the discipline, those would dominate the severity-graded body and dilute the real code findings. The consolidator correctly routed 15 of them to the dedicated sections and downgraded/rejected 4, surfacing 2 as code HIGHs. That's a 6.5× concentration of the code signal.
+
+### The one assertion that failed in iter-1 now passes
+
+`all 6 dispatched agents use the sui-pilot-agent subagent type` — failed in iter-1 because the plugin wasn't registered; passes in iter-2 because all 11 dispatched agents (10 reviewers + 1 consolidator) resolved as `sui-pilot:sui-pilot-agent`, with the doc-first rule baked in. The consolidator's summary explicitly confirms: "consulted std::type_name stdlib docs and upstream pas/templates.move / policy.move during verification; no general-purpose fallback needed."
+
+### Remaining ergonomic issues the iter-2 run surfaced
+
+Not severity issues, but worth noting for a hypothetical iter-3:
+
+- **Mega-clustering still required hand-splitting** for 3 clusters. The consolidate.js algorithm groups by `(file, line-range overlap, category)` — when multiple distinct concerns land at the same line range, they conflate. The consolidator handled it, but an iter-3 could add a semantic-subtopic pass to the script so the consolidator gets cleaner input.
+- **R8 filed 5 HIGHs** where the median reviewer filed 1–2 — severity calibration across reviewers isn't perfectly uniform. Not a concern at the consolidator stage (all 5 were re-adjudicated against source), but worth a signal-per-reviewer analysis if this pattern recurs.
+
+---
 
 ---
 
