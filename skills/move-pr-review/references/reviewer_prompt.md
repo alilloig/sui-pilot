@@ -1,6 +1,6 @@
 # Reviewer Prompt Template — Move PR Review
 
-> This is the prompt the orchestrator embeds in each of the 5 parallel `sui-pilot-agent` Agent dispatches. Replace `{REVIEWER_N}` with the reviewer number (1..5).
+> This is the prompt the orchestrator embeds in each of the 10 parallel `sui-pilot-agent` Agent dispatches. Replace `{REVIEWER_N}` with the reviewer number (1..10).
 
 ---
 

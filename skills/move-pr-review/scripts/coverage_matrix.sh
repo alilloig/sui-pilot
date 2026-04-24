@@ -6,7 +6,8 @@
 #
 # For each in-scope file, prints:
 #   file  R1  R2  R3  R4  R5  total
-# Files with < 3 reviewer touches are flagged with "*" — leader should backfill.
+# Files with < COVERAGE_FLOOR reviewer touches are flagged with "*" — leader should backfill.
+# Default floor: 5 of 10 (overridable via $3).
 #
 # Requires: jq.
 
@@ -26,32 +27,41 @@ if [ ! -f "$SCOPE_FILES" ]; then
   exit 2
 fi
 
-printf 'file\tR1\tR2\tR3\tR4\tR5\tR6\tR7\tR8\tR9\tR10\ttotal\tflag\n'
+srcs=()
+for n in 1 2 3 4 5 6 7 8 9 10; do
+  [ -f "$RAW_DIR/subagent-$n.json" ] && srcs+=("$RAW_DIR/subagent-$n.json")
+done
 
-while IFS= read -r filepath || [ -n "$filepath" ]; do
-  [ -z "$filepath" ] && continue
-  total=0
-  cells=()
-  for n in 1 2 3 4 5 6 7 8 9 10; do
-    src="$RAW_DIR/subagent-$n.json"
-    if [ -f "$src" ]; then
-      c=$(jq --arg fp "$filepath" '[.[] | select(.file == $fp)] | length' "$src" 2>/dev/null || echo 0)
-    else
-      c=0
-    fi
-    cells+=("$c")
-    total=$((total + c))
-  done
-  touched=0
-  for c in "${cells[@]}"; do [ "$c" -gt 0 ] && touched=$((touched + 1)); done
-  flag=""
-  if [ "$touched" -lt "$COVERAGE_FLOOR" ]; then flag="*"; fi
-  printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
-    "$filepath" \
-    "${cells[0]}" "${cells[1]}" "${cells[2]}" "${cells[3]}" "${cells[4]}" \
-    "${cells[5]}" "${cells[6]}" "${cells[7]}" "${cells[8]}" "${cells[9]}" \
-    "$total" "$flag"
-done < "$SCOPE_FILES"
-
-echo ""
-echo "Files marked with * have < $COVERAGE_FLOOR reviewer touches out of 10 — orchestrator should backfill via R0 (leader)."
+{
+  if [ "${#srcs[@]}" -gt 0 ]; then
+    jq -r '
+      (input_filename | capture("subagent-(?<n>[0-9]+)") | .n) as $rev
+      | group_by(.file)[]
+      | "C\t\($rev)\t\(.[0].file)\t\(length)"
+    ' "${srcs[@]}"
+  fi
+  sed 's/^/F\t/' "$SCOPE_FILES"
+} | awk -F'\t' -v floor="$COVERAGE_FLOOR" '
+  BEGIN {
+    OFS = "\t"
+    print "file", "R1", "R2", "R3", "R4", "R5", "R6", "R7", "R8", "R9", "R10", "total", "flag"
+  }
+  $1 == "C" { counts[$3, $2] = $4; next }
+  $1 == "F" && $2 != "" {
+    fp = $2
+    total = 0; touched = 0
+    row = fp
+    for (n = 1; n <= 10; n++) {
+      c = (fp SUBSEP n) in counts ? counts[fp, n] : 0
+      row = row OFS c
+      total += c
+      if (c > 0) touched++
+    }
+    flag = (touched < floor) ? "*" : ""
+    print row, total, flag
+  }
+  END {
+    print ""
+    print "Files marked with * have < " floor " reviewer touches out of 10 — orchestrator should backfill via R0 (leader)."
+  }
+'

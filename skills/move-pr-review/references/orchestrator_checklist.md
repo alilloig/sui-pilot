@@ -54,7 +54,7 @@ node "${CLAUDE_PLUGIN_ROOT}/skills/move-pr-review/scripts/consolidate.js" review
 # Output: reviews/.raw/_consolidated.json
 ```
 
-If schema validation fails for one reviewer: dispatch a single re-run of just that reviewer with a schema-only correction prompt. If coverage matrix shows < 4 reviewer touches out of 10 for an in-scope file: orchestrator reads the file directly and emits any additional findings to `reviews/.raw/subagent-0.json` with `id` prefix `R0-`.
+If schema validation fails for one reviewer: dispatch a single re-run of just that reviewer with a schema-only correction prompt. If `coverage_matrix.sh` flags an in-scope file (default floor: < 5 reviewer touches out of 10): orchestrator reads the file directly and emits any additional findings to `reviews/.raw/subagent-0.json` with `id` prefix `R0-`.
 
 ## Phase 3 — Consolidator dispatch (single Agent call, foreground)
 

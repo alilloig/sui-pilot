@@ -5,7 +5,7 @@
 // Usage: node consolidate.js <raw-dir>
 //   <raw-dir> defaults to "reviews/.raw"
 //
-// Reads:  <raw-dir>/subagent-{1..5}.json (and optionally subagent-0.json for leader backfill)
+// Reads:  <raw-dir>/subagent-{1..10}.json (and optionally subagent-0.json for leader backfill)
 // Writes: <raw-dir>/_consolidated.json
 //
 // Each cluster has:
@@ -22,12 +22,16 @@ const OUT = path.join(RAW_DIR, '_consolidated.json');
 
 function loadAll() {
   const all = [];
-  // Allow up to 10 reviewers + an optional R0 leader-backfill file.
   for (let n = 0; n <= 10; n++) {
     const p = path.join(RAW_DIR, `subagent-${n}.json`);
-    if (!fs.existsSync(p)) continue;
+    let raw;
+    try { raw = fs.readFileSync(p, 'utf8'); }
+    catch (e) {
+      if (e.code === 'ENOENT') continue;
+      console.error(`SKIP: ${p} read error: ${e.message}`); continue;
+    }
     let arr;
-    try { arr = JSON.parse(fs.readFileSync(p, 'utf8')); }
+    try { arr = JSON.parse(raw); }
     catch (e) { console.error(`SKIP: ${p} not valid JSON: ${e.message}`); continue; }
     if (!Array.isArray(arr)) { console.error(`SKIP: ${p} is not an array`); continue; }
     for (const f of arr) {
@@ -53,29 +57,6 @@ function overlap(a, b, slack = 6) {
   const [b0, b1] = b;
   return Math.max(a0, b0) - slack <= Math.min(a1, b1) + slack;
 }
-
-const CAT_ALIASES = {
-  'access-control': 'access-control',
-  'authorization': 'access-control',
-  'auth': 'access-control',
-  'correctness': 'correctness',
-  'logic': 'correctness',
-  'arithmetic': 'arithmetic',
-  'object-model': 'object-model',
-  'versioning': 'versioning',
-  'integration-boundary': 'integration-boundary',
-  'integration': 'integration-boundary',
-  'events': 'events',
-  'move-quality': 'move-quality',
-  'quality': 'move-quality',
-  'testing': 'testing',
-  'tests': 'testing',
-  'scripts': 'scripts',
-  'typescript': 'scripts',
-  'docs': 'docs',
-  'documentation': 'docs',
-};
-function canonCat(c) { return CAT_ALIASES[c] || c; }
 
 const STOP = new Set([
   'the','and','for','with','from','that','this','over','when','into','not','missing','check',
@@ -104,7 +85,6 @@ function main() {
     process.exit(1);
   }
 
-  // Group by file first, then within file cluster by overlap + category + title similarity.
   const byFile = {};
   for (const f of all) {
     const k = f.file || '<unknown>';
@@ -113,7 +93,7 @@ function main() {
   }
 
   const clusters = [];
-  for (const [file, findings] of Object.entries(byFile)) {
+  for (const findings of Object.values(byFile)) {
     const assigned = new Array(findings.length).fill(false);
     for (let i = 0; i < findings.length; i++) {
       if (assigned[i]) continue;
@@ -127,10 +107,7 @@ function main() {
         const candRange = parseRange(cand.line_range);
         const rangeOverlap = overlap(baseRange, candRange, 6);
         const titleSim = titleSimilarity(base.title, cand.title);
-        const sameCat = canonCat(base.category) === canonCat(cand.category);
-        // Cluster if:
-        //   - line range overlaps AND (same category OR title similarity >= 0.4)
-        //   - OR very high title similarity (>= 0.6) regardless of range
+        const sameCat = base.category === cand.category;
         if ((rangeOverlap && (sameCat || titleSim >= 0.4)) || titleSim >= 0.6) {
           cluster.push(cand);
           assigned[j] = true;
@@ -147,7 +124,7 @@ function main() {
     const maxSev = severities.reduce((a, b) => SEV_ORDER[a] > SEV_ORDER[b] ? a : b, 'info');
     const minSev = severities.reduce((a, b) => SEV_ORDER[a] < SEV_ORDER[b] ? a : b, 'critical');
     const disputed = maxSev !== minSev && SEV_ORDER[maxSev] - SEV_ORDER[minSev] >= 2;
-    const categories = [...new Set(c.map(f => canonCat(f.category)))];
+    const categories = [...new Set(c.map(f => f.category))];
     const longestEvidence = c.map(f => f.evidence || '').sort((a, b) => b.length - a.length)[0];
     const bestTitle = [...c].sort((a, b) => (b.title || '').length - (a.title || '').length)[0].title;
     return {

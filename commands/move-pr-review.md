@@ -1,13 +1,13 @@
 ---
 name: move-pr-review
-description: Multi-agent deep PR review for Sui Move packages — 5 parallel reviewers + 1 consolidator
+description: Multi-agent deep PR review for Sui Move packages — 10 parallel reviewers + 1 consolidator
 ---
 
 Invoke the `move-pr-review` skill to perform a deep, multi-agent review of a Sui Move pull request.
 
 ## What This Command Does
 
-- Dispatches 5 `sui-pilot-agent` reviewers in parallel, each independently running `/move-code-review` + `/move-code-quality` on the in-scope Move and cross-checking integration boundaries against upstream Move dependencies.
+- Dispatches 10 `sui-pilot-agent` reviewers in parallel, each independently running `/move-code-review` + `/move-code-quality` on the in-scope Move and cross-checking integration boundaries against upstream Move dependencies.
 - Validates and clusters the reviewers' strict-schema JSON findings.
 - Dispatches 1 `sui-pilot-agent` consolidator that verifies high-severity claims against the source code, splits mega-clusters, and writes the final Markdown deliverable.
 - Produces `reviews/<TICKET-ID>-<feature>-review.md` with severity counts, agreement counts, evidence quotes, and a methodology / postscript section.
@@ -26,7 +26,7 @@ Invoke the `move-pr-review` skill to perform a deep, multi-agent review of a Sui
 
 ## Cost Shape
 
-~25–40 minutes wall clock. ~5 reviewer-tokens-budgets in parallel + 1 consolidator. The redundancy and verification meaningfully reduces false positives compared to a single-pass review — pay for it only when audit-readiness matters.
+~25–40 minutes wall clock. ~10 reviewer-tokens-budgets in parallel + 1 consolidator. The redundancy and verification meaningfully reduces false positives compared to a single-pass review — pay for it only when audit-readiness matters.
 
 ## Related Commands
 

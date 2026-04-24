@@ -3,7 +3,7 @@
 # Usage: validate_schema.sh <raw-dir>
 #   <raw-dir> defaults to reviews/.raw
 #
-# For each subagent-N.json (N in 1..5; 0 also accepted as leader backfill):
+# For each subagent-N.json (N in 1..10; 0 also accepted as leader backfill):
 #   - asserts the top level is a JSON array
 #   - asserts every element has the required fields with correct types
 #   - asserts id matches "R<N>-NNN" pattern
