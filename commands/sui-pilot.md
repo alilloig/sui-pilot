@@ -27,4 +27,16 @@ The agent follows a doc-first approach:
 3. Enforces Sui Move best practices
 4. Runs quality and security review skills
 
+## Invocation
+
+Launch the sui-pilot-agent in the **foreground** unless the user's permission
+mode auto-approves tool calls (Auto, acceptEdits, or
+`--dangerously-skip-permissions`). Rationale: the agent and the skills it
+chains to call Write, Edit, MultiEdit, and Bash; background subagents can't
+surface permission prompts, so in interactive modes these tool calls silently
+auto-deny.
+
+In auto-approving modes, foreground vs background doesn't matter — pick
+whichever fits the work.
+
 You will now be connected to the sui-pilot-agent for specialized Sui Move development assistance.
