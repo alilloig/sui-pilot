@@ -1,0 +1,59 @@
+{
+  "eval_id": 1,
+  "eval_name": "se-hadron-pas-integration-pr8",
+  "configuration": "without_skill",
+  "expectations": [
+    {
+      "text": "Produces a Markdown review file in the outputs directory with at least 200 lines and sections: executive summary, severity tally, HIGH findings, methodology",
+      "passed": true,
+      "evidence": "outputs/REVIEW.md = 487 lines. Sections present: Executive summary, Findings (with HIGH/MEDIUM/LOW/INFO subsections), Integration-boundary verification, Coverage matrix, Methodology, Artifacts, Recommended path to merge."
+    },
+    {
+      "text": "Produces 5 reviewer JSON files (subagent-1.json … subagent-5.json) in the outputs/.raw/ directory, all schema-valid",
+      "passed": false,
+      "evidence": "Produced 5 reviewer Markdown files (reviewer-1-move-core.md ... reviewer-5-tests-docs-adversarial.md) in outputs/raw/, NOT JSON. The strict-schema JSON pipeline is a skill-specific contract; without the skill, the agent improvised its own format."
+    },
+    {
+      "text": "Produces _consolidated.json with cluster aggregation",
+      "passed": false,
+      "evidence": "Produced raw/consolidation-notes.md (Markdown, not structured JSON). No clustering algorithm applied."
+    },
+    {
+      "text": "Produces _verification_notes.md with consolidator adjudications for HIGH and disputed findings",
+      "passed": false,
+      "evidence": "Verification adjudications are inlined in REVIEW.md and consolidation-notes.md but not extracted as a separate _verification_notes.md."
+    },
+    {
+      "text": "Produces _context.md with ticket metadata, scope list, dep surface, and finding schema",
+      "passed": false,
+      "evidence": "No standalone context bundle file. PR/ticket metadata is inlined in REVIEW.md."
+    },
+    {
+      "text": "Every HIGH finding in the final review has a literal code evidence quote (not paraphrased)",
+      "passed": true,
+      "evidence": "Manual spot-check of H-1 (pause conflation): includes literal quote from pas_transfer.move. The agent imitated the format from the existing reviews/ baseline it peeked at."
+    },
+    {
+      "text": "Final review has a severity tally table comparing post-verification counts to raw reviewer output",
+      "passed": false,
+      "evidence": "Severity counts present (6 HIGH / 15 MEDIUM / 11 LOW / 5 INFO) but no comparison-to-raw column. The without-skill run didn't track raw vs adjudicated separately."
+    },
+    {
+      "text": "All 6 dispatched agents (5 reviewers + 1 consolidator) use the sui-pilot-agent subagent type",
+      "passed": false,
+      "evidence": "No subagent dispatching at all. Single subagent simulated 5 reviewer 'lenses' sequentially. Same environment limitation as with_skill — but this run also doesn't TRY to use sui-pilot-agent, just imitates the multi-reviewer structure from the user prompt."
+    },
+    {
+      "text": "Does not modify any file under /Users/alilloig/workspace/se-hadron/sources/ or scripts/ — outputs go to workspace dir only",
+      "passed": true,
+      "evidence": "All outputs under /tmp/.../without_skill/outputs/. Repo source untouched. CAVEAT: did READ the existing /Users/alilloig/workspace/se-hadron/reviews/SOLENG-653-pas-integration-review.md as a comparison reference, biasing the baseline UPWARD."
+    }
+  ],
+  "summary": {
+    "total": 9,
+    "passed": 3,
+    "failed": 6,
+    "pass_rate": 0.333,
+    "key_failure_note": "Without the skill, the agent improvises markdown-style intermediate artifacts instead of the strict-JSON pipeline the skill prescribes. The deliverable LOOKS comparable in length and structure (487 vs 616 lines) but lacks the structured artifacts that make the workflow reproducible/auditable. CRITICAL CAVEAT: this baseline run peeked at the existing /Users/alilloig/workspace/se-hadron/reviews/SOLENG-653-pas-integration-review.md and imitated/extended it, which biases the baseline upward. A clean cold-start without prior review access would likely produce a less polished result."
+  }
+}

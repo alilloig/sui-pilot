@@ -1,0 +1,1885 @@
+[
+  {
+    "cluster_id": "C022",
+    "title": "set_whitelist_send/receive does not re-validate that the address is still in the whitelist atomically with the update",
+    "file": "sources/treasury.move",
+    "line_ranges": [
+      "335-360",
+      "335-346"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      5
+    ],
+    "max_severity": "critical",
+    "min_severity": "low",
+    "disputed_severity": true,
+    "categories": [
+      "correctness"
+    ],
+    "recommendations": [
+      "No action. Documented for audit record.",
+      "Withdraw. Included in JSON per schema (every finding must have all fields); consolidator should reject this as a false positive during verification."
+    ],
+    "descriptions": [
+      "`set_whitelist_send<T>` and `set_whitelist_receive<T>` assert `wl.contains(addr)` then mutate `wl[addr].can_send`/`can_receive`. Since these functions take `&mut Treasury`, no concurrent modification can happen within the same transaction — the check-then-set is atomic. Worth confirming.",
+      "Reading the function body carefully: `set_whitelist_send<T>` assigns `wl[addr].can_send = enabled;` — this is CORRECT. (Retracting from initial suspicion; the code is correct.) HOWEVER, the symmetric review of `set_whitelist_receive<T>` also shows `wl[addr].can_receive = enabled;` — correct. The evidence block below is cited as false alarm during my review."
+    ],
+    "impacts": [
+      "None — Move transaction atomicity ensures no TOCTOU here.",
+      "None — after re-read, both functions write to the correct field. Withdrawn as not-a-bug."
+    ],
+    "evidence": "public(package) fun set_whitelist_send<T>(\n    treasury: &mut Treasury,\n    addr: address,\n    enabled: bool,\n) {\n    let wl: &mut Table<address, WhitelistEntry> = dynamic_object_field::borrow_mut(\n        &mut treasury.id,\n        keys::whitelist_key<T>(),\n    );\n    assert!(wl.contains(addr), ENotInWhitelist);\n    wl[addr].can_receive = enabled;",
+    "confidence_spread": [
+      "high",
+      "low"
+    ],
+    "source_ids": [
+      "R5-005",
+      "R5-006"
+    ]
+  },
+  {
+    "cluster_id": "C007",
+    "title": "Move.toml pins PAS deps to branch `main` — non-reproducible build",
+    "file": "Move.toml",
+    "line_ranges": [
+      "7-8"
+    ],
+    "agreement_count": 3,
+    "reviewers": [
+      1,
+      3,
+      5
+    ],
+    "max_severity": "high",
+    "min_severity": "high",
+    "disputed_severity": false,
+    "categories": [
+      "versioning"
+    ],
+    "recommendations": [
+      "Replace `rev = \"main\"` with the commit SHA currently pinned in Move.lock (`b64f0c58c60888de99ad9c5a72e9f0289aa7b6fc`). Adopt a policy of pinning by SHA and re-pinning deliberately with a code review per bump.",
+      "Pin `rev = \"b64f0c58c60888de99ad9c5a72e9f0289aa7b6fc\"` (current lockfile HEAD) in Move.toml. Establish a policy: every PAS rev bump must be a reviewed commit that updates both Move.toml and Move.lock together.",
+      "Pin to the commit SHA already in Move.lock (`b64f0c58c60888de99ad9c5a72e9f0289aa7b6fc`) and treat rev bumps as reviewed changes."
+    ],
+    "descriptions": [
+      "Both `pas` and `ptb` git dependencies are pinned to `rev = \"main\"` (branch name) rather than an immutable commit SHA. Any change upstream to main between builds silently changes on-chain behavior and invalidates audit scope.",
+      "Both PAS dependencies declared with `rev = \"main\"`. Move toolchain resolves this to HEAD-at-fetch-time. Move.lock snapshots the current HEAD, but the declared rev is still a moving target. Any CI that skips the lockfile or does a fresh clone pulls the current main.",
+      "Two Move git deps (`pas`, `ptb`) declared with `rev = \"main\"`. Future audits cannot recover the exact build without the lockfile; a clean clone will pull current main."
+    ],
+    "impacts": [
+      "Non-reproducible builds. A silent upstream change to the PAS Policy API, witness requirements, request resolution semantics, or templates registration could ship with Hadron without review. Breaks audit reproducibility and makes incident response harder.",
+      "Audit reproducibility compromised. A reviewer reading Move.toml cannot tell which version was reviewed without inspecting Move.lock in the same commit. If the two drift (e.g. after a dependency bump), the package builds against different code than the lockfile claims.",
+      "Audit reproducibility. An upstream change could silently alter Hadron's compliance semantics (policy behavior, request resolution, template storage)."
+    ],
+    "evidence": "[dependencies]\npas = { git = \"git@github.com:MystenLabs/pas.git\", subdir = \"packages/pas\", rev = \"main\" }\nptb = { git = \"git@github.com:MystenLabs/pas.git\", subdir = \"packages/ptb\", rev = \"main\" }",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-001",
+      "R3-001",
+      "R5-001"
+    ]
+  },
+  {
+    "cluster_id": "C028",
+    "title": "Adversarial: can a caller bypass the whitelist by using a forged Treasury reference?",
+    "file": "sources/pas_transfer.move",
+    "line_ranges": [
+      "33-50",
+      "25-26",
+      "34-34"
+    ],
+    "agreement_count": 3,
+    "reviewers": [
+      2,
+      3,
+      5
+    ],
+    "max_severity": "high",
+    "min_severity": "info",
+    "disputed_severity": true,
+    "categories": [
+      "access-control"
+    ],
+    "recommendations": [
+      "(1) Add a code comment to the module explicitly stating that `approve_transfer` is the sole whitelist enforcement point. (2) Add tests exercising every combination of sender-not-whitelisted / recipient-not-whitelisted / paused / amount-zero. (3) Consider wrapping the four asserts in a named helper `assert_transfer_allowed<T>(treasury, sender, recipient, amount)` to avoid drift.",
+      "Add a docstring noting the witness is only constructed by `approve_transfer` after whitelist + version + pause + amount>0 checks pass.",
+      "Add a `tests/pas_transfer_tests.move` that parameterises each negation: (a) stale version, (b) amount=0, (c) mint-redeem paused, (d) sender not whitelisted, (e) receiver not whitelisted, (f) sender whitelisted can_send=false, (g) receiver whitelisted can_receive=false. Each must abort with the expected error code.",
+      "Record this walkthrough as validated. Add a comment in `approve_transfer` citing the send_balance upstream path for future auditors.",
+      "Document the OTW-uniqueness invariant is load-bearing here. If Hadron ever adds a mechanism to 'import' caps from external coins (without OTW guarantee), this invariant breaks."
+    ],
+    "descriptions": [
+      "`approve_transfer<T>` is `public` and takes only `&Treasury`, `&mut Request<SendFunds<Balance<T>>>`, and `&Version` — no Auth proof. Any on-chain caller that holds a legitimate `Request<SendFunds<Balance<T>>>` hot potato can invoke the function. This is by PAS design (autoresolve is permissionless — the Policy's required-approval set gates what actually resolves), but it means the module-internal whitelist checks are the ONLY compliance barrier at this call-site.",
+      "`TransferApproval<T>` is `public struct TransferApproval<phantom T>() has drop`. Same pattern as ClawbackApproval. `approve_transfer` (public, permissionless) constructs it after the whitelist checks. This is secure because (a) the witness is scoped to this module, and (b) the function enforces the checks before constructing. Surface for explicit audit acknowledgment.",
+      "`approve_transfer<T>` is public, takes no Auth, and is the sole enforcement point for whitelist compliance on transfers. Any caller with a legitimate `Request<SendFunds<Balance<T>>>` can invoke it. This matches the PAS autoresolve pattern; it is not a bug but elevates the importance of exhaustive negative-path testing.",
+      "Walkthrough: a caller needs a `Request<SendFunds<Balance<T>>>`. The only way to construct one is via `pas::account::send_balance<C>` (account.move L78) which takes `&Auth` from the account owner and returns the Request. Attempting to forge sender/recipient addresses requires owning the source account (auth). Therefore the sender field is trustworthy. Recipient is supplied by the caller to send_balance — a malicious caller could set `to = some_account` but the upstream `to.owner()` is derived from the destination Account at send-balance time; recipient address = to.owner(). So the recipient in the Request is the actual destination account's owner.",
+      "The Treasury is a shared object; callers supply `&Treasury` via `tx.object(treasuryId)`. They cannot forge an alternate treasury because the consolidator-verified `approve_transfer` function signature requires any Treasury (only `&Treasury`). A malicious caller could supply a DIFFERENT Treasury (not the one that owns T) — but the `can_send<T>` / `can_receive<T>` checks would query the wrong treasury's whitelist DOF, and either (a) return false (address not in that treasury's whitelist for T) and abort, or (b) if the wrong treasury happens to have T registered too, succeed — but T is uniquely bound to one treasury per OTW uniqueness, so this isn't actually reachable on-chain."
+    ],
+    "impacts": [
+      "If any one of the whitelist checks has a bug (e.g. a case where `assert_can_send/receive` does not fire), compliance is bypassed. Defense in depth is single-layer here. Call-site reviewers must treat the whitelist assertions as audit-critical.",
+      "No bypass. Just documents the trust chain.",
+      "A silent regression in any of the four assertions (version, amount, pause, send/receive whitelist) would allow non-compliant transfers. Single point of failure for compliance.",
+      "No bypass path found. The Request's sender/recipient are upstream-validated.",
+      "Interesting theoretical: if two treasuries could both register the same T (impossible via OTW uniqueness), an attacker could forum-shop treasuries. In practice, TreasuryCap<T> is created once per package and consumed once, so this scenario is unreachable."
+    ],
+    "evidence": "public fun approve_transfer<T>(\n    treasury: &Treasury,\n    request: &mut Request<SendFunds<Balance<T>>>,\n    version: &Version,\n) {\n    version.check_is_valid();\n    let sender = request.data().sender();\n    let recipient = request.data().recipient();\n    let amount = request.data().funds().value();",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-001",
+      "R2-005",
+      "R3-003",
+      "R5-002",
+      "R5-004"
+    ]
+  },
+  {
+    "cluster_id": "C017",
+    "title": "whitelist functions on non-PAS coin abort via framework — add explicit ENotPasCoin guard",
+    "file": "sources/treasury.move",
+    "line_ranges": [
+      "305-311",
+      "278-302",
+      "278-311",
+      "278-360"
+    ],
+    "agreement_count": 4,
+    "reviewers": [
+      1,
+      2,
+      3,
+      5
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "correctness"
+    ],
+    "recommendations": [
+      "Gate every whitelist helper with `assert!(is_pas_coin<T>(treasury), ENotPasCoin)` before the DOF borrow. `ENotPasCoin` already exists in the file (line 67).",
+      "Add `assert!(is_pas_coin<T>(treasury), ENotPasCoin);` as the first line of each of the five whitelist-read helpers. Then `pas_admin` callers inherit the guard.",
+      "Add `assert!(is_pas_coin<T>(treasury), ENotPasCoin);` to each helper. Matches the pattern already established in `policy_cap<T>` (line 272-274).",
+      "Add `assert!(is_pas_coin<T>(treasury), ENotPasCoin);` as the first line of each of `is_whitelisted`, `can_send`, `can_receive`, `assert_can_send`, `assert_can_receive`, `add_to_whitelist`, `remove_from_whitelist`, `set_whitelist_send`, `set_whitelist_receive`."
+    ],
+    "descriptions": [
+      "`assert_can_send<T>` and `assert_can_receive<T>` call `can_send<T>`/`can_receive<T>` which unconditionally borrow the whitelist DOF via `dynamic_object_field::borrow(&treasury.id, keys::whitelist_key<T>())`. For a coin T that is NOT a PAS coin, this DOF does not exist — the framework aborts with a framework-level error rather than a Hadron error.",
+      "The error `ENotPasCoin` exists (line 67). `policy_cap<T>` asserts it via `is_pas_coin<T>` (line 273). But the whitelist read helpers (`is_whitelisted<T>`, `can_send<T>`, `can_receive<T>`, `assert_can_send<T>`, `assert_can_receive<T>`) do NOT check `is_pas_coin<T>` before borrowing the whitelist DOF. For a non-PAS coin T, the borrow aborts at framework-level.",
+      "Public read helpers `is_whitelisted<T>`, `can_send<T>`, `can_receive<T>`, `assert_can_send<T>`, `assert_can_receive<T>` all borrow a whitelist DOF that only exists for PAS-registered T. For non-PAS T, each aborts with a framework-level error. The is_pas_coin-check is missing.",
+      "All whitelist helpers borrow the whitelist DOF without first checking `is_pas_coin<T>`. For non-PAS T, the abort happens inside `dynamic_object_field::borrow{_mut}` with a framework-level error, not the Hadron-defined `ENotPasCoin`."
+    ],
+    "impacts": [
+      "Any caller hitting the whitelist path for a non-PAS coin gets a cryptic abort. More importantly, future public functions layered on top of these helpers cannot gracefully short-circuit for non-PAS coins.",
+      "Same as R1-003, R2-002. Worth emphasizing at the treasury layer where the DOFs actually live.",
+      "Opaque aborts; harder to debug. An on-chain off-PAS query of `can_send<NonPasCoin>()` aborts the whole PTB.",
+      "Error UX. No bypass. Callers of `is_whitelisted<T>(treasury, addr)` on a non-PAS T abort the PTB."
+    ],
+    "evidence": "public fun assert_can_send<T>(treasury: &Treasury, addr: address) {\n    assert!(can_send<T>(treasury, addr), ENotWhitelistedSend);\n}\n\n/// Assert that an address can receive.\npublic fun assert_can_receive<T>(treasury: &Treasury, addr: address) {\n    assert!(can_receive<T>(treasury, addr), ENotWhitelistedReceive);\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-003",
+      "R2-009",
+      "R3-002",
+      "R5-007"
+    ]
+  },
+  {
+    "cluster_id": "C009",
+    "title": "register_pas_asset does not assert is_pas_coin<T> or is_coin_registered<T> — opaque upstream errors",
+    "file": "sources/pas_admin.move",
+    "line_ranges": [
+      "30-67",
+      "30-47"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      1,
+      4
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "correctness"
+    ],
+    "recommendations": [
+      "Add early, local assertions: `assert!(!treasury.is_coin_registered<T>(), ECoinAlreadyRegistered);` and `assert!(!treasury.is_pas_coin<T>(), EAlreadyRegisteredAsPas)` before calling `policy::new_for_currency`.",
+      "Add `assert!(!treasury.is_coin_registered<T>(), ECoinAlreadyRegistered);` at the top of `register_pas_asset`."
+    ],
+    "descriptions": [
+      "`register_pas_asset<T>` does not pre-check whether T is already a regulated coin (via `admin::register_coin`) or already a PAS asset. The inner `pas::policy::new_for_currency` will abort with `EPolicyAlreadyExists` if a policy exists, and `add_pas_coin_caps` will abort with `ECoinAlreadyRegistered` if the TreasuryCap DOF exists, but these surface as opaque errors deep in call stacks.",
+      "The public entry `register_pas_asset<T>` does not guard against re-registration or against T already being a regulated coin in the same treasury. The `policy::new_for_currency` call will abort with `EPolicyAlreadyExists` (PAS policy.move line 23) and `add_pas_coin_caps` will abort with `ECoinAlreadyRegistered` — but neither surfaces a Hadron-owned error."
+    ],
+    "impacts": [
+      "Operators registering PAS assets get cryptic upstream aborts rather than Hadron's own error. Debugging is harder. If a coin was accidentally registered twice (regulated then PAS), the failure mode is confusing.",
+      "Operator errors produce upstream error codes rather than Hadron's own. Debugging more painful. No bypass."
+    ],
+    "evidence": "public fun register_pas_asset<T>(\n    treasury: &mut Treasury,\n    auth: &TreasuryAuth<RegisterCoinPermission>,\n    mut treasury_cap: TreasuryCap<T>,\n    metadata_cap: MetadataCap<T>,\n    pas_namespace: &mut Namespace,\n    templates: &mut Templates,\n    version: &Version,\n    ctx: &mut TxContext,\n) {\n    auth.assert_is_valid_for_treasury(treasury.treasury_id());\n\n    // Create PAS Policy with clawback enabled\n    let (mut policy, policy_cap) = policy::new_for_currency(",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-002",
+      "R4-001"
+    ]
+  },
+  {
+    "cluster_id": "C010",
+    "title": "No unit or integration tests for any new Move module",
+    "file": "sources/pas_admin.move",
+    "line_ranges": [
+      "1-151"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      1,
+      5
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "testing"
+    ],
+    "recommendations": [
+      "Add a test module (e.g. `tests/pas_integration_tests.move`) covering: (1) happy-path register + whitelist + mint + transfer approval; (2) negative: non-whitelisted sender/recipient rejected; (3) seize from de-whitelisted source to whitelisted target; (4) burn via clawback; (5) double-registration aborts; (6) paused mint/redeem blocks transfer and mint. Use upstream PAS test helpers where available. Run via `/move-tests` skill.",
+      "Prioritize: (1) `register_pas_asset` happy + duplicate abort; (2) `add_to_whitelist` / `remove_from_whitelist` / `set_whitelist_*`; (3) `mint` with non-whitelisted recipient aborts; (4) `burn` via clawback flow; (5) `seize` source-not-whitelisted + dest-whitelisted path; (6) `approve_transfer` negative matrix (amount=0, paused, sender/receiver not whitelisted, stale version). Use `/move-tests` to scaffold."
+    ],
+    "descriptions": [
+      "The three new Move modules (`pas_admin`, `pas_supply`, `pas_transfer`) and the treasury PAS additions have zero test coverage. No `#[test]` or `#[test_only]` helpers exist for any PAS path. Only pre-existing phase-1 test helpers (`create_for_testing`, `share_for_testing`) remain.",
+      "Zero `#[test]` functions for any new PAS module. The three new modules (pas_admin, pas_supply, pas_transfer) and the PAS extensions to treasury.move have no automated tests."
+    ],
+    "impacts": [
+      "Critical paths are un-exercised: whitelist add/remove, send/receive gating, mint with receive check, burn via clawback, seize flow, register duplicate prevention, template registration. Regressions during upgrades will not be caught.",
+      "Regressions in whitelist gating, witness wiring, seize asymmetry, burn flow, and template registration can ship to mainnet undetected."
+    ],
+    "evidence": "module hadron::pas_admin;\n\nuse hadron::auth::{Auth, TreasuryAuth};\nuse hadron::events;\nuse hadron::pas_supply::ClawbackApproval;",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-006",
+      "R5-013"
+    ]
+  },
+  {
+    "cluster_id": "C013",
+    "title": "Auth<WhitelistManagePermission, T> binds to T via is_coin_registered — sufficient but implicit",
+    "file": "sources/pas_admin.move",
+    "line_ranges": [
+      "70-109",
+      "70-98"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      2,
+      4
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "access-control"
+    ],
+    "recommendations": [
+      "In each of the four `pas_admin` whitelist functions, add `assert!(treasury.is_pas_coin<T>(), ENotPasCoin);` before calling the treasury mutator. The `ENotPasCoin` error already exists in treasury.move (line 67).",
+      "Add a SECURITY docstring on `Auth<P, T>` explaining that treasury binding relies on TreasuryCap<T> uniqueness, and that any change allowing multiple treasuries to register the same T would break this invariant. Consider embedding treasury_id in Auth<P, T> as defense-in-depth."
+    ],
+    "descriptions": [
+      "The four whitelist functions take `_: &Auth<WhitelistManagePermission, T>`. `auth::new_auth` creates that proof after asserting `treasury.is_coin_registered<T>()` (i.e. a TreasuryCap DOF exists) — but it does NOT assert `treasury.is_pas_coin<T>()`. An operator with WhitelistManagePermission for a role attached to a regulated (non-PAS) coin T could mint the proof and attempt whitelist mutations, aborting deep in DOF borrow_mut for a missing whitelist DOF.",
+      "Each of the four whitelist functions takes `_: &Auth<WhitelistManagePermission, T>`. Per auth.move line 42, `new_auth<P, T>` asserts `treasury.is_coin_registered<T>()`. So the Auth proof implicitly binds T to a registered coin in THIS treasury. However, the Auth proof carries only `addr: address` (auth.move line 23) — NOT the treasury_id. Hadron relies on the `Auth<P, T>` phantom pair for treasury binding (via the Sui-OTW-uniqueness argument: `TreasuryCap<T>` is unique per OTW per package). Surface this implicit guarantee for audit."
+    ],
+    "impacts": [
+      "User-facing error message will be a framework-level 'dynamic field not found' rather than a Hadron-defined error. Debugging burden shifts to the operator. No safety bypass — the DOF simply doesn't exist.",
+      "None in isolation. Depends on the OTW-uniqueness invariant holding. If a coin T were somehow registered in two different treasuries (which should be impossible given TreasuryCap uniqueness), the Auth proof from one could act on the other. Within the Hadron design, this should never happen."
+    ],
+    "evidence": "public fun add_to_whitelist<T>(\n    treasury: &mut Treasury,\n    _: &Auth<WhitelistManagePermission, T>,\n    addr: address,\n) {\n    treasury.add_to_whitelist<T>(addr);\n    events::emit_whitelist_added<T>(addr);\n}",
+    "confidence_spread": [
+      "high",
+      "medium"
+    ],
+    "source_ids": [
+      "R2-002",
+      "R4-010"
+    ]
+  },
+  {
+    "cluster_id": "C019",
+    "title": "treasury::add_pas_coin_caps allows registering a cap without registering a PAS policy",
+    "file": "sources/treasury.move",
+    "line_ranges": [
+      "257-261",
+      "241-264"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      2,
+      3
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "object-model"
+    ],
+    "recommendations": [
+      "Confirm that using DOF (not DF) is the intended storage for the whitelist, given each Table is a shared-by-parent first-class object. Document.",
+      "Add a package-level comment requiring callers to configure the policy before storing. Or make this function private and expose only via `register_pas_asset`. Consider `#[allow(lint(public_mut_uid_mut))]` or similar to document invariants."
+    ],
+    "descriptions": [
+      "The whitelist `Table<address, WhitelistEntry>` is stored as a `dynamic_object_field` (DOF). `Table` is an owned `store` struct but it is NOT a `key`-abilities object — storing it via `dynamic_object_field::add` requires the value to have `key + store`. Confirm against the Sui framework: `sui::table::Table<K, V>` IS `has key, store` (it IS a first-class object with a UID). So storing via DOF is correct. Surfacing for cross-check.",
+      "`add_pas_coin_caps` is `public(package)` and stores `TreasuryCap`, `MetadataCap`, `PolicyCap`, and a whitelist Table in the Treasury. It does NOT verify that the PolicyCap corresponds to a Policy<Balance<T>> that has been configured with TransferApproval/ClawbackApproval. If a caller skipped the policy setup (e.g. bypassed pas_admin), the DOFs would be inconsistent: a PolicyCap stored but the Policy un-configured."
+    ],
+    "impacts": [
+      "None if DOF is correct. If it were DF instead, the Table would not have a derived address — it matters for framework introspection, not correctness here.",
+      "Inside the package, `pas_admin::register_pas_asset` is the only caller today, and it always configures the policy before calling this. Risk is constrained to the `public(package)` boundary — future callers could forget."
+    ],
+    "evidence": "public(package) fun add_pas_coin_caps<T>(\n    treasury: &mut Treasury,\n    treasury_cap: TreasuryCap<T>,\n    metadata_cap: MetadataCap<T>,\n    policy_cap: PolicyCap<Balance<T>>,\n    ctx: &mut TxContext,\n) {",
+    "confidence_spread": [
+      "medium"
+    ],
+    "source_ids": [
+      "R2-008",
+      "R3-007"
+    ]
+  },
+  {
+    "cluster_id": "C023",
+    "title": "scripts/src/operations/pas.ts has no function to seize — on-chain seize exposed, off-chain script not",
+    "file": "scripts/src/operations/pas.ts",
+    "line_ranges": [
+      "99-112",
+      "70-87",
+      "1-236"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      1,
+      5
+    ],
+    "max_severity": "medium",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Pull the coin registry object ID from `CONSTANTS` or a shared `framework.ts` module that centralizes well-known addresses. At minimum, add a `// TODO:` comment citing the Sui framework address source.",
+      "Use the SDK's `parseStructTag` or `normalizeStructTag` to compare canonical type identifiers. At minimum, assert `t.startsWith('0x2::coin::TreasuryCap<')` and `t.startsWith('0x2::coin_registry::MetadataCap<')`.",
+      "Add `seizePasTokens` and `burnPasTokens` TS helpers that construct the prerequisite clawback request via `pasClient.call.clawbackBalance` and then call the hadron approve."
+    ],
+    "descriptions": [
+      "`deployAndRegisterPasAsset` hard-codes the coin registry object ID as `'0xc'` and module package as `'0x2'`. While these are stable framework addresses today, embedding them magic-string-style in operation code makes network or framework migration riskier.",
+      "The helper classifies created objects by substring-matching on the raw type string (`t.includes('::coin::TreasuryCap<')`, `::coin_registry::MetadataCap<`, `::coin_registry::Currency<`). Any rename or module namespacing change in the coin-registry framework will break extraction silently.",
+      "The TypeScript operations expose register, whitelist, mint — but not seize or burn. On-chain `pas_supply::seize` and `pas_supply::burn` are available but have no client-side helper. Operators must hand-craft the PTB."
+    ],
+    "impacts": [
+      "Low — these values are stable across networks in practice. But any future coin registry relocation or testnet variation would silently break deploy.",
+      "Deploy silently picks the wrong object ID and the subsequent `register_pas_asset` call passes a bogus cap, aborting deep in the Move runtime. Debugging this from a script trace is hard.",
+      "Operational friction. Not a safety issue."
+    ],
+    "evidence": "        if (t.includes('::coin::TreasuryCap<')) treasuryCapObjectId = obj.objectId;\n        else if (t.includes('::coin_registry::MetadataCap<')) metadataCapObjectId = obj.objectId;\n        else if (t.includes('::coin_registry::Currency<')) currencyObjectId = obj.objectId;",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-004",
+      "R1-012",
+      "R5-014"
+    ]
+  },
+  {
+    "cluster_id": "C024",
+    "title": "mintPasTokens passes u64 amount as JS `number` — precision truncation risk > 2^53",
+    "file": "scripts/src/operations/pas.ts",
+    "line_ranges": [
+      "205-231",
+      "143-203"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      1,
+      5
+    ],
+    "max_severity": "medium",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Change `amount: number` to `amount: bigint` and pass it to the Move call as a `bigint` (the Sui TS SDK accepts bigints for u64 pure inputs). Mirror the existing treatment of `amount` elsewhere in the scripts.",
+      "Add `setWhitelistSend(treasuryId, coinType, addr, enabled)` and `setWhitelistReceive(...)` TS helpers."
+    ],
+    "descriptions": [
+      "`mintPasTokens(treasuryId, coinType, accountId, amount: number)` types `amount` as JS `number`. JavaScript numbers are IEEE-754 doubles — safe integers only up to 2^53 - 1 (~9.007e15). A u64 mint amount can exceed this and silently truncate during BCS serialization.",
+      "`addToWhitelist` and `removeFromWhitelist` are exposed, but `set_whitelist_send` and `set_whitelist_receive` (on-chain) have no corresponding TS wrapper. An operator wanting to toggle send-only / receive-only for an address must hand-craft."
+    ],
+    "impacts": [
+      "Large-amount mints are silently corrupted. For institutional stablecoin bond tokens with 6-decimal fractionalisation, amounts above ~9 billion full tokens lose precision.",
+      "Operational gap."
+    ],
+    "evidence": "export async function mintPasTokens(\n    treasuryId: string,\n    coinType: string,\n    accountId: string,\n    amount: number,\n) {",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-005",
+      "R5-015"
+    ]
+  },
+  {
+    "cluster_id": "C027",
+    "title": "approve_transfer couples pause-of-mint-redeem to pause-of-transfers",
+    "file": "sources/pas_transfer.move",
+    "line_ranges": [
+      "33-50",
+      "48-48"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      1,
+      5
+    ],
+    "max_severity": "medium",
+    "min_severity": "info",
+    "disputed_severity": true,
+    "categories": [
+      "correctness"
+    ],
+    "recommendations": [
+      "Either (a) introduce a separate per-coin transfer pause flag and permission (`PauseTransferPermission`), or (b) explicitly document in the module docstring that mint/redeem pause doubles as a transfer pause. The second option is cheap and may be acceptable per design — surface the choice.",
+      "Record walkthrough."
+    ],
+    "descriptions": [
+      "`approve_transfer` asserts `!treasury.is_mint_redeem_paused<T>()` — using the mint/redeem pause flag to also halt transfers. There is no separate `transfer_paused` state. This conflates two operational concerns: issuer halting new supply vs blocking secondary transfers.",
+      "Upstream `pas::request::Request::approve<K, U>` uses `VecSet.insert` which ABORTS on duplicate. So a second `request.approve(TransferApproval<T>())` on the same request would abort. A malicious caller attempting double-approval to confuse the state fails safely."
+    ],
+    "impacts": [
+      "Operationally, a regulator pausing mint/redeem for an institutional event also halts all secondary transfers of the token. This may be intended but is not documented; if not, it prevents settlement activity while compliance work happens.",
+      "No bypass."
+    ],
+    "evidence": "    assert!(amount > 0, ETransferAmountZero);\n    assert!(!treasury.is_mint_redeem_paused<T>(), EMintRedeemPaused);\n    treasury.assert_can_send<T>(sender);\n    treasury.assert_can_receive<T>(recipient);",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-009",
+      "R5-003"
+    ]
+  },
+  {
+    "cluster_id": "C001",
+    "title": "@mysten/pas dependency uses caret range ^0.0.3 — unstable 0.x versioning",
+    "file": "scripts/package.json",
+    "line_ranges": [
+      "14-14"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      0
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Pin exactly: `\"@mysten/pas\": \"0.0.3\"` (no caret). Document the compatibility matrix with the on-chain PAS rev in the README."
+    ],
+    "descriptions": [
+      "The `@mysten/pas` client is pinned to `^0.0.3`. npm's caret for 0.x versions allows patch and minor bumps (up to but not including 0.1.0 per npm semver, but effectively any 0.0.x is allowed under some resolvers). An unstable pre-1.0 package should be pinned exactly to avoid silent upgrades that change template derivation or account address computation."
+    ],
+    "impacts": [
+      "Drifting client version could break autoresolve template wiring (mismatch between on-chain PAS rev pinned in lockfile vs client version). Silent breakage at runtime."
+    ],
+    "evidence": "\"@mysten/bcs\": \"^2.0.3\",\n    \"@mysten/move-bytecode-template\": \"^0.3.0\",\n    \"@mysten/pas\": \"^0.0.3\",\n    \"@mysten/sui\": \"^2.4.0\",",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R0-001"
+    ]
+  },
+  {
+    "cluster_id": "C011",
+    "title": "Template autoresolve breaks after Hadron package upgrade — requires manual fix",
+    "file": "sources/pas_admin.move",
+    "line_ranges": [
+      "134-150"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      1
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "versioning"
+    ],
+    "recommendations": [
+      "Document in `pas_admin.move` module docstring that `update_transfer_template<T>` MUST be called for every registered PAS coin after any package upgrade. Add a runbook/checklist to the README. Consider a `bulk_update_transfer_templates(templates, version, vector<TypeName>)` helper to reduce operational load."
+    ],
+    "descriptions": [
+      "The autoresolve template command is registered with `approval_type.address_string()` which resolves to the Hadron package address at the time of registration. After an upgrade, the new package has a different address — clients auto-resolving with the stored template will call the OLD package's `pas_transfer::approve_transfer`, which may still work but is an inversion of 'upgrade-first' semantics."
+    ],
+    "impacts": [
+      "Post-upgrade, transfers continue to call the old package. If the old package is version-blocked via `Version::check_is_valid`, transfers abort across the board until `update_transfer_template` is manually called by an operator with RegisterCoinPermission, per PAS asset T."
+    ],
+    "evidence": "    let cmd = ptb::move_call(\n        approval_type.address_string().to_string(),\n        b\"pas_transfer\".to_string(),\n        b\"approve_transfer\".to_string(),",
+    "confidence_spread": [
+      "medium"
+    ],
+    "source_ids": [
+      "R1-007"
+    ]
+  },
+  {
+    "cluster_id": "C038",
+    "title": "pas_supply::mint does not check account.versioning matches namespace — stale account accepted",
+    "file": "sources/pas_supply.move",
+    "line_ranges": [
+      "39-51"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      4
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "versioning"
+    ],
+    "recommendations": [
+      "Add `version.check_is_valid()` (Hadron Version) at the top of `mint<T>`, `burn<T>`, `seize<T>`. The Auth proof already checked, but a belt-and-suspenders guard documents the invariant."
+    ],
+    "descriptions": [
+      "Upstream `pas::account::deposit_balance<C>` calls `account.versioning.assert_is_valid_version()` internally (account.move line 128). So a stale account aborts at deposit. Hadron-side does not re-check. This is acceptable because the upstream does, but if PAS refactors deposit_balance to not assert, the check is lost."
+    ],
+    "impacts": [
+      "Defense-in-depth gap. Currently upstream protects us."
+    ],
+    "evidence": "public fun mint<T>(\n    treasury: &mut Treasury,\n    _: &Auth<MintPermission, T>,\n    account: &Account,\n    amount: u64,\n) {\n    assert!(amount > 0, EMintAmountZero);\n    treasury.assert_mint_redeem_enabled<T>();",
+    "confidence_spread": [
+      "medium"
+    ],
+    "source_ids": [
+      "R4-003"
+    ]
+  },
+  {
+    "cluster_id": "C045",
+    "title": "No e2e script test exercising transfer — autoresolve path untested",
+    "file": "scripts/src/examples/full-setup.ts",
+    "line_ranges": [
+      "108-118"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      4
+    ],
+    "max_severity": "medium",
+    "min_severity": "medium",
+    "disputed_severity": false,
+    "categories": [
+      "testing"
+    ],
+    "recommendations": [
+      "Add a CI-runnable script test that: (1) deploys a local sui network (or forks testnet), (2) deploys Hadron + registers a PAS coin + whitelists, (3) calls sendBalance via PASClient, (4) asserts the transfer completed and `PasTransferApproved` event was emitted."
+    ],
+    "descriptions": [
+      "`full-setup.ts` demonstrates a PAS transfer via `pasClient.call.sendBalance`, but this is a runtime demo, not a test. There is no automated integration test that verifies the autoresolve template actually wires up correctly. A template-registration regression (wrong package address, wrong module name, wrong type args) would break autoresolve silently until a real user transfers."
+    ],
+    "impacts": [
+      "Template misconfiguration is caught only at first transfer attempt post-deploy — high-friction regression surface."
+    ],
+    "evidence": "    console.log(`Transferring 100000 HBOND from ${sender} to ${receiver}...`);\n    const transferTx = new Transaction();\n    transferTx.add(pasClient.call.sendBalance({",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R4-013"
+    ]
+  },
+  {
+    "cluster_id": "C015",
+    "title": "pas_admin::register_pas_asset passes mut TreasuryCap to PAS without using it downstream",
+    "file": "sources/pas_admin.move",
+    "line_ranges": [
+      "30-45",
+      "42-47",
+      "35-35",
+      "5-23"
+    ],
+    "agreement_count": 3,
+    "reviewers": [
+      3,
+      4,
+      5
+    ],
+    "max_severity": "low",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "move-quality",
+      "integration-boundary",
+      "object-model"
+    ],
+    "recommendations": [
+      "Leave as-is — confirmed correct. Add a docstring noting why `mut` is needed (to pass `&mut` downstream).",
+      "No action; boundary is current. Record as validated.",
+      "Document the contention point. For high-volume issuance flows, ensure the PTB that registers PAS assets is not batched with other `&mut Namespace` consumers.",
+      "No action."
+    ],
+    "descriptions": [
+      "`mut treasury_cap: TreasuryCap<T>` is declared `mut` but the only use of it is `&mut treasury_cap` as an argument to `pas::policy::new_for_currency(_cap: &mut TreasuryCap<C>, ...)`. After that, treasury_cap is passed by value into `treasury.add_pas_coin_caps`. The `mut` binding is needed only because `&mut treasury_cap` is taken. Move 2024 idiom allows this but it's worth noting the rebinding pattern is correct.",
+      "`pas::policy::new_for_currency<C>(namespace: &mut Namespace, _cap: &mut TreasuryCap<C>, clawback_allowed: bool)` takes a `&mut TreasuryCap<C>` but the argument is prefixed `_cap` — signaling unused in policy.move. Confirmed in upstream L43-68: the cap is borrowed only as proof of currency ownership; no mutation happens. Passing `&mut treasury_cap` from Hadron is therefore safe but possibly surprising.",
+      "`register_pas_asset` takes `pas_namespace: &mut Namespace`. The PAS Namespace is a shared singleton (one per deployment). Every PAS registration across all Hadron institutions serializes on this object.",
+      "`pas_admin` uses `hadron::pas_transfer::transfer_approval_permit<T>()` inside `register_transfer_template`. The use is correct (needs the permit witness), but creates a one-way dependency from pas_admin → pas_transfer. pas_transfer has no dependency on pas_admin. Clean dependency graph."
+    ],
+    "impacts": [
+      "None.",
+      "None on correctness. A future PAS version might change the contract.",
+      "Sequential throughput bottleneck for PAS asset registration. Registration is rare, so this is acceptable.",
+      "None — good architecture."
+    ],
+    "evidence": "public fun register_pas_asset<T>(\n    treasury: &mut Treasury,\n    auth: &TreasuryAuth<RegisterCoinPermission>,\n    mut treasury_cap: TreasuryCap<T>,",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R3-005",
+      "R4-004",
+      "R4-011",
+      "R5-008"
+    ]
+  },
+  {
+    "cluster_id": "C025",
+    "title": "registerPasAsset script does not verify TreasuryCap has zero supply",
+    "file": "scripts/src/operations/pas.ts",
+    "line_ranges": [
+      "11-11",
+      "13-46",
+      "18-46"
+    ],
+    "agreement_count": 3,
+    "reviewers": [
+      1,
+      3,
+      4
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Remove `as any` and fix the underlying type mismatch. If PASClient expects a different client shape, extract an adapter in `utils.ts`.",
+      "Query the TreasuryCap object before submission and assert `total_supply == 0`. Fail fast off-chain with a helpful error.",
+      "Audit `utils.ts:signAndExecute` for a sensible default budget, and allow per-call override. Document the expected budget for the combined PTB."
+    ],
+    "descriptions": [
+      "`new PASClient({ suiClient: getClient(NETWORK) as any })` silences the TS type check via `as any`. Either the SuiClient type from `@mysten/sui` is not what PASClient expects, or the PASClient type signature is too loose. Hiding the gap behind `any` makes SDK-version drift invisible.",
+      "The TS helper accepts `treasuryCapObjectId` as a string and forwards it. The Move-side `add_pas_coin_caps` enforces `treasury_cap.total_supply() == 0`, but the script has no pre-flight check. A failure surfaces as an on-chain abort (gas paid, PTB failed).",
+      "The PAS operation scripts don't set an explicit gas budget. They rely on `signAndExecute` (in utils.ts) to supply a default. For complex PTBs involving multiple Move calls (e.g. deployAndRegisterPasAsset combines finalize_registration + registerPasAsset in one PTB), the default budget may be too low on mainnet under congestion."
+    ],
+    "impacts": [
+      "Type-level guarantees absent; an SDK bump could silently break runtime.",
+      "Wasted gas on a doomed registration. Slightly worse operator experience.",
+      "Occasional gas underestimation; easy to diagnose."
+    ],
+    "evidence": "export async function registerPasAsset(\n    treasuryId: string,\n    coinType: string,\n    caps: { treasuryCapObjectId: string; metadataCapObjectId: string },\n) {",
+    "confidence_spread": [
+      "high",
+      "medium"
+    ],
+    "source_ids": [
+      "R1-015",
+      "R3-012",
+      "R4-015"
+    ]
+  },
+  {
+    "cluster_id": "C034",
+    "title": "pas_supply::burn creates coin from balance for the sole purpose of calling .burn",
+    "file": "sources/pas_supply.move",
+    "line_ranges": [
+      "76-82",
+      "55-72",
+      "63-64"
+    ],
+    "agreement_count": 3,
+    "reviewers": [
+      1,
+      3,
+      4
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "move-quality"
+    ],
+    "recommendations": [
+      "Align signatures. Either both take `&Treasury` (if no mutation) or both take `&mut Treasury`. Given both are admin actions that might later emit aggregated state, `&mut Treasury` is the safer default.",
+      "If `sui::coin::balance_burn` (or equivalent) exists in the current framework, use it directly. Otherwise, keep as-is but add a comment.",
+      "Bind `let d = request.data();` once."
+    ],
+    "descriptions": [
+      "`seize<T>` takes `treasury: &Treasury` (immutable), while `burn<T>` takes `treasury: &mut Treasury`. Neither function directly mutates treasury (both go through policy-gated clawback), but the inconsistency is confusing. If a future change wants to mutate a state on seize, the signature must change.",
+      "`burn<T>` receives a `Balance<T>` from `clawback_funds::resolve`, wraps it as a `Coin<T>` via `coin::from_balance`, then calls `TreasuryCap::burn`. A direct `coin::balance_burn<T>(treasury_cap, balance)` or the equivalent framework API avoids the temporary coin creation.",
+      "Same pattern as R4-007 in burn: `let from = request.data().owner();` + `let amount = request.data().funds().value();`."
+    ],
+    "impacts": [
+      "Readability / future-proofing. Not a correctness bug.",
+      "Minor. Slight gas overhead per burn. Temporary Coin<T> object ID allocation.",
+      "Negligible."
+    ],
+    "evidence": "    request.approve(ClawbackApproval<T>());\n    let balance = clawback_funds::resolve(request, policy);\n    let c = coin::from_balance(balance, ctx);\n    treasury.treasury_cap_mut<T>().burn(c);",
+    "confidence_spread": [
+      "medium",
+      "high"
+    ],
+    "source_ids": [
+      "R1-010",
+      "R3-006",
+      "R4-008"
+    ]
+  },
+  {
+    "cluster_id": "C003",
+    "title": "token_template_pas/Move.toml lists empty [dependencies] section",
+    "file": "token_template_pas/Move.toml",
+    "line_ranges": [
+      "5-6",
+      "1-20"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      0,
+      5
+    ],
+    "max_severity": "low",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "move-quality"
+    ],
+    "recommendations": [
+      "Remove the `[dependencies]` header, or add an inline comment: '# std and sui framework supplied implicitly'.",
+      "Check manually and update to edition = \"2024\" if still beta. Keep deps minimal."
+    ],
+    "descriptions": [
+      "`[dependencies]` is declared but empty. The Move toolchain supplies std / sui framework implicitly. An empty section is stylistically noisy; either omit the section or populate explicitly for clarity.",
+      "The new `token_template_pas` package has its own Move.toml. Confirm edition value and that deps list is minimal (only Sui framework, no PAS needed since the template itself doesn't reference PAS)."
+    ],
+    "impacts": [
+      "None.",
+      "Low."
+    ],
+    "evidence": "[package]\nname = \"token_template_pas\"\nedition = \"2024\"\n\n[dependencies]",
+    "confidence_spread": [
+      "high",
+      "low"
+    ],
+    "source_ids": [
+      "R0-002",
+      "R5-011"
+    ]
+  },
+  {
+    "cluster_id": "C008",
+    "title": "Move.toml edition is `2024.beta` — should be `2024`",
+    "file": "Move.toml",
+    "line_ranges": [
+      "4-4"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      2,
+      5
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "move-quality"
+    ],
+    "recommendations": [
+      "Change to `edition = \"2024\"`. Also update `token_template_pas/Move.toml` and `token_template/Move.toml` if they carry the same value.",
+      "Change to `edition = \"2024\"`. Also check `token_template_pas/Move.toml`."
+    ],
+    "descriptions": [
+      "`edition = \"2024.beta\"` was used during the 2024 edition preview. Per the globally-adopted convention and Mysten CLAUDE.md, Move packages should declare `edition = \"2024\"` after the preview period ended.",
+      "Edition value `2024.beta` is the preview-period identifier. Should be `2024` for the released edition."
+    ],
+    "impacts": [
+      "Low. `2024.beta` may still be accepted by the current toolchain but may be deprecated later.",
+      "Low. Toolchain may deprecate beta identifier."
+    ],
+    "evidence": "[package]\nname = \"hadron\"\nversion = \"0.1.0\"\nedition = \"2024.beta\"",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-010",
+      "R5-010"
+    ]
+  },
+  {
+    "cluster_id": "C042",
+    "title": "PAS events use phantom T but no treasury_id — cross-treasury disambiguation",
+    "file": "sources/events.move",
+    "line_ranges": [
+      "89-131",
+      "91-131"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      1,
+      3
+    ],
+    "max_severity": "low",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "events"
+    ],
+    "recommendations": [
+      "Either (a) keep current design and document the coin→treasury invariant in the README for indexer authors, or (b) add `treasury_id: ID` to the PAS events for indexer ergonomics.",
+      "Document in the README or event module docstring that T uniquely identifies the treasury (via OTW uniqueness). Suggest indexer pattern: build a coin-type → treasury-id map from `PasAssetRegistered<T>` events at index-time."
+    ],
+    "descriptions": [
+      "PAS events (`PasAssetRegistered`, `WhitelistAdded`, `WhitelistRemoved`, `PasTransferApproved`, `PasMinted`, `PasBurned`, `PasSeized`, `WhitelistSendUpdated`, `WhitelistReceiveUpdated`) carry only `phantom T` and per-event payload, never the treasury ID. Multi-institution indexers cannot disambiguate events by treasury without re-deriving from the phantom T (which identifies the coin, but coin → treasury mapping requires an extra lookup).",
+      "Nine new PAS events are parameterised only by phantom T. Multi-institution indexers relying on event decomposition must correlate T → Treasury via external state. The pattern matches phase-1 events for coin-scoped facts (CoinRegistered<T>, Minted<T>, etc.) — so this is internally consistent."
+    ],
+    "impacts": [
+      "Indexers must maintain a coin-type → treasury-id index. Spec (Hadron Blueprint) says coin-scoped events use phantom T because T uniquely identifies the coin/treasury via the OTW — so this is spec-aligned, not a bug. Surface as observation.",
+      "None intrinsic. Indexer effort grows with institution count."
+    ],
+    "evidence": "public struct PasTransferApproved<phantom T> has copy, drop {\n    sender: address,\n    recipient: address,\n    amount: u64,\n}",
+    "confidence_spread": [
+      "medium",
+      "high"
+    ],
+    "source_ids": [
+      "R1-014",
+      "R3-009"
+    ]
+  },
+  {
+    "cluster_id": "C002",
+    "title": "PAS scripts import @mysten/pas — ensure version pinned",
+    "file": "scripts/package.json",
+    "line_ranges": [
+      "1-1"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      4
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Pin `@mysten/pas` to an exact version in package.json (not a caret range). Document the compatibility matrix in the README. Validate at test time via `pasClient.getPackageConfig().namespaceId` — assert it matches the on-chain namespace you expect."
+    ],
+    "descriptions": [
+      "`scripts/src/operations/pas.ts` imports `PASClient` from `@mysten/pas`. The `@mysten/pas` TS client must match the on-chain PAS rev. A mismatch (e.g. client v0.3 + on-chain b64f0c5) could silently produce wrong template derivations or account address calculations."
+    ],
+    "impacts": [
+      "Out-of-band breakage if versions drift. Non-obvious."
+    ],
+    "evidence": "import { PASClient } from \"@mysten/pas\";\nimport deployPasTokenTemplate from \"../deployPasTokenTemplate\";",
+    "confidence_spread": [
+      "medium"
+    ],
+    "source_ids": [
+      "R4-002"
+    ]
+  },
+  {
+    "cluster_id": "C006",
+    "title": "getBytecode.ts embeds coin template bytecode as a hex string — provenance not documented",
+    "file": "scripts/src/deployPasTokenTemplate/getBytecode.ts",
+    "line_ranges": [
+      "3-4"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      0
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Add a script under `scripts/` that rebuilds `token_template_pas` and regenerates `BYTECODE_HEX`. Add a CI check that fails if the source has been modified without regenerating. At minimum, add a comment in getBytecode.ts citing the source file and a regeneration command."
+    ],
+    "descriptions": [
+      "The deploy helper ships a hard-coded 1.5 KB hex bytecode constant representing the compiled token_template_pas/sources/token_template.move. No comment or script records how this was generated, nor an invariant that it matches the source in `token_template_pas/`."
+    ],
+    "impacts": [
+      "Future edits to `token_template_pas/sources/token_template.move` will NOT update the bytecode — silent drift between source and deployed bytecode."
+    ],
+    "evidence": "const BYTECODE_HEX =\n    \"a11ceb0b060000000a01000c020c1e032a2604500805585a07b201e3010895036006f503450aba04050cbf044a0010010f0206020702110212000302000102070002040c01000105050200000a000100000b000200011308090003090d0e0100030c0b0c0102040d0701010c050e04050005060503040a030a02080007080500020b020108000b04010800010b04010800010608050105010b0201080002090005010a02010801010800070900020801080108010801070805020b030109000b02010900020b03010900070805010b040109001343757272656e6379496e697469616c697a65720b4d6574616461746143617006537472696e670e544f4b454e5f54454d504c4154450b5472656173757279436170095478436f6e7465787404636f696e0d636f696e5f72656769737472790b64756d6d795f6669656c640866696e616c697a6504696e69740d696e69745f7472656173757279156e65775f63757272656e63795f776974685f6f74770f7075626c69635f7472616e736665720673656e64657206737472696e670e746f6b656e5f74656d706c617465087472616e736665720a74785f636f6e7465787404757466380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020201060a020504544d504c0a020e0d54656d706c61746520436f696e0a021a1954656d706c61746520436f696e204465736372697074696f6e0a02090869636f6e5f75726c000201080100000000030e0b000a0111010c020a012e110638000b020b012e11063801020103000002130b000700070111020702110207031102070411020a0138020c020b0138030c030b020b030200",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R0-005"
+    ]
+  },
+  {
+    "cluster_id": "C012",
+    "title": "register_pas_asset missing version.check_is_valid() at entry",
+    "file": "sources/pas_admin.move",
+    "line_ranges": [
+      "30-67"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      1
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "versioning"
+    ],
+    "recommendations": [
+      "Add `version.check_is_valid();` at the top of `register_pas_asset` and `update_transfer_template` (which also relies on the auth-check). Costs one assertion per call; protects against future refactor regressions."
+    ],
+    "descriptions": [
+      "`register_pas_asset` does not call `version.check_is_valid()` directly. Version gating is enforced only via the prior `new_treasury_auth<RegisterCoinPermission>` call (which does check version). If a future refactor allows auth proofs to be created without going through that path, this function would silently accept stale versions."
+    ],
+    "impacts": [
+      "Defense-in-depth gap. Currently there is no concrete threat — the auth chain does check version."
+    ],
+    "evidence": "public fun register_pas_asset<T>(\n    treasury: &mut Treasury,\n    auth: &TreasuryAuth<RegisterCoinPermission>,\n    mut treasury_cap: TreasuryCap<T>,\n    metadata_cap: MetadataCap<T>,\n    pas_namespace: &mut Namespace,\n    templates: &mut Templates,\n    version: &Version,",
+    "confidence_spread": [
+      "medium"
+    ],
+    "source_ids": [
+      "R1-016"
+    ]
+  },
+  {
+    "cluster_id": "C016",
+    "title": "register_pas_asset does not emit a `PasPolicyConfigured<T>` event — only PasAssetRegistered",
+    "file": "sources/pas_admin.move",
+    "line_ranges": [
+      "48-67"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      5
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "events"
+    ],
+    "recommendations": [
+      "Either: (a) add events for each policy-shape change (`PasPolicyCreated`, `RequiredApprovalSet`, `TransferTemplateRegistered`), or (b) expand `PasAssetRegistered` to carry policy_id, required_approvals, template_keyed_by. Option (b) is cheaper."
+    ],
+    "descriptions": [
+      "The function sets 2 required approvals (TransferApproval, ClawbackApproval), shares the policy, adds caps, AND registers a template — but emits only one event (`PasAssetRegistered<T>`, emitted inside `add_pas_coin_caps`). Policy sharing, template registration, and required-approval settings produce no distinct audit trail."
+    ],
+    "impacts": [
+      "Indexer cannot reconstruct the policy configuration from events alone; must query on-chain state."
+    ],
+    "evidence": "    // Share the PAS policy\n    policy.share();\n\n    // Store caps and create whitelist in treasury\n    treasury.add_pas_coin_caps(treasury_cap, metadata_cap, policy_cap, ctx);\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R5-012"
+    ]
+  },
+  {
+    "cluster_id": "C018",
+    "title": "add_to_whitelist default has both can_send AND can_receive true",
+    "file": "sources/treasury.move",
+    "line_ranges": [
+      "315-322"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      2
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "access-control"
+    ],
+    "recommendations": [
+      "Offer a typed helper: `add_to_whitelist_with_perms<T>(treasury, addr, can_send: bool, can_receive: bool)` — forward the existing default to keep backward compat. Expose via `pas_admin` as a second function."
+    ],
+    "descriptions": [
+      "The package-internal helper `add_to_whitelist<T>` hard-codes `WhitelistEntry { can_send: true, can_receive: true }`. An operator who wants to add a receive-only (custody) or send-only (distribution) address must first call `add` and then immediately `set_whitelist_send(addr, false)` — a two-step dance that leaves an intermediate state where the address has both permissions."
+    ],
+    "impacts": [
+      "Operational gap. A PTB built by an operator can atomically do both steps, but a script that does them in separate transactions exposes a fleeting window of over-permission. For institutional bond tokens this is unlikely to be exploited, but the default-true bias is worth flagging."
+    ],
+    "evidence": "public(package) fun add_to_whitelist<T>(treasury: &mut Treasury, addr: address) {\n    let wl: &mut Table<address, WhitelistEntry> = dynamic_object_field::borrow_mut(\n        &mut treasury.id,\n        keys::whitelist_key<T>(),\n    );\n    assert!(!wl.contains(addr), EAlreadyWhitelisted);\n    wl.add(addr, WhitelistEntry { can_send: true, can_receive: true });\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-007"
+    ]
+  },
+  {
+    "cluster_id": "C029",
+    "title": "approve_transfer emits event AFTER approve — event-before-resolve ordering",
+    "file": "sources/pas_transfer.move",
+    "line_ranges": [
+      "48-49"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      2
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "events"
+    ],
+    "recommendations": [
+      "Document in the event's docstring that it indicates the approval step only, not final settlement. Consider renaming the event to `PasTransferApprovalIssued` to make it semantically distinct."
+    ],
+    "descriptions": [
+      "`approve_transfer` emits `PasTransferApproved` immediately after `request.approve(TransferApproval<T>())`. The actual transfer resolves elsewhere (client-side PTB calls `send_funds::resolve_balance` after this). If the PTB aborts between `approve_transfer` and `resolve_balance`, the event fires but the transfer does NOT complete."
+    ],
+    "impacts": [
+      "An off-chain indexer seeing `PasTransferApproved` cannot conclude the transfer completed. Must correlate with `SendFunds` upstream events or observe on-chain balance changes."
+    ],
+    "evidence": "    request.approve(TransferApproval<T>());\n    events::emit_pas_transfer_approved<T>(sender, recipient, amount);\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-012"
+    ]
+  },
+  {
+    "cluster_id": "C030",
+    "title": "EMintRedeemPaused error message misleading — transfers are not mint/redeem",
+    "file": "sources/pas_transfer.move",
+    "line_ranges": [
+      "17-19"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      3
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "correctness"
+    ],
+    "recommendations": [
+      "Use a more specific error — e.g. `ETransfersPaused` with message 'Transfers are paused for this PAS asset (mint/redeem pause is active)'. Or define a dedicated transfer-pause flag (see R1-009)."
+    ],
+    "descriptions": [
+      "`EMintRedeemPaused` is abort with message 'Mint and redeem operations are paused for this PAS asset' — but the check runs in `approve_transfer`, i.e. blocks a TRANSFER. The error message will confuse a user who attempted a transfer and got told mint/redeem is paused."
+    ],
+    "impacts": [
+      "Error UX gap. Operators see a mismatched message."
+    ],
+    "evidence": "#[error]\nconst EMintRedeemPaused: vector<u8> = b\"Mint and redeem operations are paused for this PAS asset\";",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R3-004"
+    ]
+  },
+  {
+    "cluster_id": "C032",
+    "title": "approve_transfer uses request.data() 3 times — redundant data accessor calls",
+    "file": "sources/pas_transfer.move",
+    "line_ranges": [
+      "38-42"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      4
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "move-quality"
+    ],
+    "recommendations": [
+      "let d = request.data(); let sender = d.sender(); let recipient = d.recipient(); let amount = d.funds().value();"
+    ],
+    "descriptions": [
+      "`approve_transfer` calls `request.data()` three times to get sender, recipient, funds. A single `let d = request.data();` binding would be more idiomatic and allow the compiler to elide redundant method calls."
+    ],
+    "impacts": [
+      "Negligible. Style."
+    ],
+    "evidence": "    let sender = request.data().sender();\n    let recipient = request.data().recipient();\n    let amount = request.data().funds().value();",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R4-007"
+    ]
+  },
+  {
+    "cluster_id": "C041",
+    "title": "pkg() returns empty string if deploy-output missing — no runtime guard",
+    "file": "scripts/src/constants.ts",
+    "line_ranges": [
+      "63-65"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      1
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Add an early guard: `if (!CONSTANTS.package.latest && !CONSTANTS.package.v1) throw new Error('Hadron package not deployed — run bun run deploy first');`. Alternatively, log a warning at module load."
+    ],
+    "descriptions": [
+      "`pkg()` returns `CONSTANTS.package.latest || CONSTANTS.package.v1`, both of which default to `''` if no deploy-output is present. Downstream Move calls receive an empty `package: ''` and produce confusing SDK errors."
+    ],
+    "impacts": [
+      "Running a PAS operation before deploy completes or when `deploy-output.json` is missing gives a cryptic SDK error instead of an early, actionable error."
+    ],
+    "evidence": "export function pkg() {\n    return CONSTANTS.package.latest || CONSTANTS.package.v1;\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-013"
+    ]
+  },
+  {
+    "cluster_id": "C044",
+    "title": "full-setup.ts uses process.env.SIGNER_1_PK! non-null assertion without validation",
+    "file": "scripts/src/examples/full-setup.ts",
+    "line_ranges": [
+      "85-86"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      2
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Guard: `if (!process.env.SIGNER_1_PK) throw new Error('SIGNER_1_PK env var required for full-setup example');`. Do the same for any other non-null-asserted env var in this file."
+    ],
+    "descriptions": [
+      "`const pk1B64 = process.env.SIGNER_1_PK!;` uses the `!` non-null assertion. If the env var is unset, `pk1B64` is `undefined` and `fromBase64(undefined)` throws a runtime error. No early validation with a helpful message."
+    ],
+    "impacts": [
+      "Example script fails with a cryptic error. Not a production concern but hurts developer onboarding."
+    ],
+    "evidence": "    const pk1B64 = process.env.SIGNER_1_PK!;\n    const receiver = new Ed25519PublicKey(fromBase64(pk1B64).slice(1)).toSuiAddress();",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-013"
+    ]
+  },
+  {
+    "cluster_id": "C048",
+    "title": "deployAndRegisterPasAsset uses `objectTypes[obj.objectId]` without null check",
+    "file": "scripts/src/deployPasTokenTemplate/deployPasTokenTemplate.ts",
+    "line_ranges": [
+      "60-79"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      3
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "When `objectTypes[obj.objectId]` is missing, log the unexpected object and its metadata before continuing. Consider throwing early if any entry is missing."
+    ],
+    "descriptions": [
+      "After `const t = objectTypes[obj.objectId] ?? '';` the code branches on `t.includes('...')`. If `objectTypes` is missing an entry (e.g., SDK version changed the response shape), `t` is empty string and every branch silently falls through — the loop never assigns any object ID, and the subsequent assertion aborts with 'Failed to extract IDs' — OK, but the failure message is generic."
+    ],
+    "impacts": [
+      "Opaque failure during deploy."
+    ],
+    "evidence": "        const t = objectTypes[obj.objectId] ?? '';\n        if (t.includes('::coin::TreasuryCap<')) treasuryCapObjectId = obj.objectId;",
+    "confidence_spread": [
+      "medium"
+    ],
+    "source_ids": [
+      "R3-013"
+    ]
+  },
+  {
+    "cluster_id": "C049",
+    "title": "No test for supply::mint/redeem PAS-coin guard",
+    "file": "sources/supply.move",
+    "line_ranges": [
+      "34-51"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      3
+    ],
+    "max_severity": "low",
+    "min_severity": "low",
+    "disputed_severity": false,
+    "categories": [
+      "testing"
+    ],
+    "recommendations": [
+      "Add tests: (1) register PAS asset T; (2) attempt `supply::mint<T>` with a valid MintPermission Auth; expect abort with `EPasCoinNotAllowed`. Similarly for redeem."
+    ],
+    "descriptions": [
+      "The new guard `assert!(!treasury.is_pas_coin<T>(), EPasCoinNotAllowed);` in both `mint` and `redeem` has no associated negative test. A future refactor of the PAS storage keys could silently bypass this guard."
+    ],
+    "impacts": [
+      "If `is_pas_coin<T>` ever returns false for a PAS-registered coin (refactor bug), `supply::mint` would mint PAS coins bypassing whitelist + account flow, creating 'loose' tokens outside the PAS account model."
+    ],
+    "evidence": "    assert!(amount > 0, EMintAmountZero);\n    assert!(!treasury.is_pas_coin<T>(), EPasCoinNotAllowed);\n    treasury.assert_mint_redeem_enabled<T>();",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R3-008"
+    ]
+  },
+  {
+    "cluster_id": "C014",
+    "title": "register_transfer_template writes with type_name::with_defining_ids — consistent with PAS templates",
+    "file": "sources/pas_admin.move",
+    "line_ranges": [
+      "132-148",
+      "147-150"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      2,
+      4
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "integration-boundary"
+    ],
+    "recommendations": [
+      "No action. Noted for audit record.",
+      "No action. Documented."
+    ],
+    "descriptions": [
+      "`register_transfer_template` keys the template by `type_name::with_defining_ids<TransferApproval<T>>()`. Upstream `pas::templates::set_template_command<A>` keys by `type_name::with_defining_ids<A>()` (`/Users/alilloig/workspace/pas/packages/pas/sources/templates.move` line 31). Keys match. Good.",
+      "Upstream `pas::templates::set_template_command<A>` uses `dynamic_field::add(&mut templates.id, key, command)` (templates.move L41). The `Command` type is copy+drop+store. Storing as DF (not DOF) is correct because Command is not a key-abilities object. Validated."
+    ],
+    "impacts": [
+      "None — boundary correctness confirmed.",
+      "None."
+    ],
+    "evidence": "    let approval_type = type_name::with_defining_ids<TransferApproval<T>>();\n    let coin_type = type_name::with_defining_ids<T>();",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-015",
+      "R4-012"
+    ]
+  },
+  {
+    "cluster_id": "C037",
+    "title": "pas_supply::mint consumes Auth by reference but burn / seize take `mut request`",
+    "file": "sources/pas_supply.move",
+    "line_ranges": [
+      "39-52",
+      "21-28"
+    ],
+    "agreement_count": 2,
+    "reviewers": [
+      2,
+      3
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "move-quality"
+    ],
+    "recommendations": [
+      "Keep as-is; observation only.",
+      "Move the shared error constants to a single `hadron::errors` module (or to `supply.move` with a `public` visibility) and import from both. Minor refactor."
+    ],
+    "descriptions": [
+      "`mint<T>(.. _: &Auth<MintPermission, T>, account: &Account, ..)` takes `&Account` (immutable), but PAS `account::deposit_balance<C>` takes `&Account` too. That's fine. Observation: consistency across the three functions (mint/burn/seize) in their `mut`-ness is good.",
+      "`EMintAmountZero` is defined in BOTH `supply.move` (line 15) AND `pas_supply.move` (line 22), with the same message. Similar for EBurnAmountZero (pas_supply) vs ERedeemAmountZero (supply). Two constants for effectively the same error condition."
+    ],
+    "impacts": [
+      "None.",
+      "None functionally. Code duplication."
+    ],
+    "evidence": "#[error]\nconst EMintAmountZero: vector<u8> = b\"Mint amount must be greater than zero\";\n\n#[error]\nconst EBurnAmountZero: vector<u8> = b\"Burn amount must be greater than zero\";",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-011",
+      "R3-014"
+    ]
+  },
+  {
+    "cluster_id": "C004",
+    "title": "scripts/src/deployPasTokenTemplate/index.ts — trivial re-export",
+    "file": "scripts/src/deployPasTokenTemplate/index.ts",
+    "line_ranges": [
+      "1-3"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      0
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "No action."
+    ],
+    "descriptions": [
+      "The file is a trivial one-line re-export. No logic to review. Included only for coverage completeness."
+    ],
+    "impacts": [
+      "None."
+    ],
+    "evidence": "import { deployPasTokenTemplate } from './deployPasTokenTemplate'\n\nexport default deployPasTokenTemplate;",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R0-003"
+    ]
+  },
+  {
+    "cluster_id": "C005",
+    "title": "scripts/src/operations/index.ts — re-exports include PAS helpers; no validation",
+    "file": "scripts/src/operations/index.ts",
+    "line_ranges": [
+      "1-5"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      0
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Update as operation helpers are added for seize, burn, setWhitelistSend, setWhitelistReceive (see R5-014, R5-015)."
+    ],
+    "descriptions": [
+      "Trivial barrel file. Re-exports `registerPasAsset`, `deployAndRegisterPasAsset`, `addToWhitelist`, `removeFromWhitelist`, `mintPasTokens`. No seize/burn/setWhitelistSend/Receive — matches the gaps identified in R5-014 and R5-015."
+    ],
+    "impacts": [
+      "None per se; re-exports track the operation set."
+    ],
+    "evidence": "export { registerPasAsset, deployAndRegisterPasAsset, addToWhitelist, removeFromWhitelist, mintPasTokens } from './pas';",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R0-004"
+    ]
+  },
+  {
+    "cluster_id": "C020",
+    "title": "Whitelist Table uses copy-able WhitelistEntry — event emission cost",
+    "file": "sources/treasury.move",
+    "line_ranges": [
+      "233-237"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      3
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "move-quality"
+    ],
+    "recommendations": [
+      "No action. Good form."
+    ],
+    "descriptions": [
+      "`WhitelistEntry has copy, drop, store`. `copy` + `drop` is fine for a 2-byte (two bool) struct. `store` is required for Table storage. This is idiomatic."
+    ],
+    "impacts": [
+      "None."
+    ],
+    "evidence": "public struct WhitelistEntry has copy, drop, store {\n    can_send: bool,\n    can_receive: bool,\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R3-010"
+    ]
+  },
+  {
+    "cluster_id": "C021",
+    "title": "Treasury::Treasury struct lacks `store` ability — design choice",
+    "file": "sources/treasury.move",
+    "line_ranges": [
+      "74-77"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      4
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "object-model"
+    ],
+    "recommendations": [
+      "No action. Documented."
+    ],
+    "descriptions": [
+      "`public struct Treasury has key` (only). Without `store`, the Treasury cannot be wrapped in another struct as a field — which is intentional (institution treasuries are shared objects only). Confirmed."
+    ],
+    "impacts": [
+      "None."
+    ],
+    "evidence": "public struct Treasury has key {\n    id: UID,\n    roles: Roles,\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R4-006"
+    ]
+  },
+  {
+    "cluster_id": "C026",
+    "title": "Single WhitelistManagePermission replaces spec's Add+Remove split",
+    "file": "sources/permissions.move",
+    "line_ranges": [
+      "34-35"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      1
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "docs"
+    ],
+    "recommendations": [
+      "Either (a) split into separate permissions to match spec intent, or (b) update the Notion spec to reflect the simpler single-permission model. Document the rationale in the commit that introduced the permission."
+    ],
+    "descriptions": [
+      "The Notion PAS Modules spec specifies two distinct permissions: `WhitelistAddPermission` and `WhitelistRemovePermission`. Code introduces a single `WhitelistManagePermission` that covers add, remove, set_send, and set_receive."
+    ],
+    "impacts": [
+      "Principle-of-least-privilege weakens: an operator entrusted only to add addresses can also remove or suspend any address. Spec-vs-code drift may confuse downstream integrators relying on the Notion doc."
+    ],
+    "evidence": "// ============ PAS Whitelist ============\n\npublic struct WhitelistManagePermission {}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-008"
+    ]
+  },
+  {
+    "cluster_id": "C031",
+    "title": "pas_transfer checks treasury not mut — confirm approve_transfer never needs mutation",
+    "file": "sources/pas_transfer.move",
+    "line_ranges": [
+      "33-37"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      4
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "integration-boundary"
+    ],
+    "recommendations": [
+      "Keep. Note in module docstring that `approve_transfer` is read-only against the Treasury by design, allowing high-throughput transfers."
+    ],
+    "descriptions": [
+      "`approve_transfer` takes `treasury: &Treasury` (shared object reference, immutable). All four assertions (is_mint_redeem_paused, can_send, can_receive) are read-only. Since the Treasury is a shared object, using &Treasury is safer and non-contending for parallel execution."
+    ],
+    "impacts": [
+      "Positive — good for concurrency."
+    ],
+    "evidence": "public fun approve_transfer<T>(\n    treasury: &Treasury,\n    request: &mut Request<SendFunds<Balance<T>>>,\n    version: &Version,\n) {",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R4-005"
+    ]
+  },
+  {
+    "cluster_id": "C033",
+    "title": "Missing docs on hadron::pas_transfer::transfer_approval_permit visibility intent",
+    "file": "sources/pas_transfer.move",
+    "line_ranges": [
+      "53-56"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      4
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "docs"
+    ],
+    "recommendations": [
+      "Add a brief cross-reference: 'Called by pas_admin::register_transfer_template to satisfy pas::templates::set_template_command<A>(permit<A>, ...)'."
+    ],
+    "descriptions": [
+      "`transfer_approval_permit<T>` is `public(package)`. The existing comment says 'Must live here because `internal::permit` requires the defining module'. This is accurate — PAS `internal` crate's `permit<A>()` witness requires the call to originate from A's defining module. Good doc."
+    ],
+    "impacts": [
+      "None."
+    ],
+    "evidence": "/// Returns the permit for TransferApproval<T>. Must live here because\n/// `internal::permit` requires the defining module.\npublic(package) fun transfer_approval_permit<T>(): internal::Permit<TransferApproval<T>> {\n    internal::permit<TransferApproval<T>>()\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R4-009"
+    ]
+  },
+  {
+    "cluster_id": "C035",
+    "title": "pas_supply::seize can move tokens to a non-whitelisted recipient when source is seized",
+    "file": "sources/pas_supply.move",
+    "line_ranges": [
+      "76-93",
+      "55-72"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      2
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "access-control",
+      "correctness"
+    ],
+    "recommendations": [
+      "Add a module-level comment explaining the asymmetry: 'seize extracts from de-whitelisted source; destination MUST be whitelisted by compliance'. Matches the Notion spec.",
+      "Document in the module doc that burn extracts supply unilaterally once `RedeemPermission` is granted, and does not require the source to be whitelisted."
+    ],
+    "descriptions": [
+      "`seize<T>` asserts `treasury.assert_can_receive<T>(to.owner())` — the destination account must be whitelisted to receive. It does NOT check the source. This is deliberate (seize is meant to extract from de-whitelisted / sanctioned addresses), but surfaces the semantic: the seizer MUST already have whitelisted some holding account to be the target of seized funds.",
+      "`burn<T>` only checks `!is_mint_redeem_paused<T>` and `amount > 0` — not that the source (`request.data().owner()`) is or is not whitelisted. By design, burn goes through a prior `account::clawback_balance<T>` which requires no auth (it's admin-action-from-on-chain; see PAS account.move clawback_balance L95). So burn is a clawback → TreasuryCap burn. Safety comes from RedeemPermission gating."
+    ],
+    "impacts": [
+      "None on safety. Potentially confusing if a regulator assumes seize funds can go anywhere. Document.",
+      "None — by design, burn is an admin flow that extracts supply regardless of whitelist state."
+    ],
+    "evidence": "public fun burn<T>(\n    treasury: &mut Treasury,\n    _: &Auth<RedeemPermission, T>,\n    mut request: Request<ClawbackFunds<Balance<T>>>,\n    policy: &Policy<Balance<T>>,\n    ctx: &mut TxContext,\n) {\n    treasury.assert_mint_redeem_enabled<T>();\n    let from = request.data().owner();\n    let amount = request.data().funds().value();\n    assert!(amount > 0, EBurnAmountZero);",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-003",
+      "R2-006"
+    ]
+  },
+  {
+    "cluster_id": "C036",
+    "title": "ClawbackApproval<T> witness is `drop`-only; can be freely constructed in-module",
+    "file": "sources/pas_supply.move",
+    "line_ranges": [
+      "32-33"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      2
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "access-control"
+    ],
+    "recommendations": [
+      "Add a docstring on `ClawbackApproval<T>` noting 'only constructible inside this module; module-private use of burn/seize guards the witness'."
+    ],
+    "descriptions": [
+      "`ClawbackApproval<T>` is `public struct ClawbackApproval<phantom T>() has drop`. Anyone inside `hadron::pas_supply` can construct it via `ClawbackApproval<T>()` to satisfy the Policy's required-approval. The module's own access control (MintPermission / RedeemPermission / SeizePermission) is thus the only gate. This is the PAS-intended pattern (witness + module-scoping), so it's fine — but the observation needs to be stated explicitly for audit."
+    ],
+    "impacts": [
+      "No bypass. Just a reminder that the safety of burn/seize depends entirely on the Auth checks, not the witness."
+    ],
+    "evidence": "public struct ClawbackApproval<phantom T>() has drop;",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-004"
+    ]
+  },
+  {
+    "cluster_id": "C039",
+    "title": "PAS accounts are created permissionlessly (upstream) — any address can have an account",
+    "file": "sources/pas_supply.move",
+    "line_ranges": [
+      "39-51"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      5
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "integration-boundary"
+    ],
+    "recommendations": [
+      "No action. Validated."
+    ],
+    "descriptions": [
+      "Upstream `pas::account::create` (account.move L42) is permissionless. Anyone can create a PAS account for any address. Hadron's `pas_supply::mint<T>` asserts `account.owner()` is whitelisted before depositing — so minting into an unsanctioned account aborts. Good gating."
+    ],
+    "impacts": [
+      "None."
+    ],
+    "evidence": "    treasury.assert_can_receive<T>(account.owner());\n    let balance = treasury.treasury_cap_mut<T>().mint_balance(amount);\n    account.deposit_balance(balance);",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R5-009"
+    ]
+  },
+  {
+    "cluster_id": "C040",
+    "title": "token_template_pas uses same `module 0x0::token_template;` as regulated template",
+    "file": "token_template_pas/sources/token_template.move",
+    "line_ranges": [
+      "1-1"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      1
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Rename the module to e.g. `hadron::pas_token_template` (in `token_template_pas/`). Keep the regulated one as-is."
+    ],
+    "descriptions": [
+      "The non-regulated PAS token template declares the same `module 0x0::token_template;` as the existing `token_template/` module. Each is published as a separate package so 0x0 resolves differently on-chain, but the duplication hurts readability and tooling that inspects source."
+    ],
+    "impacts": [
+      "Low — per-package uniqueness is preserved. But a developer reading the repo may assume the two are the same file."
+    ],
+    "evidence": "module 0x0::token_template;\n\nuse sui::coin::TreasuryCap;\nuse sui::coin_registry::{Self, MetadataCap};",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R1-011"
+    ]
+  },
+  {
+    "cluster_id": "C043",
+    "title": "events.move `emit_pas_transfer_approved` called only from pas_transfer — cross-module emit ok",
+    "file": "sources/events.move",
+    "line_ranges": [
+      "217-219"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      5
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "events"
+    ],
+    "recommendations": [
+      "No action."
+    ],
+    "descriptions": [
+      "The emit helpers are `public(package)`, so only in-package modules can emit. pas_transfer and pas_supply both emit — consistent with phase-1 pattern."
+    ],
+    "impacts": [
+      "None."
+    ],
+    "evidence": "public(package) fun emit_pas_transfer_approved<T>(sender: address, recipient: address, amount: u64) {\n    event::emit(PasTransferApproved<T> { sender, recipient, amount });\n}",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R5-016"
+    ]
+  },
+  {
+    "cluster_id": "C046",
+    "title": "full-setup.ts mixes regulated and PAS flows — example becomes cluttered",
+    "file": "scripts/src/examples/full-setup.ts",
+    "line_ranges": [
+      "52-106"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      4
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "docs"
+    ],
+    "recommendations": [
+      "Split into `full-setup-regulated.ts` and `full-setup-pas.ts` (and optionally keep the combined `full-setup.ts` as an integration demo)."
+    ],
+    "descriptions": [
+      "The example demonstrates both a regulated-coin flow AND a PAS-asset flow in one script. Useful for documentation, but makes the file long and mixes concerns. A PAS-only example would be easier for partners integrating just the PAS path."
+    ],
+    "impacts": [
+      "None."
+    ],
+    "evidence": "    // =============================================\n    // REGULATED COIN FLOW (denylist-based compliance)\n    // =============================================",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R4-014"
+    ]
+  },
+  {
+    "cluster_id": "C047",
+    "title": "deployPasTokenTemplate.ts hard-codes dependencies [0x1, 0x2] — misses any 3rd-party stdlib",
+    "file": "scripts/src/deployPasTokenTemplate/deployPasTokenTemplate.ts",
+    "line_ranges": [
+      "20-25"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      2
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "scripts"
+    ],
+    "recommendations": [
+      "Add an inline comment explaining why only 0x1/0x2 are needed; cite the module's uses."
+    ],
+    "descriptions": [
+      "The publish transaction declares dependencies as `[0x1, 0x2]` only. Since the PAS token template only uses `sui::coin` and `sui::coin_registry`, this is sufficient today. If future template changes use the PAS framework directly, this list must be extended."
+    ],
+    "impacts": [
+      "None today."
+    ],
+    "evidence": "    dependencies: [\n      normalizeSuiObjectId(\"0x1\"),\n      normalizeSuiObjectId(\"0x2\"),\n    ],",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R2-014"
+    ]
+  },
+  {
+    "cluster_id": "C050",
+    "title": "Dead DenyCapKey in keys.move — not used by PAS",
+    "file": "sources/keys.move",
+    "line_ranges": [
+      "15-16"
+    ],
+    "agreement_count": 1,
+    "reviewers": [
+      3
+    ],
+    "max_severity": "info",
+    "min_severity": "info",
+    "disputed_severity": false,
+    "categories": [
+      "move-quality"
+    ],
+    "recommendations": [
+      "No action. Documented for audit record."
+    ],
+    "descriptions": [
+      "`DenyCapKey<phantom T>` was added for phase-1 regulated coins. PAS assets (per `add_pas_coin_caps`) do NOT register a DenyCap — compliance is via the whitelist. The key remains used by regulated coins, so this is not dead code overall — just noting that PAS and regulated coin paths diverge on this key."
+    ],
+    "impacts": [
+      "None."
+    ],
+    "evidence": "/// DOF key for DenyCapV2<T>.\npublic struct DenyCapKey<phantom T>() has copy, drop, store;",
+    "confidence_spread": [
+      "high"
+    ],
+    "source_ids": [
+      "R3-011"
+    ]
+  }
+]

@@ -1,0 +1,15 @@
+{
+  "reviews": [
+    {
+      "run_id": "eval-1-se-hadron-pas-integration-pr8-with_skill",
+      "feedback": "Looks great, my only objection would be that agents tend to focus too much on the absence of tests, whenever it is noticed that a PR lacks testing, is worth flagging it at the very beginning of the review, and maybe even create a plan for implementing test cases and e2e scenarios, but not creating several items on the review about testing. Same goes for dependencies versions. I want the skill to keep capture those in the same detail, but focussing the report prose on the code findings. Having dedicated sections for other matters on the report is okay, keeping the main structure focused on code rather than infra.\n\nThere's also a really important finding for the skill architecture here:\n\nTask subagent dispatch was unavailable in the orchestrator's runtime (deferred tool not resolvable). Phase 1 and Phase 3 agents were simulated by the orchestrator performing each reviewer's work independently against the same context bundle, with care to diversify perspective per reviewer. The _leader_shortlist.md pre-read and the final adjudication were kept separate to preserve the verification value. This note is included for full methodological transparency; a real multi-agent run with actual sub-agent dispatch would produce slightly different findings at the edges.\n\nThis means we have to use the main session as agent orchestrator, to be sure that most of the times ir will be able to actually dispatch subagents in parallel, if I'm not wrong.\n\n",
+      "timestamp": "2026-04-24T13:31:02.818Z"
+    },
+    {
+      "run_id": "eval-1-se-hadron-pas-integration-pr8-without_skill",
+      "feedback": "Curious, this seemed to perform poorer according to the benchmarks but H-5 seems quite important and wasn't find on the skill review. I feel like this review has also medium findings that are important, and probably is missing some from the with skill one, I believe is worth increasing the quantity of subagents to 10 since this is a critical task, and to do some investigation to fix that not all of them are being created as sui-pilot-agents, since enforcing access to the latest docs rather than relying on model training is critical for Sui development.",
+      "timestamp": "2026-04-24T13:31:02.818Z"
+    }
+  ],
+  "status": "in_progress"
+}

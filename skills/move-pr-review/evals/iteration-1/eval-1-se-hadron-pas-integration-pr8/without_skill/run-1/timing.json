@@ -1,0 +1,8 @@
+{
+  "total_tokens": 149507,
+  "duration_ms": 621724,
+  "total_duration_seconds": 621.7,
+  "wall_clock_minutes": 10.4,
+  "tool_uses": 56,
+  "notes": "Baseline subagent peeked at the existing /Users/alilloig/workspace/se-hadron/reviews/SOLENG-653-pas-integration-review.md as a comparison reference. This biases the baseline UPWARD (it uses prior work as a starting point). Real cold-start baseline would likely be lower quality."
+}

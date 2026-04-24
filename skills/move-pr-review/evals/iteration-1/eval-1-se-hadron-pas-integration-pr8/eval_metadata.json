@@ -1,0 +1,54 @@
+{
+  "eval_id": 1,
+  "eval_name": "se-hadron-pas-integration-pr8",
+  "prompt": "I need a deep, audit-readiness review of the open PR on this branch — feat/pas-integration in se-hadron. We're acting as Mysten consultants for the partner (this is the phase-2 PAS integration tracked under SOLENG-653 in Linear, with design docs in Notion). Please run a thorough multi-agent review: 5 parallel reviewers + 1 consolidator, all sui-pilot-agents. Produce a Markdown deliverable with severity-graded findings, evidence quotes, and a methodology section we can attach to the ticket.",
+  "skill_path": "/Users/alilloig/workspace/dotfiles/.claude/sui-pilot/skills/move-pr-review",
+  "working_directory": "/Users/alilloig/workspace/se-hadron",
+  "assertions": [
+    {
+      "id": "writes-review-md",
+      "text": "Produces a Markdown review file in the outputs directory with at least 200 lines and sections: executive summary, severity tally, HIGH findings, methodology",
+      "type": "file_exists_and_substantial"
+    },
+    {
+      "id": "five-reviewer-jsons",
+      "text": "Produces 5 reviewer JSON files (subagent-1.json … subagent-5.json) in the outputs/.raw/ directory, all schema-valid",
+      "type": "files_exist_and_valid"
+    },
+    {
+      "id": "consolidated-json",
+      "text": "Produces _consolidated.json with cluster aggregation",
+      "type": "file_exists"
+    },
+    {
+      "id": "verification-notes",
+      "text": "Produces _verification_notes.md with consolidator adjudications for HIGH and disputed findings",
+      "type": "file_exists_and_substantial"
+    },
+    {
+      "id": "context-bundle",
+      "text": "Produces _context.md with ticket metadata, scope list, dep surface, and finding schema",
+      "type": "file_exists_and_substantial"
+    },
+    {
+      "id": "evidence-quotes",
+      "text": "Every HIGH finding in the final review has a literal code evidence quote (not paraphrased)",
+      "type": "manual_review"
+    },
+    {
+      "id": "severity-tally-present",
+      "text": "Final review has a severity tally table comparing post-verification counts to raw reviewer output",
+      "type": "manual_review"
+    },
+    {
+      "id": "all-six-sui-pilot-agents",
+      "text": "All 6 dispatched agents (5 reviewers + 1 consolidator) use the sui-pilot-agent subagent type",
+      "type": "manual_review_of_transcript"
+    },
+    {
+      "id": "no-overwrite-of-source",
+      "text": "Does not modify any file under /Users/alilloig/workspace/se-hadron/sources/ or scripts/ — outputs go to workspace dir only",
+      "type": "git_status_check"
+    }
+  ]
+}

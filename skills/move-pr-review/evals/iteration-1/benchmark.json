@@ -1,0 +1,189 @@
+{
+  "metadata": {
+    "skill_name": "move-pr-review",
+    "skill_path": "<path/to/skill>",
+    "executor_model": "<model-name>",
+    "analyzer_model": "<model-name>",
+    "timestamp": "2026-04-24T11:46:59Z",
+    "evals_run": [
+      1
+    ],
+    "runs_per_configuration": 3
+  },
+  "runs": [
+    {
+      "eval_id": 1,
+      "configuration": "with_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.889,
+        "passed": 8,
+        "failed": 1,
+        "total": 9,
+        "time_seconds": 1284.5,
+        "tokens": 217147,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Produces a Markdown review file in the outputs directory with at least 200 lines and sections: executive summary, severity tally, HIGH findings, methodology",
+          "passed": true,
+          "evidence": "outputs/SOLENG-653-pas-integration-review.md = 616 lines. Sections present: Executive summary, Severity tally, Findings (HIGH/MEDIUM/LOW/INFO), Integration-boundary, Test & coverage gaps, Methodology, 4 appendices, Postscript."
+        },
+        {
+          "text": "Produces 5 reviewer JSON files (subagent-1.json \u2026 subagent-5.json) in the outputs/.raw/ directory, all schema-valid",
+          "passed": true,
+          "evidence": "outputs/.raw/subagent-{1..5}.json all present and pass strict schema validation. Counts: R1=16, R2=15, R3=14, R4=15, R5=16, plus R0=5 (leader backfill)."
+        },
+        {
+          "text": "Produces _consolidated.json with cluster aggregation",
+          "passed": true,
+          "evidence": "outputs/.raw/_consolidated.json exists. Per the agent's summary: 50 clusters from 81 raw findings."
+        },
+        {
+          "text": "Produces _verification_notes.md with consolidator adjudications for HIGH and disputed findings",
+          "passed": true,
+          "evidence": "outputs/.raw/_verification_notes.md exists. Methodology section confirms consolidator split 3 mega-clusters, rejected 1 critical, downgraded 3 mediums."
+        },
+        {
+          "text": "Produces _context.md with ticket metadata, scope list, dep surface, and finding schema",
+          "passed": true,
+          "evidence": "outputs/.raw/_context.md exists. Built from Linear MCP fetch of SOLENG-653 + Notion MCP fetches for Hadron Blueprint and PAS Modules pages."
+        },
+        {
+          "text": "Every HIGH finding in the final review has a literal code evidence quote (not paraphrased)",
+          "passed": true,
+          "evidence": "H-1 (the only HIGH) is on Move.toml:6-8 with quoted lines `pas = { git = ..., rev = \"main\" }` and `ptb = { ... rev = \"main\" }`."
+        },
+        {
+          "text": "Final review has a severity tally table comparing post-verification counts to raw reviewer output",
+          "passed": true,
+          "evidence": "Section '## Severity tally (after consolidator verification)' present. Table includes 'Change from raw reviewer output' column documenting 1 critical rejected, 3 mediums downgraded, 2 splits."
+        },
+        {
+          "text": "All 6 dispatched agents (5 reviewers + 1 consolidator) use the sui-pilot-agent subagent type",
+          "passed": false,
+          "evidence": "FAIL by environment limitation, not by skill design. Agent reported: 'Task tool was not available in this runtime \u2014 fell back to simulating 5 reviewers + 1 consolidator myself as the orchestrator.' This invalidates the multi-agent dispatch path of the eval; the skill's *prescription* for sui-pilot-agent dispatch is correct, but couldn't be exercised here."
+        },
+        {
+          "text": "Does not modify any file under /Users/alilloig/workspace/se-hadron/sources/ or scripts/ \u2014 outputs go to workspace dir only",
+          "passed": true,
+          "evidence": "All outputs under /tmp/move-pr-review-workspace/iteration-1/.../with_skill/outputs/. Repo source tree untouched (verified by ls of source files unchanged from earlier session)."
+        }
+      ],
+      "notes": []
+    },
+    {
+      "eval_id": 1,
+      "configuration": "without_skill",
+      "run_number": 1,
+      "result": {
+        "pass_rate": 0.333,
+        "passed": 3,
+        "failed": 6,
+        "total": 9,
+        "time_seconds": 621.7,
+        "tokens": 149507,
+        "tool_calls": 0,
+        "errors": 0
+      },
+      "expectations": [
+        {
+          "text": "Produces a Markdown review file in the outputs directory with at least 200 lines and sections: executive summary, severity tally, HIGH findings, methodology",
+          "passed": true,
+          "evidence": "outputs/REVIEW.md = 487 lines. Sections present: Executive summary, Findings (with HIGH/MEDIUM/LOW/INFO subsections), Integration-boundary verification, Coverage matrix, Methodology, Artifacts, Recommended path to merge."
+        },
+        {
+          "text": "Produces 5 reviewer JSON files (subagent-1.json \u2026 subagent-5.json) in the outputs/.raw/ directory, all schema-valid",
+          "passed": false,
+          "evidence": "Produced 5 reviewer Markdown files (reviewer-1-move-core.md ... reviewer-5-tests-docs-adversarial.md) in outputs/raw/, NOT JSON. The strict-schema JSON pipeline is a skill-specific contract; without the skill, the agent improvised its own format."
+        },
+        {
+          "text": "Produces _consolidated.json with cluster aggregation",
+          "passed": false,
+          "evidence": "Produced raw/consolidation-notes.md (Markdown, not structured JSON). No clustering algorithm applied."
+        },
+        {
+          "text": "Produces _verification_notes.md with consolidator adjudications for HIGH and disputed findings",
+          "passed": false,
+          "evidence": "Verification adjudications are inlined in REVIEW.md and consolidation-notes.md but not extracted as a separate _verification_notes.md."
+        },
+        {
+          "text": "Produces _context.md with ticket metadata, scope list, dep surface, and finding schema",
+          "passed": false,
+          "evidence": "No standalone context bundle file. PR/ticket metadata is inlined in REVIEW.md."
+        },
+        {
+          "text": "Every HIGH finding in the final review has a literal code evidence quote (not paraphrased)",
+          "passed": true,
+          "evidence": "Manual spot-check of H-1 (pause conflation): includes literal quote from pas_transfer.move. The agent imitated the format from the existing reviews/ baseline it peeked at."
+        },
+        {
+          "text": "Final review has a severity tally table comparing post-verification counts to raw reviewer output",
+          "passed": false,
+          "evidence": "Severity counts present (6 HIGH / 15 MEDIUM / 11 LOW / 5 INFO) but no comparison-to-raw column. The without-skill run didn't track raw vs adjudicated separately."
+        },
+        {
+          "text": "All 6 dispatched agents (5 reviewers + 1 consolidator) use the sui-pilot-agent subagent type",
+          "passed": false,
+          "evidence": "No subagent dispatching at all. Single subagent simulated 5 reviewer 'lenses' sequentially. Same environment limitation as with_skill \u2014 but this run also doesn't TRY to use sui-pilot-agent, just imitates the multi-reviewer structure from the user prompt."
+        },
+        {
+          "text": "Does not modify any file under /Users/alilloig/workspace/se-hadron/sources/ or scripts/ \u2014 outputs go to workspace dir only",
+          "passed": true,
+          "evidence": "All outputs under /tmp/.../without_skill/outputs/. Repo source untouched. CAVEAT: did READ the existing /Users/alilloig/workspace/se-hadron/reviews/SOLENG-653-pas-integration-review.md as a comparison reference, biasing the baseline UPWARD."
+        }
+      ],
+      "notes": []
+    }
+  ],
+  "run_summary": {
+    "with_skill": {
+      "pass_rate": {
+        "mean": 0.889,
+        "stddev": 0.0,
+        "min": 0.889,
+        "max": 0.889
+      },
+      "time_seconds": {
+        "mean": 1284.5,
+        "stddev": 0.0,
+        "min": 1284.5,
+        "max": 1284.5
+      },
+      "tokens": {
+        "mean": 217147.0,
+        "stddev": 0.0,
+        "min": 217147,
+        "max": 217147
+      }
+    },
+    "without_skill": {
+      "pass_rate": {
+        "mean": 0.333,
+        "stddev": 0.0,
+        "min": 0.333,
+        "max": 0.333
+      },
+      "time_seconds": {
+        "mean": 621.7,
+        "stddev": 0.0,
+        "min": 621.7,
+        "max": 621.7
+      },
+      "tokens": {
+        "mean": 149507.0,
+        "stddev": 0.0,
+        "min": 149507,
+        "max": 149507
+      }
+    },
+    "delta": {
+      "pass_rate": "+0.56",
+      "time_seconds": "+662.8",
+      "tokens": "+67640"
+    }
+  },
+  "notes": []
+}
