@@ -82,6 +82,9 @@ jobs:
           test -d .ts-sdk-docs && echo "✓ .ts-sdk-docs exists ($(find .ts-sdk-docs -type f | wc -l) files)"
           test -f AGENTS.md && echo "✓ AGENTS.md exists"
 
+      - name: Smoke test move-pr-review scripts
+        run: bash skills/move-pr-review/scripts/tests/smoke.sh
+
   lint:
     runs-on: ubuntu-latest
 
