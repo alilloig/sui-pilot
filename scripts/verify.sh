@@ -59,10 +59,30 @@ fi
 # Check documentation
 echo ""
 echo "Checking documentation..."
-[ -d "$PLUGIN_ROOT/.sui-docs" ] && pass ".sui-docs exists ($(ls -1 "$PLUGIN_ROOT/.sui-docs" | wc -l | tr -d ' ') files)" || warn ".sui-docs missing"
-[ -d "$PLUGIN_ROOT/.walrus-docs" ] && pass ".walrus-docs exists ($(ls -1 "$PLUGIN_ROOT/.walrus-docs" | wc -l | tr -d ' ') files)" || warn ".walrus-docs missing"
-[ -d "$PLUGIN_ROOT/.seal-docs" ] && pass ".seal-docs exists ($(ls -1 "$PLUGIN_ROOT/.seal-docs" | wc -l | tr -d ' ') files)" || warn ".seal-docs missing"
-[ -f "$PLUGIN_ROOT/AGENTS.md" ] && pass "AGENTS.md exists" || warn "AGENTS.md missing"
+count_doc_files() {
+    find "$1" -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '
+}
+
+for dir in .sui-docs .walrus-docs .seal-docs .ts-sdk-docs; do
+    if [ -d "$PLUGIN_ROOT/$dir" ]; then
+        pass "$dir exists ($(count_doc_files "$PLUGIN_ROOT/$dir") doc files)"
+    else
+        warn "$dir missing"
+    fi
+done
+
+AGENT_FILE="$PLUGIN_ROOT/agents/sui-pilot-agent.md"
+if [ -f "$AGENT_FILE" ] \
+    && grep -qF "<!-- AGENTS-MD-START -->" "$AGENT_FILE" \
+    && grep -qF "<!-- AGENTS-MD-END -->" "$AGENT_FILE" \
+    && grep -qF "[Sui Docs Index]" "$AGENT_FILE" \
+    && grep -qF "[Walrus Docs Index]" "$AGENT_FILE" \
+    && grep -qF "[Seal Docs Index]" "$AGENT_FILE" \
+    && grep -qF "[TS SDK Docs Index]" "$AGENT_FILE"; then
+    pass "agents/sui-pilot-agent.md contains the doc index for all four ecosystems"
+else
+    warn "agents/sui-pilot-agent.md missing doc index — run ./generate-docs-index.sh"
+fi
 
 # Check move-analyzer
 echo ""

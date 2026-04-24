@@ -127,4 +127,4 @@ EOF
 fi
 
 echo ""
-echo "Next: run ./generate-docs-index.sh to regenerate the AGENTS.md index"
+echo "Next: run ./generate-docs-index.sh to rewrite the index block inside agents/sui-pilot-agent.md"

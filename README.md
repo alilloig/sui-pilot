@@ -152,9 +152,9 @@ sui-pilot also works as a standalone documentation source for non-Claude Code en
 
 1. Clone or copy this repo into your workspace
 2. Point your AI agent at the project
-3. The agent reads `AGENTS.md` to discover available documentation
+3. The agent reads `agents/sui-pilot-agent.md`, which contains the full pipe-delimited doc index between the `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` markers in the prompt body
 
-The `AGENTS.md` file is a compact, pipe-delimited index that any AI agent can parse. It includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
+The index is a compact, pipe-delimited file list that any AI agent can parse. It includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
 
 ---
 
@@ -183,10 +183,10 @@ Run these scripts periodically (e.g., monthly, or before a major project):
 
 ```bash
 ./sync-docs.sh           # Pull latest from MystenLabs repos
-./generate-docs-index.sh # Regenerate AGENTS.md index
+./generate-docs-index.sh # Rewrite the index block in agents/sui-pilot-agent.md
 ```
 
-The sync script clones or pulls each upstream repo and copies the `docs/content/` directory into the corresponding `.{ecosystem}-docs/` folder. The index script walks these directories and generates `AGENTS.md` — a compact, pipe-delimited file list that AI agents parse to discover available documentation.
+The sync script clones or pulls each upstream repo and copies the `docs/content/` directory into the corresponding `.{ecosystem}-docs/` folder. The index script walks these directories and rewrites the block between `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` inside `agents/sui-pilot-agent.md` — a compact, pipe-delimited file list that ships as part of the agent's system prompt, so docs-first behavior works out of the box when the agent is invoked. A scheduled GitHub Actions workflow (`.github/workflows/refresh-docs.yml`) runs this pipeline weekly and opens a chore PR when upstream docs change.
 
 ---
 
@@ -201,8 +201,7 @@ sui-pilot/
 ├── .sui-docs/                   # 336 Sui documentation files
 ├── .walrus-docs/                # 84 Walrus documentation files
 ├── .seal-docs/                  # 14 Seal documentation files
-├── .ts-sdk-docs/                # 114 TS SDK documentation files
-└── AGENTS.md                    # Doc index for AI discovery
+└── .ts-sdk-docs/                # 114 TS SDK documentation files
 ```
 
 ---
@@ -271,7 +270,7 @@ sui-pilot is designed for Claude Code. Some capabilities are environment-specifi
 
 | Feature | Claude Code | Other AI Agents |
 |---------|-------------|-----------------|
-| Bundled documentation | Yes | Yes (read AGENTS.md) |
+| Bundled documentation | Yes | Yes (read the index block in `agents/sui-pilot-agent.md`) |
 | MCP tools (diagnostics, hover, etc.) | Yes | No |
 | Skills (/move-code-quality, etc.) | Yes | No |
 | Specialized sui-pilot-agent | Yes | No |

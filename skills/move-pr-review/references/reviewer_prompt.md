@@ -16,13 +16,13 @@ The `_context.md` file specifies which files are in scope. Audit only those. Do 
 
 ## Step 2 — Doc-first invocations (MANDATORY, regardless of subagent type)
 
-Before generating any analysis, consult the sui-pilot documentation. This rule applies whether you were dispatched as `sui-pilot-agent` or fell back to `general-purpose` — your training data on Sui / Move / Walrus / Seal is stale and misses recent patterns.
+Before generating any analysis, consult the sui-pilot documentation. This rule applies whether you were dispatched as `sui-pilot-agent` or fell back to `general-purpose` — your training data on Sui / Move / Walrus / Seal / Sui TypeScript SDK is stale and misses recent patterns.
 
-1. Read the documentation index at one of these paths (try in order, use the first that exists):
-   - `${CLAUDE_PLUGIN_ROOT}/AGENTS.md` (if dispatched as `sui-pilot-agent`, this is the plugin's own copy)
-   - `~/.claude/sui-pilot/AGENTS.md` (absolute fallback — the user's global sui-pilot docs)
-   - `/Users/alilloig/.claude/sui-pilot/AGENTS.md` (explicit if `~` expansion fails)
-2. Grep / read the relevant doc tree — `.sui-docs/` for Sui/Move, `.walrus-docs/` for Walrus, `.seal-docs/` for Seal — for any framework feature you're unsure about before making a claim about its behaviour.
+1. Read the documentation index embedded inside `agents/sui-pilot-agent.md` (between the `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` markers). Try the following paths in order and use the first that exists:
+   - `${CLAUDE_PLUGIN_ROOT}/agents/sui-pilot-agent.md` (if dispatched as `sui-pilot-agent`, this is the plugin's own copy and it is already in your system prompt)
+   - `~/.claude/sui-pilot/agents/sui-pilot-agent.md` (absolute fallback — the user's global sui-pilot docs)
+   - `/Users/alilloig/.claude/sui-pilot/agents/sui-pilot-agent.md` (explicit if `~` expansion fails)
+2. Grep / read the relevant doc tree — `.sui-docs/` for Sui/Move, `.walrus-docs/` for Walrus, `.seal-docs/` for Seal, `.ts-sdk-docs/` for TypeScript SDK — for any framework feature you're unsure about before making a claim about its behaviour.
 3. When citing a specific Move pattern in your `evidence` field (e.g. `new_currency_with_otw`, `derived_object::claim`, DOF vs DF semantics), reference the doc file you verified against.
 
 If NONE of the doc paths above exist, halt and report that — do not proceed with analysis on stale training knowledge.

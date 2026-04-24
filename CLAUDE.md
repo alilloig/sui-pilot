@@ -1,8 +1,6 @@
-@AGENTS.md
+# sui-pilot: Sui, Walrus, Seal & TypeScript SDK Documentation Copilot
 
-# sui-pilot: Sui, Walrus & Seal Documentation Copilot
-
-WARNING: Your training data about Sui, Move, Walrus, and Seal is likely OUTDATED.
+WARNING: Your training data about Sui, Move, Walrus, Seal, and the Sui TypeScript SDK is likely OUTDATED.
 Always search and read these docs before writing code for these ecosystems.
 
 ## Ecosystem Routing
@@ -16,14 +14,14 @@ Always search and read these docs before writing code for these ecosystems.
 
 ## Usage
 
-1. Read `AGENTS.md` for the full file index (pipe-delimited, one section per ecosystem)
-2. Grep the appropriate directory for your topic
-3. If unsure which ecosystem, search all four directories
-4. Walrus and Seal build on Sui — Sui docs may also be relevant
+1. The full pipe-delimited file index is embedded in `agents/sui-pilot-agent.md` between `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->`.
+2. The `sui-pilot-agent` subagent auto-loads that index when invoked, so commands that route through it (`/sui-pilot`, `/move-pr-review`, etc.) are docs-first out of the box.
+3. If you are developing on this repo directly, grep the appropriate `.<ecosystem>-docs/` directory for your topic. When unsure which ecosystem, search all four.
+4. Walrus and Seal build on Sui — Sui docs may also be relevant.
 
 ## Keeping Docs Up to Date
 
 ```bash
 ./sync-docs.sh            # Pull latest from upstream MystenLabs repos
-./generate-docs-index.sh  # Regenerate the AGENTS.md index
+./generate-docs-index.sh  # Rewrite the index block inside agents/sui-pilot-agent.md
 ```
