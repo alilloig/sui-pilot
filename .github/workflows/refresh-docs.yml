@@ -24,9 +24,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Pull upstream docs
         run: ./sync-docs.sh
@@ -39,8 +37,10 @@ jobs:
         # sync-sui-pilot-docs.sh always rewrites docs/VERSION.json with a fresh
         # syncTimestamp, so if we ran it unconditionally every week would
         # produce a timestamp-only PR. Gate it on real changes to tracked docs.
+        # git status (not git diff) so upstream-added files (untracked) count as drift.
         run: |
-          if git diff --quiet -- .sui-docs .walrus-docs .seal-docs .ts-sdk-docs agents/sui-pilot-agent.md; then
+          if [ -z "$(git status --porcelain --untracked-files=all -- \
+              .sui-docs .walrus-docs .seal-docs .ts-sdk-docs agents/sui-pilot-agent.md)" ]; then
             echo "drifted=false" >> "$GITHUB_OUTPUT"
             echo "No upstream doc changes this run."
           else
@@ -52,7 +52,7 @@ jobs:
         run: ./scripts/sync-sui-pilot-docs.sh "$GITHUB_WORKSPACE"
 
       - name: Open or update chore PR
-        uses: peter-evans/create-pull-request@v6
+        uses: peter-evans/create-pull-request@c5a7806660adbe173f04e3e038b0ccdcd758773c # v6
         with:
           branch: chore/refresh-docs
           delete-branch: true
@@ -67,4 +67,4 @@ jobs:
             2. `./generate-docs-index.sh` — rewrites the index block inside `agents/sui-pilot-agent.md`.
             3. `./scripts/sync-sui-pilot-docs.sh` — refreshes the `docs/` bundle and `docs/VERSION.json`.
 
-            Review the diff, especially `.last-sync`, the markered block in the agent file, and any newly added or renamed MDX files under `.*-docs/`.
+            Review the diff, especially the markered block in `agents/sui-pilot-agent.md`, `docs/VERSION.json`, and any newly added or renamed MDX files under `.*-docs/`.
