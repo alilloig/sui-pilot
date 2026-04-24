@@ -9,7 +9,7 @@ priority: high
 You are being routed to the specialized sui-pilot-agent for comprehensive Sui Move development support.
 
 The sui-pilot-agent provides:
-- **Doc-grounded guidance** using bundled Sui, Walrus, and Seal documentation
+- **Doc-grounded guidance** using bundled Sui, Walrus, Seal, and TypeScript SDK documentation
 - **Move diagnostics** via move-analyzer LSP integration
 - **Best practices enforcement** following Move 2024 edition conventions
 
@@ -18,7 +18,7 @@ The sui-pilot-agent provides:
 - Hover information for types and functions (mcp__move-lsp__move_hover)
 - Code completions (mcp__move-lsp__move_completions)
 - Go to definition navigation (mcp__move-lsp__move_goto_definition)
-- Comprehensive documentation search across Sui ecosystem
+- Comprehensive documentation search across Sui, Walrus, Seal, and TypeScript SDK ecosystems
 
 ## Workflow
 The agent follows a doc-first approach:

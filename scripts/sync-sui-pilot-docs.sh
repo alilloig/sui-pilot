@@ -17,10 +17,11 @@ echo "Target directory: $DOCS_DIR"
 # Verify source files exist
 required_files=(
     "CLAUDE.md"
-    "AGENTS.md"
+    "agents/sui-pilot-agent.md"
     ".sui-docs"
     ".walrus-docs"
     ".seal-docs"
+    ".ts-sdk-docs"
 )
 
 for file in "${required_files[@]}"; do
@@ -36,29 +37,46 @@ mkdir -p "$DOCS_DIR"
 # Copy documentation files
 echo "Copying documentation files..."
 cp -r "$SUI_PILOT_SOURCE/CLAUDE.md" "$DOCS_DIR/"
-cp -r "$SUI_PILOT_SOURCE/AGENTS.md" "$DOCS_DIR/"
+mkdir -p "$DOCS_DIR/agents"
+cp -r "$SUI_PILOT_SOURCE/agents/sui-pilot-agent.md" "$DOCS_DIR/agents/"
 cp -r "$SUI_PILOT_SOURCE/.sui-docs" "$DOCS_DIR/"
 cp -r "$SUI_PILOT_SOURCE/.walrus-docs" "$DOCS_DIR/"
 cp -r "$SUI_PILOT_SOURCE/.seal-docs" "$DOCS_DIR/"
+cp -r "$SUI_PILOT_SOURCE/.ts-sdk-docs" "$DOCS_DIR/"
 
-# Update VERSION.json with current sync info
+# Update VERSION.json with current sync info.
+# Schema consumed by mcp/move-lsp-mcp/src/version.ts — keep {pluginVersion,
+# suiPilotRevision, syncTimestamp} in sync with that interface.
 cd "$SUI_PILOT_SOURCE"
-if [[ -d ".git" ]]; then
-    COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo "unknown")
+if [[ -d ".git" || -f ".git" ]]; then
+    COMMIT_SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 else
     COMMIT_SHA="unknown"
 fi
 
-SYNC_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
+PLUGIN_VERSION=$(
+    awk -F'"' '
+        /"name":[[:space:]]*"sui-pilot"/ { found = 1 }
+        found && /"version":/ { print $4; exit }
+    ' "$SUI_PILOT_SOURCE/.claude-plugin/marketplace.json" 2>/dev/null
+)
+if [[ -z "$PLUGIN_VERSION" ]]; then
+    echo "Error: could not read sui-pilot plugin version from .claude-plugin/marketplace.json" >&2
+    echo "       mcp/move-lsp-mcp/src/version.ts requires a valid pluginVersion in docs/VERSION.json." >&2
+    exit 1
+fi
+
+SYNC_TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
 cat > "$DOCS_DIR/VERSION.json" << EOF
 {
-  "sourceCommit": "$COMMIT_SHA",
-  "syncTimestamp": "$SYNC_TIMESTAMP",
-  "suiFrameworkVersion": "1.0.0+"
+  "pluginVersion": "$PLUGIN_VERSION",
+  "suiPilotRevision": "$COMMIT_SHA",
+  "syncTimestamp": "$SYNC_TIMESTAMP"
 }
 EOF
 
 echo "Documentation sync complete!"
-echo "Source commit: $COMMIT_SHA"
-echo "Sync timestamp: $SYNC_TIMESTAMP"
+echo "Plugin version:  $PLUGIN_VERSION"
+echo "Source commit:   $COMMIT_SHA"
+echo "Sync timestamp:  $SYNC_TIMESTAMP"

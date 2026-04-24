@@ -1,20 +1,21 @@
 # sui-pilot
 
-> Documentation copilot for AI agents working with Sui blockchain, Walrus storage, and Seal secrets management.
+> Documentation copilot for AI agents working with Sui blockchain, Walrus storage, Seal secrets management, and the Sui TypeScript SDK.
 
-This repository contains 434 documentation files across three ecosystems, designed for AI agent consumption.
+This repository contains 548 documentation files across four ecosystems, designed for AI agent consumption.
 
 ## Docs
 
-- [Full File Index](AGENTS.md): Pipe-delimited index of every doc file, organized by ecosystem
+- [Full File Index](agents/sui-pilot-agent.md): Embedded pipe-delimited index (inside the `<!-- AGENTS-MD-START -->` / `<!-- AGENTS-MD-END -->` markers) of every doc file, organized by ecosystem
 - [Sui blockchain docs](.sui-docs/): 336 MDX files — concepts, guides, references, standards
 - [Walrus storage docs](.walrus-docs/): 84 MDX files — blob storage, Walrus Sites, SDK, operators
 - [Seal secrets docs](.seal-docs/): 14 MDX files — encryption, key servers, access control
+- [TypeScript SDK docs](.ts-sdk-docs/): 114 MDX files — dapp-kit, payment-kit, kiosk, React hooks, transactions
 
 ## How to Use
 
-Read AGENTS.md first. It contains a compact, parseable index of every documentation file organized by ecosystem and directory structure. Search the appropriate `.{ecosystem}-docs/` directory for detailed content.
+Read `agents/sui-pilot-agent.md` first. Between the index markers near the top of the prompt body you will find a compact, parseable index of every documentation file organized by ecosystem and directory structure. Search the appropriate `.{ecosystem}-docs/` directory for detailed content.
 
 ## Important
 
-Your training data about Sui Move is likely outdated. Always search and read these docs before generating Sui/Move/Walrus/Seal code.
+Your training data about Sui Move is likely outdated. Always search and read these docs before generating Sui, Move, Walrus, Seal, or Sui TypeScript SDK code.

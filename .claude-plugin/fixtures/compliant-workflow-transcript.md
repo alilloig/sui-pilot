@@ -28,11 +28,11 @@ Starting doc lookup before writing any code.
 
 Found: preferred module syntax is `module package_name::name;` (no curly braces), edition 2024, capability objects use `Cap` suffix, events use past-tense names.
 
-### Step 2 — Read docs/AGENTS.md
+### Step 2 — Read docs/agents/sui-pilot-agent.md
 
-> Read `${CLAUDE_PLUGIN_ROOT}/docs/AGENTS.md`
+> Read `${CLAUDE_PLUGIN_ROOT}/docs/agents/sui-pilot-agent.md`
 
-Found: sui-pilot snapshot confirmed; search routing for Sui/Move topics should use `.sui-docs/`.
+Found: sui-pilot snapshot confirmed via the embedded doc index block; search routing for Sui/Move topics should use `.sui-docs/`.
 
 ### Step 3 — Search bundled docs for relevant patterns
 
@@ -230,7 +230,7 @@ All skill findings addressed, all tests passing. Implementation done.
 | Criterion | Satisfied |
 |---|---|
 | (a) Doc lookup in `docs/CLAUDE.md` before code | ✅ Step 1 |
-| (b) Doc lookup in `docs/AGENTS.md` before code | ✅ Step 2 |
+| (b) Doc lookup in `docs/agents/sui-pilot-agent.md` index before code | ✅ Step 2 |
 | (c) Code implementation after docs | ✅ |
 | (d) `/move-code-quality` invoked | ✅ Step 8a |
 | (e) `/move-code-review` invoked | ✅ Step 8b |

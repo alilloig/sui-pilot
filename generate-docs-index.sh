@@ -1,24 +1,37 @@
 #!/usr/bin/env bash
-# generate-docs-index.sh — Regenerate AGENTS.md index from local doc directories
+# generate-docs-index.sh — Regenerate the doc index inside agents/sui-pilot-agent.md
 #
 # Usage: ./generate-docs-index.sh
 #
 # Walks .sui-docs/, .walrus-docs/, .seal-docs/, .ts-sdk-docs/ and produces a
 # pipe-delimited index that AI agents parse to discover available documentation.
+# Rewrites only the block between <!-- AGENTS-MD-START --> and <!-- AGENTS-MD-END -->
+# in the target file, preserving YAML frontmatter and the rest of the prompt body.
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
-OUTPUT="AGENTS.md"
+TARGET="agents/sui-pilot-agent.md"
+START_MARKER="<!-- AGENTS-MD-START -->"
+END_MARKER="<!-- AGENTS-MD-END -->"
+
+if [[ ! -f "$TARGET" ]]; then
+    echo "Error: $TARGET not found" >&2
+    exit 1
+fi
+
+if ! grep -qF "$START_MARKER" "$TARGET" || ! grep -qF "$END_MARKER" "$TARGET"; then
+    echo "Error: $TARGET is missing index markers ($START_MARKER / $END_MARKER)" >&2
+    exit 1
+fi
 
 # Generate pipe-delimited directory index for a doc tree
 # Format: dir:{file1.mdx,file2.mdx}|subdir:{file1.mdx,...}
 generate_index() {
     local root_dir="$1"
 
-    # Collect all directories that contain .mdx or .md files (including root)
     local dirs=()
     while IFS= read -r d; do
         dirs+=("$d")
@@ -26,7 +39,6 @@ generate_index() {
 
     local parts=()
     for d in "${dirs[@]}"; do
-        # Get relative path from root_dir
         local rel
         if [[ "$d" == "$root_dir" ]]; then
             rel="."
@@ -34,7 +46,6 @@ generate_index() {
             rel="${d#$root_dir/}"
         fi
 
-        # List files in this directory (not recursive, just direct children)
         local files=()
         while IFS= read -r f; do
             files+=("$(basename "$f")")
@@ -47,15 +58,13 @@ generate_index() {
         fi
     done
 
-    # Join with pipe
     local result
     result=$(IFS='|'; echo "${parts[*]}")
     echo "$result"
 }
 
-echo "Generating AGENTS.md..."
+echo "Generating doc index into $TARGET..."
 
-# Count files for each ecosystem
 sui_count=$(find .sui-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
 walrus_count=$(find .walrus-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
 seal_count=$(find .seal-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
@@ -66,7 +75,6 @@ echo "  Walrus: $walrus_count files"
 echo "  Seal:   $seal_count files"
 echo "  TS SDK: $ts_sdk_count files"
 
-# Generate indexes
 echo "  Building Sui index..."
 sui_index=$(generate_index ".sui-docs")
 
@@ -79,14 +87,11 @@ seal_index=$(generate_index ".seal-docs")
 echo "  Building TS SDK index..."
 ts_sdk_index=$(generate_index ".ts-sdk-docs")
 
-# Write AGENTS.md
-cat > "$OUTPUT" << 'HEADER'
+BLOCK_FILE=$(mktemp -t sui-pilot-index.XXXXXX)
+trap 'rm -f "$BLOCK_FILE"' EXIT
 
-HEADER
-
-# Use printf to avoid interpretation of special characters in the indexes
 {
-    printf '<!-- AGENTS-MD-START -->'
+    printf '%s' "$START_MARKER"
     printf '[Sui Docs Index]|root: ./.sui-docs|STOP. What you remember about Sui and Move is WRONG or OUTDATED for this project. Sui Move evolves rapidly. Always search these docs and read before any task.|If docs are stale, run ./sync-docs.sh to update from upstream.|%s' "$sui_index"
     printf '\n\n'
     printf '[Seal Docs Index]|root: ./.seal-docs|Seal is a decentralized secrets management protocol built on Sui. Search these docs for encryption, access control policies, key servers, and threshold cryptography on Sui.|%s' "$seal_index"
@@ -94,12 +99,51 @@ HEADER
     printf '[Walrus Docs Index]|root: ./.walrus-docs|Walrus is a decentralized storage protocol built on Sui. Search these docs for blob storage, Walrus Sites, TypeScript SDK, HTTP API, and node operations.|%s' "$walrus_index"
     printf '\n\n'
     printf '[TS SDK Docs Index]|root: ./.ts-sdk-docs|TypeScript SDK documentation for Sui. Search these docs for dapp-kit, payment-kit, kiosk SDK, transactions, clients, React hooks, and frontend integration.|%s' "$ts_sdk_index"
-    printf '\n<!-- AGENTS-MD-END -->\n'
-} > "$OUTPUT"
+    printf '\n%s' "$END_MARKER"
+} > "$BLOCK_FILE"
 
-size=$(wc -c < "$OUTPUT" | tr -d ' ')
+# Guard: refuse to write an empty replacement block. Would otherwise wipe
+# the index from the agent file silently.
+for section in '[Sui Docs Index]' '[Walrus Docs Index]' '[Seal Docs Index]' '[TS SDK Docs Index]'; do
+    if ! grep -qF "$section" "$BLOCK_FILE"; then
+        echo "Error: generated block is missing $section — aborting to avoid wiping $TARGET" >&2
+        exit 1
+    fi
+done
+
+TMP_TARGET=$(mktemp -t sui-pilot-agent.XXXXXX)
+awk -v start="$START_MARKER" -v end="$END_MARKER" -v block_file="$BLOCK_FILE" '
+    BEGIN {
+        while ((getline line < block_file) > 0) {
+            replacement = replacement (replacement == "" ? "" : "\n") line
+        }
+        close(block_file)
+        inside = 0
+    }
+    {
+        if (!inside && index($0, start) > 0) {
+            print replacement
+            if (index($0, end) > 0) {
+                next
+            }
+            inside = 1
+            next
+        }
+        if (inside) {
+            if (index($0, end) > 0) {
+                inside = 0
+            }
+            next
+        }
+        print
+    }
+' "$TARGET" > "$TMP_TARGET"
+
+mv "$TMP_TARGET" "$TARGET"
+
+block_size=$(wc -c < "$BLOCK_FILE" | tr -d ' ')
 echo ""
-echo "Generated $OUTPUT ($size bytes)"
+echo "Rewrote index block in $TARGET (${block_size} bytes between markers)"
 echo "  Sui:    $sui_count files indexed"
 echo "  Walrus: $walrus_count files indexed"
 echo "  Seal:   $seal_count files indexed"

@@ -25,3 +25,9 @@ dist/
 
 # Build artifacts
 *.tsbuildinfo
+
+# Bundled docs snapshot produced by scripts/sync-sui-pilot-docs.sh.
+# Only docs/VERSION.json is tracked; the rest is regenerated on demand.
+docs/*
+!docs/VERSION.json
+!docs/.gitkeep

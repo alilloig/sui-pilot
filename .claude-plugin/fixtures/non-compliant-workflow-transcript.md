@@ -95,14 +95,14 @@ The agent violated the **doc-first workflow** by writing code before reading the
 An audit tool can detect this violation by checking:
 
 1. **Tool call ordering**: `Edit`/`Write` tool calls appear before any `Read` or `Grep` calls targeting the `docs/` directory
-2. **Missing doc citations**: No reference to `docs/CLAUDE.md` or `docs/AGENTS.md` before the first code block
-3. **No bundled doc search**: No `Grep` calls against `.sui-docs/`, `.walrus-docs/`, or `.seal-docs/` before implementation
+2. **Missing doc citations**: No reference to `docs/CLAUDE.md` or the doc index embedded in `docs/agents/sui-pilot-agent.md` before the first code block
+3. **No bundled doc search**: No `Grep` calls against `.sui-docs/`, `.walrus-docs/`, `.seal-docs/`, or `.ts-sdk-docs/` before implementation
 
 ### Correct Ordering Should Be
 
 1. Read `docs/CLAUDE.md` for project conventions
-2. Read `docs/AGENTS.md` for doc routing and sui-pilot usage
-3. Grep bundled docs for relevant patterns
+2. Read `docs/agents/sui-pilot-agent.md` for the embedded doc index and sui-pilot routing
+3. Grep bundled docs for relevant patterns (`.sui-docs/`, `.walrus-docs/`, `.seal-docs/`, `.ts-sdk-docs/`)
 4. **Then** write implementation
 5. Run `/move-code-quality`
 6. Run `/move-code-review`
@@ -130,7 +130,7 @@ These would have been avoided if the agent had read the docs first.
 | Criterion | Satisfied |
 |---|---|
 | (a) Doc lookup in `docs/CLAUDE.md` before code | :x: Violated |
-| (b) Doc lookup in `docs/AGENTS.md` before code | :x: Violated |
+| (b) Doc lookup in `docs/agents/sui-pilot-agent.md` index before code | :x: Violated |
 | (c) Grep bundled docs before code | :x: Violated |
 | (d) Code implementation after docs | :x: Code came first |
 | (e) `/move-code-quality` invoked | :x: Not invoked |

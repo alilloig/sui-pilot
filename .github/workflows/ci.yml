@@ -80,7 +80,27 @@ jobs:
           test -d .walrus-docs && echo "✓ .walrus-docs exists ($(find .walrus-docs -type f | wc -l) files)"
           test -d .seal-docs && echo "✓ .seal-docs exists ($(find .seal-docs -type f | wc -l) files)"
           test -d .ts-sdk-docs && echo "✓ .ts-sdk-docs exists ($(find .ts-sdk-docs -type f | wc -l) files)"
-          test -f AGENTS.md && echo "✓ AGENTS.md exists"
+          AGENT_FILE=agents/sui-pilot-agent.md
+          for marker in '<!-- AGENTS-MD-START -->' '<!-- AGENTS-MD-END -->' \
+              '[Sui Docs Index]' '[Walrus Docs Index]' '[Seal Docs Index]' '[TS SDK Docs Index]'; do
+            if ! grep -qF "$marker" "$AGENT_FILE"; then
+              echo "::error::$AGENT_FILE missing required content: $marker"
+              exit 1
+            fi
+          done
+          echo "✓ $AGENT_FILE contains the four-ecosystem doc index"
+
+      - name: Verify doc index is up to date
+        # Guard against hand-edits inside the <!-- AGENTS-MD-START/END --> block.
+        # Regenerating must leave no diff; otherwise the committed index has
+        # drifted from the source doc trees.
+        run: |
+          ./generate-docs-index.sh
+          if ! git diff --exit-code agents/sui-pilot-agent.md; then
+            echo ""
+            echo "::error::agents/sui-pilot-agent.md index is out of sync. Run './generate-docs-index.sh' and recommit."
+            exit 1
+          fi
 
       - name: Smoke test move-pr-review scripts
         run: bash skills/move-pr-review/scripts/tests/smoke.sh
