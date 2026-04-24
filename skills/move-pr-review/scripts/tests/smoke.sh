@@ -65,13 +65,14 @@ if ! bash "$COVERAGE" "$RAW" > "$TMPDIR/coverage.out" 2>&1; then
   cat "$TMPDIR/coverage.out" >&2
   fail "coverage_matrix.sh exited non-zero"
 fi
-head -1 "$TMPDIR/coverage.out" | grep -qE '^file\tR1\tR2\tR3\tR4\tR5\tR6\tR7\tR8\tR9\tR10\ttotal\tflag$' \
-  || fail "coverage_matrix.sh: header mismatch"
-grep -qE '^src/a\.move\t2\t0\t1\t0\t0\t0\t1\t0\t0\t0\t4\t\*$' "$TMPDIR/coverage.out" \
+expected_header=$'file\tR1\tR2\tR3\tR4\tR5\tR6\tR7\tR8\tR9\tR10\ttotal\tflag'
+[ "$(head -1 "$TMPDIR/coverage.out")" = "$expected_header" ] \
+  || fail "coverage_matrix.sh: header mismatch (got $(head -1 "$TMPDIR/coverage.out"))"
+grep -qFx $'src/a.move\t2\t0\t1\t0\t0\t0\t1\t0\t0\t0\t4\t*' "$TMPDIR/coverage.out" \
   || fail "coverage_matrix.sh: expected src/a.move row with R1=2, R3=1, R7=1, total=4, flagged"
-grep -qE '^src/b\.move\t1\t0\t0\t0\t0\t0\t0\t0\t0\t0\t1\t\*$' "$TMPDIR/coverage.out" \
+grep -qFx $'src/b.move\t1\t0\t0\t0\t0\t0\t0\t0\t0\t0\t1\t*' "$TMPDIR/coverage.out" \
   || fail "coverage_matrix.sh: expected src/b.move row with R1=1, total=1, flagged"
-grep -qE '^src/c\.move\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t\*$' "$TMPDIR/coverage.out" \
+grep -qFx $'src/c.move\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t0\t*' "$TMPDIR/coverage.out" \
   || fail "coverage_matrix.sh: expected src/c.move row with all zeros, flagged"
 
 echo "[smoke] consolidate.js"
@@ -94,8 +95,9 @@ CRITICAL_AGREEMENT=$(jq '[.[] | select(.max_severity == "critical")] | .[0].agre
 echo "[smoke] parameterization (REVIEWERS=7)"
 REVIEWERS=7 bash "$COVERAGE" "$RAW" > "$TMPDIR/coverage7.out" 2>&1 \
   || fail "coverage_matrix.sh with REVIEWERS=7 exited non-zero"
-head -1 "$TMPDIR/coverage7.out" | grep -qE '^file\tR1\tR2\tR3\tR4\tR5\tR6\tR7\ttotal\tflag$' \
-  || fail "coverage_matrix.sh with REVIEWERS=7: header should stop at R7"
+expected_header7=$'file\tR1\tR2\tR3\tR4\tR5\tR6\tR7\ttotal\tflag'
+[ "$(head -1 "$TMPDIR/coverage7.out")" = "$expected_header7" ] \
+  || fail "coverage_matrix.sh with REVIEWERS=7: header should stop at R7 (got $(head -1 "$TMPDIR/coverage7.out"))"
 grep -qE 'out of 7' "$TMPDIR/coverage7.out" \
   || fail "coverage_matrix.sh with REVIEWERS=7: footer should say 'out of 7'"
 
