@@ -93,7 +93,7 @@ echo "  Building TS SDK index..."
 ts_sdk_index=$(generate_index ".ts-sdk-docs")
 
 BLOCK_FILE=$(mktemp -t sui-pilot-index.XXXXXX)
-trap 'rm -f "$BLOCK_FILE"' EXIT
+trap 'rm -f "$BLOCK_FILE" "${TMP_TARGET:-}"' EXIT
 
 {
     printf '%s' "$START_MARKER"
