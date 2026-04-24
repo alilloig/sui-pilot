@@ -15,6 +15,7 @@ set -u
 set -o pipefail
 
 RAW_DIR="${1:-reviews/.raw}"
+REVIEWERS="${REVIEWERS:-10}"
 
 if ! command -v jq >/dev/null 2>&1; then
   echo "ERROR: jq not found in PATH" >&2
@@ -32,7 +33,7 @@ VALID_CATEGORIES='["access-control","correctness","arithmetic","object-model","v
 
 OVERALL=0
 
-for n in 0 1 2 3 4 5 6 7 8 9 10; do
+for n in $(seq 0 "$REVIEWERS"); do
   f="$RAW_DIR/subagent-$n.json"
   [ -f "$f" ] || continue
 
