@@ -1,0 +1,31 @@
+{
+  "total_tokens": 1449075,
+  "total_duration_seconds": 1543.4,
+  "wall_clock_minutes": 25.7,
+  "phase_breakdown": {
+    "phase_0_preparation_seconds": 120,
+    "phase_1_parallel_reviewers_wall_clock_seconds": 761,
+    "phase_2_validation_and_clustering_seconds": 30,
+    "phase_3_consolidator_seconds": 761,
+    "phase_4_handoff_seconds": 60
+  },
+  "reviewer_stats": {
+    "R1":  { "tokens": 133412, "duration_ms": 761383, "findings": 25, "tool_uses": 87 },
+    "R2":  { "tokens": 102776, "duration_ms": 366747, "findings": 30, "tool_uses": 41 },
+    "R3":  { "tokens": 110806, "duration_ms": 501236, "findings": 30, "tool_uses": 59 },
+    "R4":  { "tokens": 116547, "duration_ms": 460825, "findings": 28, "tool_uses": 61 },
+    "R5":  { "tokens": 117383, "duration_ms": 431498, "findings": 30, "tool_uses": 58 },
+    "R6":  { "tokens": 127513, "duration_ms": 554332, "findings": 28, "tool_uses": 62 },
+    "R7":  { "tokens": 111922, "duration_ms": 548516, "findings": 30, "tool_uses": 62 },
+    "R8":  { "tokens": 118627, "duration_ms": 537972, "findings": 30, "tool_uses": 69 },
+    "R9":  { "tokens": 128255, "duration_ms": 568392, "findings": 30, "tool_uses": 75 },
+    "R10": { "tokens": 128885, "duration_ms": 542074, "findings": 31, "tool_uses": 73 }
+  },
+  "consolidator_stats": {
+    "tokens": 153949,
+    "duration_ms": 760702,
+    "tool_uses": 55,
+    "subagent_type_resolved": "sui-pilot:sui-pilot-agent"
+  },
+  "notes": "Real multi-agent dispatch from the main session (Task tool available). 10 sui-pilot:sui-pilot-agent reviewers ran in parallel — wall clock for Phase 1 is the MAX reviewer duration (R1 at ~12.7 min), not the sum. Consolidator ran sequentially after. Total tokens ~1.45M across all 11 agents. Contrast with iter-1: 21 min wall + 217K tokens for a SIMULATED single-agent run (tokens/time smaller only because simulation lacks genuine parallel work; iter-2 reviewer independence produces ~4.3x more raw findings — 292 vs 67 — and surfaces novel HIGH issues iter-1 couldn't."
+}

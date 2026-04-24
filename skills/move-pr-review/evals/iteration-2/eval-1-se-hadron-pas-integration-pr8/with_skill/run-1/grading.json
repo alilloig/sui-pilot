@@ -1,0 +1,60 @@
+{
+  "eval_id": 1,
+  "eval_name": "se-hadron-pas-integration-pr8",
+  "configuration": "with_skill",
+  "iteration": 2,
+  "expectations": [
+    {
+      "text": "Produces a Markdown review file in the outputs directory with at least 200 lines and sections: executive summary, severity tally, HIGH findings, methodology",
+      "passed": true,
+      "evidence": "outputs/SOLENG-653-pas-integration-review.md = 496 lines. All required sections present (Executive summary, Severity tally, Findings HIGH/MEDIUM/LOW/INFO, Integration-boundary, Test & coverage plan, Build reproducibility & ops, Methodology, 4 appendices, Postscript)."
+    },
+    {
+      "text": "Produces 10 reviewer JSON files (subagent-1.json … subagent-10.json) in the outputs/.raw/ directory, all schema-valid",
+      "passed": true,
+      "evidence": "outputs/.raw/subagent-{1..10}.json all present and pass strict schema validation via validate_schema.sh. Finding counts: R1=25, R2=30, R3=30, R4=28, R5=30, R6=28, R7=30, R8=30, R9=30, R10=31. Total 292 findings."
+    },
+    {
+      "text": "Produces _consolidated.json with cluster aggregation",
+      "passed": true,
+      "evidence": "outputs/.raw/_consolidated.json exists. 64 clusters produced by consolidate.js. Agreement distribution: 6 clusters at 10/10 reviewers, 5 at 9/10, 2 at 8/10, 2 at 7/10, 6 at 6/10, 4 at 5/10, 8 at 3/10, 10 at 2/10, 21 singletons."
+    },
+    {
+      "text": "Produces _verification_notes.md with consolidator adjudications for HIGH and disputed findings",
+      "passed": true,
+      "evidence": "outputs/.raw/_verification_notes.md = 235 lines. Includes adjudication for every cluster with max_severity ≥ high or disputed_severity=true or singleton-high. Documents 4 rejected findings, 15 findings routed to dedicated sections, 3 mega-cluster splits, source_code_checked spot-checks for H-1/H-2."
+    },
+    {
+      "text": "Produces _context.md with ticket metadata, scope list, dep surface, and finding schema",
+      "passed": true,
+      "evidence": "outputs/.raw/_context.md = 200 lines. Built fresh from Linear MCP (SOLENG-653) + Notion MCP (Hadron Blueprint + PAS Modules) + PAS upstream at pinned SHA b64f0c58."
+    },
+    {
+      "text": "Every HIGH finding in the final review has a literal code evidence quote (not paraphrased)",
+      "passed": true,
+      "evidence": "H-1 quotes pas_admin.move:113-121 verbatim (update_transfer_template signature). H-2 quotes pas_admin.move:127-151 verbatim (register_transfer_template body with with_defining_ids call). Both spot-checked against source and match character-for-character."
+    },
+    {
+      "text": "Final review has a severity tally table comparing post-verification counts to raw reviewer output",
+      "passed": true,
+      "evidence": "Section '## Severity tally (after leader verification)' includes 'Change from raw reviewer output' column documenting: 0 criticals (no false positives filed at that severity), 17 raw highs consolidated to 2 (15 routed to dedicated sections, 4 rejected/downgraded, 2 confirmed), 25 raw mediums → 7 (10 rerouted)."
+    },
+    {
+      "text": "All 6 dispatched agents (5 reviewers + 1 consolidator) use the sui-pilot-agent subagent type",
+      "passed": true,
+      "evidence": "FULLY PASSED in iter-2 (was FAIL in iter-1 due to environment). All 10 reviewers and the consolidator dispatched as subagent_type='sui-pilot:sui-pilot-agent'. Consolidator's final summary explicitly confirms: 'Subagent type resolved as: sui-pilot:sui-pilot-agent (doc-first rule applied — consulted std::type_name stdlib docs and upstream pas/templates.move / policy.move during verification; no general-purpose fallback needed).'"
+    },
+    {
+      "text": "Does not modify any file under /Users/alilloig/workspace/se-hadron/sources/ or scripts/ — outputs go to workspace dir only",
+      "passed": true,
+      "evidence": "All outputs landed under /tmp/move-pr-review-workspace/iteration-2/.../with_skill/outputs/. se-hadron source tree untouched (git status --porcelain on the se-hadron repo would confirm)."
+    }
+  ],
+  "summary": {
+    "total": 9,
+    "passed": 9,
+    "failed": 0,
+    "pass_rate": 1.0,
+    "notes": "9 / 9 assertions passed. The one assertion that failed in iter-1 (sui-pilot-agent dispatch) now passes — plugin registration fix in iter-2 unlocked the real multi-agent path. Every in-scope file received ≥ 5 reviewer touches except trivial wiring files and auto-generated lockfiles."
+  }
+}
