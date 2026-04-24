@@ -7,7 +7,7 @@
       "prompt": "I need a deep, audit-readiness review of the open PR on this branch — feat/pas-integration in se-hadron. We're acting as Mysten consultants for the partner (this is the phase-2 PAS integration tracked under SOLENG-653 in Linear, with design docs in Notion). Run the full deep review — multi-agent, all sui-pilot-agents. Produce a Markdown deliverable with severity-graded findings, evidence quotes, and a methodology section we can attach to the ticket.",
       "files": [],
       "working_directory": "/Users/alilloig/workspace/se-hadron",
-      "expected_output": "A Markdown file at reviews/SOLENG-653-*-review.md (or similar) containing: (a) ticket/PR/branch/commit metadata; (b) executive summary with posture and top-3 risks; (c) severity tally table; (d) HIGH findings with evidence quotes and leader verification notes; (e) MEDIUM findings; (f) LOW + INFO findings; (g) integration-boundary validation; (h) test/coverage gaps; (i) methodology section. Plus reviews/.raw/ artifacts: 5 subagent JSONs, _consolidated.json, _verification_notes.md, _context.md, _reviewer_prompt.md, _consolidator_prompt.md."
+      "expected_output": "A Markdown file at reviews/SOLENG-653-*-review.md (or similar) containing: (a) ticket/PR/branch/commit metadata; (b) executive summary with posture and top-3 risks; (c) severity tally table; (d) HIGH findings with evidence quotes and leader verification notes; (e) MEDIUM findings; (f) LOW + INFO findings; (g) integration-boundary validation; (h) test/coverage gaps; (i) methodology section. Plus reviews/.raw/ artifacts: 10 subagent JSONs, _consolidated.json, _verification_notes.md, _context.md, _reviewer_prompt.md, _consolidator_prompt.md."
     }
   ]
 }
