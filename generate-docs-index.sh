@@ -10,6 +10,11 @@
 
 set -euo pipefail
 
+# Force ASCII collation so `sort` produces byte-identical output across
+# macOS (BSD sort) and Ubuntu CI (GNU sort). Without this, underscores
+# and punctuation collate differently and the CI drift-gate fails.
+export LC_ALL=C
+
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
 
