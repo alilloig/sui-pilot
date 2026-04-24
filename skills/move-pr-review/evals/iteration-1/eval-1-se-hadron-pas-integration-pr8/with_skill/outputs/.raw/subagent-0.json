@@ -1,0 +1,67 @@
+[
+  {
+    "id": "R0-001",
+    "title": "@mysten/pas dependency uses caret range ^0.0.3 — unstable 0.x versioning",
+    "severity": "medium",
+    "category": "scripts",
+    "file": "scripts/package.json",
+    "line_range": "14-14",
+    "description": "The `@mysten/pas` client is pinned to `^0.0.3`. npm's caret for 0.x versions allows patch and minor bumps (up to but not including 0.1.0 per npm semver, but effectively any 0.0.x is allowed under some resolvers). An unstable pre-1.0 package should be pinned exactly to avoid silent upgrades that change template derivation or account address computation.",
+    "impact": "Drifting client version could break autoresolve template wiring (mismatch between on-chain PAS rev pinned in lockfile vs client version). Silent breakage at runtime.",
+    "recommendation": "Pin exactly: `\"@mysten/pas\": \"0.0.3\"` (no caret). Document the compatibility matrix with the on-chain PAS rev in the README.",
+    "evidence": "\"@mysten/bcs\": \"^2.0.3\",\n    \"@mysten/move-bytecode-template\": \"^0.3.0\",\n    \"@mysten/pas\": \"^0.0.3\",\n    \"@mysten/sui\": \"^2.4.0\",",
+    "confidence": "high"
+  },
+  {
+    "id": "R0-002",
+    "title": "token_template_pas/Move.toml lists empty [dependencies] section",
+    "severity": "info",
+    "category": "move-quality",
+    "file": "token_template_pas/Move.toml",
+    "line_range": "5-6",
+    "description": "`[dependencies]` is declared but empty. The Move toolchain supplies std / sui framework implicitly. An empty section is stylistically noisy; either omit the section or populate explicitly for clarity.",
+    "impact": "None.",
+    "recommendation": "Remove the `[dependencies]` header, or add an inline comment: '# std and sui framework supplied implicitly'.",
+    "evidence": "[package]\nname = \"token_template_pas\"\nedition = \"2024\"\n\n[dependencies]",
+    "confidence": "high"
+  },
+  {
+    "id": "R0-003",
+    "title": "scripts/src/deployPasTokenTemplate/index.ts — trivial re-export",
+    "severity": "info",
+    "category": "scripts",
+    "file": "scripts/src/deployPasTokenTemplate/index.ts",
+    "line_range": "1-3",
+    "description": "The file is a trivial one-line re-export. No logic to review. Included only for coverage completeness.",
+    "impact": "None.",
+    "recommendation": "No action.",
+    "evidence": "import { deployPasTokenTemplate } from './deployPasTokenTemplate'\n\nexport default deployPasTokenTemplate;",
+    "confidence": "high"
+  },
+  {
+    "id": "R0-004",
+    "title": "scripts/src/operations/index.ts — re-exports include PAS helpers; no validation",
+    "severity": "info",
+    "category": "scripts",
+    "file": "scripts/src/operations/index.ts",
+    "line_range": "1-5",
+    "description": "Trivial barrel file. Re-exports `registerPasAsset`, `deployAndRegisterPasAsset`, `addToWhitelist`, `removeFromWhitelist`, `mintPasTokens`. No seize/burn/setWhitelistSend/Receive — matches the gaps identified in R5-014 and R5-015.",
+    "impact": "None per se; re-exports track the operation set.",
+    "recommendation": "Update as operation helpers are added for seize, burn, setWhitelistSend, setWhitelistReceive (see R5-014, R5-015).",
+    "evidence": "export { registerPasAsset, deployAndRegisterPasAsset, addToWhitelist, removeFromWhitelist, mintPasTokens } from './pas';",
+    "confidence": "high"
+  },
+  {
+    "id": "R0-005",
+    "title": "getBytecode.ts embeds coin template bytecode as a hex string — provenance not documented",
+    "severity": "low",
+    "category": "scripts",
+    "file": "scripts/src/deployPasTokenTemplate/getBytecode.ts",
+    "line_range": "3-4",
+    "description": "The deploy helper ships a hard-coded 1.5 KB hex bytecode constant representing the compiled token_template_pas/sources/token_template.move. No comment or script records how this was generated, nor an invariant that it matches the source in `token_template_pas/`.",
+    "impact": "Future edits to `token_template_pas/sources/token_template.move` will NOT update the bytecode — silent drift between source and deployed bytecode.",
+    "recommendation": "Add a script under `scripts/` that rebuilds `token_template_pas` and regenerates `BYTECODE_HEX`. Add a CI check that fails if the source has been modified without regenerating. At minimum, add a comment in getBytecode.ts citing the source file and a regeneration command.",
+    "evidence": "const BYTECODE_HEX =\n    \"a11ceb0b060000000a01000c020c1e032a2604500805585a07b201e3010895036006f503450aba04050cbf044a0010010f0206020702110212000302000102070002040c01000105050200000a000100000b000200011308090003090d0e0100030c0b0c0102040d0701010c050e04050005060503040a030a02080007080500020b020108000b04010800010b04010800010608050105010b0201080002090005010a02010801010800070900020801080108010801070805020b030109000b02010900020b03010900070805010b040109001343757272656e6379496e697469616c697a65720b4d6574616461746143617006537472696e670e544f4b454e5f54454d504c4154450b5472656173757279436170095478436f6e7465787404636f696e0d636f696e5f72656769737472790b64756d6d795f6669656c640866696e616c697a6504696e69740d696e69745f7472656173757279156e65775f63757272656e63795f776974685f6f74770f7075626c69635f7472616e736665720673656e64657206737472696e670e746f6b656e5f74656d706c617465087472616e736665720a74785f636f6e7465787404757466380000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020201060a020504544d504c0a020e0d54656d706c61746520436f696e0a021a1954656d706c61746520436f696e204465736372697074696f6e0a02090869636f6e5f75726c000201080100000000030e0b000a0111010c020a012e110638000b020b012e11063801020103000002130b000700070111020702110207031102070411020a0138020c020b0138030c030b020b030200",
+    "confidence": "high"
+  }
+]

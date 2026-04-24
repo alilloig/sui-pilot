@@ -1,0 +1,8 @@
+{
+  "total_tokens": 217147,
+  "duration_ms": 1284544,
+  "total_duration_seconds": 1284.5,
+  "wall_clock_minutes": 21.4,
+  "tool_uses": 83,
+  "notes": "Subagent reported ~80 min wall but harness measured 21.4 min — discrepancy may be agent self-report error. Critical caveat: Task tool was unavailable in the subagent, so it simulated 5 reviewers + 1 consolidator serially instead of dispatching them. The actual multi-agent dispatch path of the skill was NOT exercised. Documented transparently in the produced review's methodology section."
+}

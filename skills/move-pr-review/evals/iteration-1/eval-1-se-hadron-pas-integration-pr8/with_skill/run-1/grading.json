@@ -1,0 +1,59 @@
+{
+  "eval_id": 1,
+  "eval_name": "se-hadron-pas-integration-pr8",
+  "configuration": "with_skill",
+  "expectations": [
+    {
+      "text": "Produces a Markdown review file in the outputs directory with at least 200 lines and sections: executive summary, severity tally, HIGH findings, methodology",
+      "passed": true,
+      "evidence": "outputs/SOLENG-653-pas-integration-review.md = 616 lines. Sections present: Executive summary, Severity tally, Findings (HIGH/MEDIUM/LOW/INFO), Integration-boundary, Test & coverage gaps, Methodology, 4 appendices, Postscript."
+    },
+    {
+      "text": "Produces 5 reviewer JSON files (subagent-1.json … subagent-5.json) in the outputs/.raw/ directory, all schema-valid",
+      "passed": true,
+      "evidence": "outputs/.raw/subagent-{1..5}.json all present and pass strict schema validation. Counts: R1=16, R2=15, R3=14, R4=15, R5=16, plus R0=5 (leader backfill)."
+    },
+    {
+      "text": "Produces _consolidated.json with cluster aggregation",
+      "passed": true,
+      "evidence": "outputs/.raw/_consolidated.json exists. Per the agent's summary: 50 clusters from 81 raw findings."
+    },
+    {
+      "text": "Produces _verification_notes.md with consolidator adjudications for HIGH and disputed findings",
+      "passed": true,
+      "evidence": "outputs/.raw/_verification_notes.md exists. Methodology section confirms consolidator split 3 mega-clusters, rejected 1 critical, downgraded 3 mediums."
+    },
+    {
+      "text": "Produces _context.md with ticket metadata, scope list, dep surface, and finding schema",
+      "passed": true,
+      "evidence": "outputs/.raw/_context.md exists. Built from Linear MCP fetch of SOLENG-653 + Notion MCP fetches for Hadron Blueprint and PAS Modules pages."
+    },
+    {
+      "text": "Every HIGH finding in the final review has a literal code evidence quote (not paraphrased)",
+      "passed": true,
+      "evidence": "H-1 (the only HIGH) is on Move.toml:6-8 with quoted lines `pas = { git = ..., rev = \"main\" }` and `ptb = { ... rev = \"main\" }`."
+    },
+    {
+      "text": "Final review has a severity tally table comparing post-verification counts to raw reviewer output",
+      "passed": true,
+      "evidence": "Section '## Severity tally (after consolidator verification)' present. Table includes 'Change from raw reviewer output' column documenting 1 critical rejected, 3 mediums downgraded, 2 splits."
+    },
+    {
+      "text": "All 6 dispatched agents (5 reviewers + 1 consolidator) use the sui-pilot-agent subagent type",
+      "passed": false,
+      "evidence": "FAIL by environment limitation, not by skill design. Agent reported: 'Task tool was not available in this runtime — fell back to simulating 5 reviewers + 1 consolidator myself as the orchestrator.' This invalidates the multi-agent dispatch path of the eval; the skill's *prescription* for sui-pilot-agent dispatch is correct, but couldn't be exercised here."
+    },
+    {
+      "text": "Does not modify any file under /Users/alilloig/workspace/se-hadron/sources/ or scripts/ — outputs go to workspace dir only",
+      "passed": true,
+      "evidence": "All outputs under /tmp/move-pr-review-workspace/iteration-1/.../with_skill/outputs/. Repo source tree untouched (verified by ls of source files unchanged from earlier session)."
+    }
+  ],
+  "summary": {
+    "total": 9,
+    "passed": 8,
+    "failed": 1,
+    "pass_rate": 0.889,
+    "key_failure_note": "The failed assertion is an environment limitation (Task tool unavailable inside the spawned subagent prevented true multi-agent dispatch). The skill's design for sui-pilot-agent fan-out is documented and correct; the eval just couldn't exercise that specific path."
+  }
+}
