@@ -24,7 +24,7 @@ Each `subagent-N.json` is a JSON array. Each element is an object with **exactly
 
 ### Field requirements
 
-- `id` — prefix `R<N>` where `<N>` is the reviewer number 1..5 (or `R0` for leader backfill). Example: `R3-007`.
+- `id` — prefix `R<N>` where `<N>` is the reviewer number 1..10 (or `R0` for leader backfill). Example: `R3-007`.
 - `title` — ≤ 80 characters; one-line summary.
 - `severity` — exactly one of the five rubric values below.
 - `category` — exactly one of the eleven category strings. Pick the best fit; do not invent new categories.

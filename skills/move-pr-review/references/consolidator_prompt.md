@@ -57,7 +57,7 @@ The clustering algorithm groups by `(file, line-range overlap, category)`. When 
 Save `reviews/.raw/_verification_notes.md` with one section per verified cluster. Format:
 
 ```markdown
-## C014 — <title>  (max_sev: <X>, agreement: <N>/5)
+## C014 — <title>  (max_sev: <X>, agreement: <N>/10)
 
 **Verdict: <CONFIRM | DOWNGRADE-TO-<sev> | REJECT | SPLIT>.**
 

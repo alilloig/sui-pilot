@@ -146,7 +146,7 @@ If nothing merge-blocking: **"No build / reproducibility blockers identified."**
 
 **Skills invoked per reviewer.** `move-code-review`, `move-code-quality`, plus manual review of off-chain scripts.
 
-**Raw artifacts.** `reviews/.raw/subagent-1.json` … `subagent-5.json` (schema-validated, `<total>` total findings).
+**Raw artifacts.** `reviews/.raw/subagent-1.json` … `subagent-10.json` (schema-validated, `<total>` total findings).
 
 **Consolidation.** `reviews/.raw/_consolidated.json` — `<N>` clusters via `${CLAUDE_PLUGIN_ROOT}/skills/move-pr-review/scripts/consolidate.js`.
 
@@ -154,7 +154,7 @@ If nothing merge-blocking: **"No build / reproducibility blockers identified."**
 
 **Quality gates met.**
 - Schema validation: all 10 reviewer JSONs passed.
-- Coverage matrix: every in-scope file received ≥ 3 reviewer touches except `<list under-covered files and how they were backfilled>`.
+- Coverage matrix: every in-scope file received ≥ 5 reviewer touches out of 10 except `<list under-covered files and how they were backfilled>`.
 - Critical-finding reproduction: `<count>` claims verified; `<count>` rejected/downgraded.
 - Boundary spot-checks: `<list upstream files validated>`.
 
@@ -221,7 +221,7 @@ If nothing merge-blocking: **"No build / reproducibility blockers identified."**
 
 (4–6 short paragraphs. Honest reflection on this specific run. Suggested topics in order:)
 
-**What pure redundancy bought us.** `<how many 5/5 and 4/5 clusters; high-confidence signal>`.
+**What pure redundancy bought us.** `<how many 10/10, 9/10, 8/10 clusters; high-confidence signal>`.
 
 **What independent thinking bought us.** `<how many singletons survived verification; coverage that one reviewer would have missed>`.
 
@@ -229,7 +229,7 @@ If nothing merge-blocking: **"No build / reproducibility blockers identified."**
 
 **Where the workflow underperformed.** `<over-clustering by file position; mega-clusters needing splits; or other observed weaknesses on this run>`.
 
-**Coverage near-misses.** `<files that nearly fell through the < 3 reviewer touches floor; what the leader backfilled>`.
+**Coverage near-misses.** `<files that nearly fell through the coverage floor; what the leader backfilled>`.
 
 **Cost & wall-clock.** `<reviewer-minutes; consolidator-minutes; total>`.
 
