@@ -182,7 +182,7 @@ Run `scripts/consolidate.js`. It clusters findings by `(file, line-range overlap
 
 Dispatch 1 `sui-pilot-agent` subagent (foreground, not background) with the consolidator prompt. The consolidator:
 
-1. Reads `_context.md`, `_consolidated.json`, and all 5 `subagent-N.json` files.
+1. Reads `_context.md`, `_consolidated.json`, and all 10 `subagent-N.json` files.
 2. For every cluster with `max_severity ∈ {critical, high}` OR `disputed_severity = true` OR `agreement_count = 1 AND max_severity ≥ high`, opens the cited file at the cited lines (±30 lines context) and adjudicates: **confirm** / **downgrade** / **reject** / **split** (mega-cluster).
 3. For confirmed critical/high findings, traces the call graph one hop up and one hop down to validate the impact claim.
 4. For integration-boundary findings, opens the cited upstream file and confirms the function signature / semantics claim.
@@ -270,4 +270,4 @@ Testing and dep-pin concerns are real and important, but they're infrastructure 
 - **Subagent collusion on the same wrong conclusion.** All 10 reviewers running the same skill on the same code may share a blind spot. The orchestrator's private smoke-read (Phase 1) is the counter-signal. If all 10 reviewers miss something the orchestrator caught in pre-read, file it as `R0-*` during Phase 2.2.
 - **Notion / Linear / WebFetch unavailable mid-run.** Phase 0 fetches once and caches into `_context.md`. If unavailable, note the gap in the methodology section — don't silently skip.
 - **Stale dep pins.** Capture the local `git rev-parse HEAD` of every Move dep at Phase 0.2 and embed in `_context.md`. The consolidator cites this hash in the methodology section.
-- **Reviewer over-budget.** Default budget is ~30–45 minutes per reviewer. If a reviewer hangs past 60 minutes, kill it and proceed with 4 reviewers; note the gap.
+- **Reviewer over-budget.** Default budget is ~30–45 minutes per reviewer. If a reviewer hangs past 60 minutes, kill it and proceed with 9 reviewers; note the gap.
