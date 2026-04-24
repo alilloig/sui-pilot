@@ -91,4 +91,17 @@ N_CRITICAL=$(jq '[.[] | select(.max_severity == "critical")] | length' "$CLUSTER
 CRITICAL_AGREEMENT=$(jq '[.[] | select(.max_severity == "critical")] | .[0].agreement_count' "$CLUSTERS")
 [ "$CRITICAL_AGREEMENT" = "2" ] || fail "_consolidated.json: expected critical cluster agreement=2 (R1+R3), got $CRITICAL_AGREEMENT"
 
+echo "[smoke] parameterization (REVIEWERS=7)"
+REVIEWERS=7 bash "$COVERAGE" "$RAW" > "$TMPDIR/coverage7.out" 2>&1 \
+  || fail "coverage_matrix.sh with REVIEWERS=7 exited non-zero"
+head -1 "$TMPDIR/coverage7.out" | grep -qE '^file\tR1\tR2\tR3\tR4\tR5\tR6\tR7\ttotal\tflag$' \
+  || fail "coverage_matrix.sh with REVIEWERS=7: header should stop at R7"
+grep -qE 'out of 7' "$TMPDIR/coverage7.out" \
+  || fail "coverage_matrix.sh with REVIEWERS=7: footer should say 'out of 7'"
+
+REVIEWERS=7 node "$CONSOLIDATE" "$RAW" > "$TMPDIR/consolidate7.out" 2>&1 \
+  || fail "consolidate.js with REVIEWERS=7 exited non-zero"
+grep -qE '/7 reviewers' "$TMPDIR/consolidate7.out" \
+  || fail "consolidate.js with REVIEWERS=7: agreement lines should say '/7'"
+
 echo "PASS"

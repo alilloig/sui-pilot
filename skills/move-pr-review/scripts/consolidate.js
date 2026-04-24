@@ -19,10 +19,11 @@ const path = require('path');
 
 const RAW_DIR = path.resolve(process.argv[2] || 'reviews/.raw');
 const OUT = path.join(RAW_DIR, '_consolidated.json');
+const REVIEWERS = parseInt(process.env.REVIEWERS || '10', 10);
 
 function loadAll() {
   const all = [];
-  for (let n = 0; n <= 10; n++) {
+  for (let n = 0; n <= REVIEWERS; n++) {
     const p = path.join(RAW_DIR, `subagent-${n}.json`);
     let raw;
     try { raw = fs.readFileSync(p, 'utf8'); }
@@ -169,7 +170,7 @@ function main() {
   const byAgree = {};
   for (const c of consolidated) byAgree[c.agreement_count] = (byAgree[c.agreement_count] || 0) + 1;
   for (const k of Object.keys(byAgree).sort((a, b) => Number(a) - Number(b))) {
-    console.log(`  ${k}/10 reviewers: ${byAgree[k]}`);
+    console.log(`  ${k}/${REVIEWERS} reviewers: ${byAgree[k]}`);
   }
   console.log('');
   console.log(`Output: ${OUT}`);
