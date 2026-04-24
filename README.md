@@ -48,6 +48,7 @@ Real-time feedback from `move-analyzer`:
 | `/move-code-quality` | Move Book Code Quality Checklist compliance      |
 | `/move-code-review`  | Security and architecture review                 |
 | `/move-tests`        | Test generation best practices                   |
+| `/move-pr-review`    | Multi-agent deep PR review (10 reviewers + consolidator) |
 | `/oz-math`           | OpenZeppelin math library recommendations        |
 
 Each command routes to a bundled skill of the same name; skills live under `skills/` and hold the actual behavior.
@@ -196,7 +197,7 @@ The sync script clones or pulls each upstream repo and copies the `docs/content/
 sui-pilot/
 ├── .claude-plugin/plugin.json   # Plugin manifest
 ├── agents/sui-pilot-agent.md    # Specialized Sui Move agent
-├── skills/                      # Bundled skills (code-quality, code-review, tests, oz-math)
+├── skills/                      # Bundled skills (code-quality, code-review, tests, pr-review, oz-math)
 ├── mcp/move-lsp-mcp/            # MCP server wrapping move-analyzer
 ├── .sui-docs/                   # 336 Sui documentation files
 ├── .walrus-docs/                # 84 Walrus documentation files

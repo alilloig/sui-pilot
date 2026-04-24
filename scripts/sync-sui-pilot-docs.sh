@@ -54,13 +54,15 @@ else
     COMMIT_SHA="unknown"
 fi
 
+if ! command -v jq >/dev/null 2>&1; then
+    echo "Error: jq is required to extract sui-pilot plugin version from .claude-plugin/marketplace.json" >&2
+    exit 1
+fi
 PLUGIN_VERSION=$(
-    awk -F'"' '
-        /"name":[[:space:]]*"sui-pilot"/ { found = 1 }
-        found && /"version":/ { print $4; exit }
-    ' "$SUI_PILOT_SOURCE/.claude-plugin/marketplace.json" 2>/dev/null
+    jq -r '.plugins[] | select(.name == "sui-pilot") | .version' \
+        "$SUI_PILOT_SOURCE/.claude-plugin/marketplace.json" 2>/dev/null
 )
-if [[ -z "$PLUGIN_VERSION" ]]; then
+if [[ -z "$PLUGIN_VERSION" || "$PLUGIN_VERSION" == "null" ]]; then
     echo "Error: could not read sui-pilot plugin version from .claude-plugin/marketplace.json" >&2
     echo "       mcp/move-lsp-mcp/src/version.ts requires a valid pluginVersion in docs/VERSION.json." >&2
     exit 1
