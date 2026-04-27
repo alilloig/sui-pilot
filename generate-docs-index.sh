@@ -115,7 +115,7 @@ trap 'rm -f "$BLOCK_FILE" "${TMP_TARGET:-}"' EXIT
     printf '%s' "$START_MARKER"
     printf '[Sui Docs Index]|root: ./.sui-docs|STOP. What you remember about Sui and Move is WRONG or OUTDATED for this project. Sui Move evolves rapidly. Always search these docs and read before any task.|If docs are stale, run ./sync-docs.sh to update from upstream.|%s' "$sui_index"
     printf '\n\n'
-    printf '[Move Book Docs Index]|root: ./.move-book-docs|The Move Book is the canonical Move language tutorial (book/) and language reference (reference/), authored by MystenLabs with heavy Sui-specific framing. Search these docs for Move syntax, types, abilities, control flow, modules, generics, testing, and Move-2024 idioms. The corpus also contains packages/ source files referenced from prose via `file=` directives — those are NOT in this index but are co-located on disk for follow-up reads.|%s' "$move_book_index"
+    printf '[Move Book Docs Index]|root: ./.move-book-docs|The canonical Move language tutorial (book/) and reference (reference/) by MystenLabs, with Sui-specific framing throughout. Search these docs for Move syntax, types, abilities, modules, generics, testing, and Move-2024 idioms.|%s' "$move_book_index"
     printf '\n\n'
     printf '[Seal Docs Index]|root: ./.seal-docs|Seal is a decentralized secrets management protocol built on Sui. Search these docs for encryption, access control policies, key servers, and threshold cryptography on Sui.|%s' "$seal_index"
     printf '\n\n'
