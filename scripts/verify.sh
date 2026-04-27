@@ -63,7 +63,7 @@ count_doc_files() {
     find "$1" -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '
 }
 
-for dir in .sui-docs .walrus-docs .seal-docs .ts-sdk-docs; do
+for dir in .sui-docs .move-book-docs .walrus-docs .seal-docs .ts-sdk-docs; do
     if [ -d "$PLUGIN_ROOT/$dir" ]; then
         pass "$dir exists ($(count_doc_files "$PLUGIN_ROOT/$dir") doc files)"
     else
@@ -76,10 +76,11 @@ if [ -f "$AGENT_FILE" ] \
     && grep -qF "<!-- AGENTS-MD-START -->" "$AGENT_FILE" \
     && grep -qF "<!-- AGENTS-MD-END -->" "$AGENT_FILE" \
     && grep -qF "[Sui Docs Index]" "$AGENT_FILE" \
+    && grep -qF "[Move Book Docs Index]" "$AGENT_FILE" \
     && grep -qF "[Walrus Docs Index]" "$AGENT_FILE" \
     && grep -qF "[Seal Docs Index]" "$AGENT_FILE" \
     && grep -qF "[TS SDK Docs Index]" "$AGENT_FILE"; then
-    pass "agents/sui-pilot-agent.md contains the doc index for all four ecosystems"
+    pass "agents/sui-pilot-agent.md contains the indexed doc-source set (Sui, Move Book, Walrus, Seal, TS SDK)"
 else
     warn "agents/sui-pilot-agent.md missing doc index — run ./generate-docs-index.sh"
 fi

@@ -40,7 +40,7 @@ jobs:
         # git status (not git diff) so upstream-added files (untracked) count as drift.
         run: |
           if [ -z "$(git status --porcelain --untracked-files=all -- \
-              .sui-docs .walrus-docs .seal-docs .ts-sdk-docs agents/sui-pilot-agent.md)" ]; then
+              .sui-docs .move-book-docs .walrus-docs .seal-docs .ts-sdk-docs agents/sui-pilot-agent.md)" ]; then
             echo "drifted=false" >> "$GITHUB_OUTPUT"
             echo "No upstream doc changes this run."
           else
@@ -63,7 +63,7 @@ jobs:
             Automated weekly refresh of bundled ecosystem docs.
 
             Pipeline:
-            1. `./sync-docs.sh` — pulls latest from `MystenLabs/sui`, `MystenLabs/walrus`, `MystenLabs/seal`, `MystenLabs/ts-sdks`.
+            1. `./sync-docs.sh` — pulls latest from `MystenLabs/sui`, `MystenLabs/move-book`, `MystenLabs/walrus`, `MystenLabs/seal`, `MystenLabs/ts-sdks`.
             2. `./generate-docs-index.sh` — rewrites the index block inside `agents/sui-pilot-agent.md`.
             3. `./scripts/sync-sui-pilot-docs.sh` — refreshes the `docs/` bundle and `docs/VERSION.json`.
 

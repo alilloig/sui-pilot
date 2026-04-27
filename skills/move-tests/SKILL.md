@@ -13,7 +13,7 @@ description: |
 
 # Move Tests
 
-> **Doc-First Requirement**: Before generating test code, verify current testing patterns against the sui-pilot documentation (`.sui-docs/`, `.walrus-docs/`, `.seal-docs/`, `.ts-sdk-docs/`). The full pipe-delimited index lives in `agents/sui-pilot-agent.md`. Test utilities and conventions evolve—`test_scenario`, `tx_context::dummy()`, and assertion helpers may have changed. When using specific test APIs, reference the doc file path.
+> **Doc-First Requirement**: Before generating test code, verify current testing patterns against the sui-pilot documentation (`.sui-docs/`, `.move-book-docs/`, `.walrus-docs/`, `.seal-docs/`, `.ts-sdk-docs/`). The full pipe-delimited index lives in `agents/sui-pilot-agent.md`. Test utilities and conventions evolve—`test_scenario`, `tx_context::dummy()`, and assertion helpers may have changed. When using specific test APIs, reference the doc file path.
 
 ## File Organization
 

@@ -96,13 +96,13 @@ An audit tool can detect this violation by checking:
 
 1. **Tool call ordering**: `Edit`/`Write` tool calls appear before any `Read` or `Grep` calls targeting the `docs/` directory
 2. **Missing doc citations**: No reference to `docs/CLAUDE.md` or the doc index embedded in `docs/agents/sui-pilot-agent.md` before the first code block
-3. **No bundled doc search**: No `Grep` calls against `.sui-docs/`, `.walrus-docs/`, `.seal-docs/`, or `.ts-sdk-docs/` before implementation
+3. **No bundled doc search**: No `Grep` calls against `.sui-docs/`, `.move-book-docs/`, `.walrus-docs/`, `.seal-docs/`, or `.ts-sdk-docs/` before implementation
 
 ### Correct Ordering Should Be
 
 1. Read `docs/CLAUDE.md` for project conventions
 2. Read `docs/agents/sui-pilot-agent.md` for the embedded doc index and sui-pilot routing
-3. Grep bundled docs for relevant patterns (`.sui-docs/`, `.walrus-docs/`, `.seal-docs/`, `.ts-sdk-docs/`)
+3. Grep bundled docs for relevant patterns (`.sui-docs/`, `.move-book-docs/`, `.walrus-docs/`, `.seal-docs/`, `.ts-sdk-docs/`)
 4. **Then** write implementation
 5. Run `/move-code-quality`
 6. Run `/move-code-review`

@@ -1,0 +1,11 @@
+[package]
+name = "reference"
+edition = "2024.alpha"
+
+[dependencies.Sui]
+git = "https://github.com/MystenLabs/sui.git"
+subdir = "crates/sui-framework/packages/sui-framework"
+rev = "framework/mainnet"
+
+[addresses]
+ref = "0x0"

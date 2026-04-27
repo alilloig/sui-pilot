@@ -12,14 +12,17 @@ A Claude Code plugin that transforms Claude into a Sui/Move development expert.
 
 Sui Move evolves rapidly. LLM training data goes stale fast, and agents confidently generate outdated patterns, deprecated APIs, and incorrect syntax.
 
-sui-pilot solves this by bundling **548 documentation files** from four Mysten Labs repos directly into your Claude Code environment:
+sui-pilot solves this by bundling **695 documentation files** from five Mysten Labs sources directly into your Claude Code environment:
 
-| Ecosystem   | Files | Topics                                                                  |
-| ----------- | ----- | ----------------------------------------------------------------------- |
-| **Sui**     | 336   | Blockchain, Move language, objects, transactions, SDKs, DeFi standards  |
-| **Walrus**  | 84    | Decentralized blob storage, Walrus Sites, HTTP API, node operations     |
-| **Seal**    | 14    | Secrets management, encryption, key servers, access control policies    |
-| **TS SDK**  | 114   | TypeScript SDK, dapp-kit, payment-kit, kiosk, React hooks, transactions |
+| Source        | Files | Topics                                                                  |
+| ------------- | ----- | ----------------------------------------------------------------------- |
+| **Sui**       | 339   | Blockchain, Move language, objects, transactions, SDKs, DeFi standards  |
+| **Move Book** | 143   | Move language tutorial + reference: syntax, types, abilities, idioms    |
+| **Walrus**    | 84    | Decentralized blob storage, Walrus Sites, HTTP API, node operations     |
+| **Seal**      | 14    | Secrets management, encryption, key servers, access control policies    |
+| **TS SDK**    | 115   | TypeScript SDK, dapp-kit, payment-kit, kiosk, React hooks, transactions |
+
+The Move Book corpus also ships with `.move-book-docs/packages/` — Move source examples referenced from the prose via `file=` directives, available for follow-up reads but excluded from the indexed search corpus.
 
 ---
 
@@ -171,12 +174,13 @@ sui-pilot solves this by bundling documentation locally. The agent reads current
 
 The docs are extracted directly from the official MystenLabs repositories — the same source that powers docs.sui.io, docs.walrus.site, and docs.seal.xyz. This ensures accuracy and consistency with what developers see in the official documentation.
 
-| Ecosystem | Repository                                                | Doc Path                 |
-| --------- | --------------------------------------------------------- | ------------------------ |
-| Sui       | [MystenLabs/sui](https://github.com/MystenLabs/sui)       | `docs/content/`          |
-| Walrus    | [MystenLabs/walrus](https://github.com/MystenLabs/walrus) | `docs/content/`          |
-| Seal      | [MystenLabs/seal](https://github.com/MystenLabs/seal)     | `docs/content/`          |
-| TS SDK    | [MystenLabs/ts-sdks](https://github.com/MystenLabs/ts-sdks) | `packages/docs/content/` |
+| Source    | Repository                                                      | Doc Path(s)                       |
+| --------- | --------------------------------------------------------------- | --------------------------------- |
+| Sui       | [MystenLabs/sui](https://github.com/MystenLabs/sui)             | `docs/content/`                   |
+| Move Book | [MystenLabs/move-book](https://github.com/MystenLabs/move-book) | `book/`, `reference/`, `packages/` |
+| Walrus    | [MystenLabs/walrus](https://github.com/MystenLabs/walrus)       | `docs/content/`                   |
+| Seal      | [MystenLabs/seal](https://github.com/MystenLabs/seal)           | `docs/content/`                   |
+| TS SDK    | [MystenLabs/ts-sdks](https://github.com/MystenLabs/ts-sdks)     | `packages/docs/content/`          |
 
 ### Updating the Docs
 
@@ -187,7 +191,7 @@ Run these scripts periodically (e.g., monthly, or before a major project):
 ./generate-docs-index.sh # Rewrite the index block in agents/sui-pilot-agent.md
 ```
 
-The sync script clones or pulls each upstream repo and copies the `docs/content/` directory into the corresponding `.{ecosystem}-docs/` folder. The index script walks these directories and rewrites the block between `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` inside `agents/sui-pilot-agent.md` — a compact, pipe-delimited file list that ships as part of the agent's system prompt, so docs-first behavior works out of the box when the agent is invoked. A scheduled GitHub Actions workflow (`.github/workflows/refresh-docs.yml`) runs this pipeline weekly and opens a chore PR when upstream docs change.
+The sync script clones or pulls each upstream repo and copies the prose into the corresponding `.{source}-docs/` folder. Most sources contribute a single `docs/content/` tree; the Move Book contributes its `book/`, `reference/`, and `packages/` subtrees into `.move-book-docs/` (with `packages/` available on disk but excluded from the searchable index). The index script walks these directories and rewrites the block between `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` inside `agents/sui-pilot-agent.md` — a compact, pipe-delimited file list that ships as part of the agent's system prompt, so docs-first behavior works out of the box when the agent is invoked. A scheduled GitHub Actions workflow (`.github/workflows/refresh-docs.yml`) runs this pipeline weekly and opens a chore PR when upstream docs change.
 
 ---
 
@@ -199,10 +203,11 @@ sui-pilot/
 ├── agents/sui-pilot-agent.md    # Specialized Sui Move agent
 ├── skills/                      # Bundled skills (code-quality, code-review, tests, pr-review, oz-math)
 ├── mcp/move-lsp-mcp/            # MCP server wrapping move-analyzer
-├── .sui-docs/                   # 336 Sui documentation files
+├── .sui-docs/                   # 339 Sui documentation files
+├── .move-book-docs/             # 143 Move Book files (book/ + reference/) + packages/ examples
 ├── .walrus-docs/                # 84 Walrus documentation files
 ├── .seal-docs/                  # 14 Seal documentation files
-└── .ts-sdk-docs/                # 114 TS SDK documentation files
+└── .ts-sdk-docs/                # 115 TS SDK documentation files
 ```
 
 ---

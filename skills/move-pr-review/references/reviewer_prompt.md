@@ -22,7 +22,7 @@ Before generating any analysis, consult the sui-pilot documentation. This rule a
    - `${CLAUDE_PLUGIN_ROOT}/agents/sui-pilot-agent.md` (if dispatched as `sui-pilot-agent`, this is the plugin's own copy and it is already in your system prompt)
    - `~/.claude/sui-pilot/agents/sui-pilot-agent.md` (absolute fallback — the user's global sui-pilot docs)
    - `/Users/alilloig/.claude/sui-pilot/agents/sui-pilot-agent.md` (explicit if `~` expansion fails)
-2. Grep / read the relevant doc tree — `.sui-docs/` for Sui/Move, `.walrus-docs/` for Walrus, `.seal-docs/` for Seal, `.ts-sdk-docs/` for TypeScript SDK — for any framework feature you're unsure about before making a claim about its behaviour.
+2. Grep / read the relevant doc tree — `.sui-docs/` for Sui-specific runtime/objects/transactions, `.move-book-docs/` for Move language semantics, syntax, idioms, and language reference, `.walrus-docs/` for Walrus, `.seal-docs/` for Seal, `.ts-sdk-docs/` for TypeScript SDK — for any framework or language feature you're unsure about before making a claim about its behaviour.
 3. When citing a specific Move pattern in your `evidence` field (e.g. `new_currency_with_otw`, `derived_object::claim`, DOF vs DF semantics), reference the doc file you verified against.
 
 If NONE of the doc paths above exist, halt and report that — do not proceed with analysis on stale training knowledge.
