@@ -3,8 +3,11 @@
 #
 # Usage: ./generate-docs-index.sh
 #
-# Walks .sui-docs/, .walrus-docs/, .seal-docs/, .ts-sdk-docs/ and produces a
-# pipe-delimited index that AI agents parse to discover available documentation.
+# Walks .sui-docs/, .move-book-docs/, .walrus-docs/, .seal-docs/, .ts-sdk-docs/
+# and produces a pipe-delimited index that AI agents parse to discover docs.
+# .move-book-docs/packages/ is intentionally excluded from the index — it holds
+# .move source examples referenced from the prose, available for follow-up reads
+# but not surfaced as searchable docs.
 # Rewrites only the block between <!-- AGENTS-MD-START --> and <!-- AGENTS-MD-END -->
 # in the target file, preserving YAML frontmatter and the rest of the prompt body.
 
@@ -34,13 +37,21 @@ fi
 
 # Generate pipe-delimited directory index for a doc tree
 # Format: dir:{file1.mdx,file2.mdx}|subdir:{file1.mdx,...}
+# Optional second arg: a top-level subdirectory (relative to root_dir) to skip
+# entirely. Used to exclude .move-book-docs/packages/ from the index.
 generate_index() {
     local root_dir="$1"
+    local skip_subdir="${2:-}"
+
+    local skip_args=()
+    if [[ -n "$skip_subdir" ]]; then
+        skip_args=(-not -path "$root_dir/$skip_subdir/*")
+    fi
 
     local dirs=()
     while IFS= read -r d; do
         dirs+=("$d")
-    done < <(find "$root_dir" -type f \( -name '*.mdx' -o -name '*.md' \) -exec dirname {} \; | sort -u)
+    done < <(find "$root_dir" -type f \( -name '*.mdx' -o -name '*.md' \) ${skip_args[@]+"${skip_args[@]}"} -exec dirname {} \; | sort -u)
 
     local parts=()
     for d in "${dirs[@]}"; do
@@ -54,7 +65,7 @@ generate_index() {
         local files=()
         while IFS= read -r f; do
             files+=("$(basename "$f")")
-        done < <(find "$d" -maxdepth 1 -type f \( -name '*.mdx' -o -name '*.md' \) | sort)
+        done < <(find "$d" -maxdepth 1 -type f \( -name '*.mdx' -o -name '*.md' \) ${skip_args[@]+"${skip_args[@]}"} | sort)
 
         if [[ ${#files[@]} -gt 0 ]]; then
             local file_list
@@ -71,17 +82,22 @@ generate_index() {
 echo "Generating doc index into $TARGET..."
 
 sui_count=$(find .sui-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
+move_book_count=$(find .move-book-docs -type f \( -name '*.mdx' -o -name '*.md' \) -not -path '.move-book-docs/packages/*' 2>/dev/null | wc -l | tr -d ' ')
 walrus_count=$(find .walrus-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
 seal_count=$(find .seal-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
 ts_sdk_count=$(find .ts-sdk-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
 
-echo "  Sui:    $sui_count files"
-echo "  Walrus: $walrus_count files"
-echo "  Seal:   $seal_count files"
-echo "  TS SDK: $ts_sdk_count files"
+echo "  Sui:       $sui_count files"
+echo "  Move Book: $move_book_count files (indexed; excludes packages/)"
+echo "  Walrus:    $walrus_count files"
+echo "  Seal:      $seal_count files"
+echo "  TS SDK:    $ts_sdk_count files"
 
 echo "  Building Sui index..."
 sui_index=$(generate_index ".sui-docs")
+
+echo "  Building Move Book index..."
+move_book_index=$(generate_index ".move-book-docs" "packages")
 
 echo "  Building Walrus index..."
 walrus_index=$(generate_index ".walrus-docs")
@@ -99,6 +115,8 @@ trap 'rm -f "$BLOCK_FILE" "${TMP_TARGET:-}"' EXIT
     printf '%s' "$START_MARKER"
     printf '[Sui Docs Index]|root: ./.sui-docs|STOP. What you remember about Sui and Move is WRONG or OUTDATED for this project. Sui Move evolves rapidly. Always search these docs and read before any task.|If docs are stale, run ./sync-docs.sh to update from upstream.|%s' "$sui_index"
     printf '\n\n'
+    printf '[Move Book Docs Index]|root: ./.move-book-docs|The Move Book is the canonical Move language tutorial (book/) and language reference (reference/), authored by MystenLabs with heavy Sui-specific framing. Search these docs for Move syntax, types, abilities, control flow, modules, generics, testing, and Move-2024 idioms. The corpus also contains packages/ source files referenced from prose via `file=` directives — those are NOT in this index but are co-located on disk for follow-up reads.|%s' "$move_book_index"
+    printf '\n\n'
     printf '[Seal Docs Index]|root: ./.seal-docs|Seal is a decentralized secrets management protocol built on Sui. Search these docs for encryption, access control policies, key servers, and threshold cryptography on Sui.|%s' "$seal_index"
     printf '\n\n'
     printf '[Walrus Docs Index]|root: ./.walrus-docs|Walrus is a decentralized storage protocol built on Sui. Search these docs for blob storage, Walrus Sites, TypeScript SDK, HTTP API, and node operations.|%s' "$walrus_index"
@@ -109,7 +127,7 @@ trap 'rm -f "$BLOCK_FILE" "${TMP_TARGET:-}"' EXIT
 
 # Guard: refuse to write an empty replacement block. Would otherwise wipe
 # the index from the agent file silently.
-for section in '[Sui Docs Index]' '[Walrus Docs Index]' '[Seal Docs Index]' '[TS SDK Docs Index]'; do
+for section in '[Sui Docs Index]' '[Move Book Docs Index]' '[Walrus Docs Index]' '[Seal Docs Index]' '[TS SDK Docs Index]'; do
     if ! grep -qF "$section" "$BLOCK_FILE"; then
         echo "Error: generated block is missing $section — aborting to avoid wiping $TARGET" >&2
         exit 1
@@ -149,7 +167,8 @@ mv "$TMP_TARGET" "$TARGET"
 block_size=$(wc -c < "$BLOCK_FILE" | tr -d ' ')
 echo ""
 echo "Rewrote index block in $TARGET (${block_size} bytes between markers)"
-echo "  Sui:    $sui_count files indexed"
-echo "  Walrus: $walrus_count files indexed"
-echo "  Seal:   $seal_count files indexed"
-echo "  TS SDK: $ts_sdk_count files indexed"
+echo "  Sui:       $sui_count files indexed"
+echo "  Move Book: $move_book_count files indexed (excludes packages/)"
+echo "  Walrus:    $walrus_count files indexed"
+echo "  Seal:      $seal_count files indexed"
+echo "  TS SDK:    $ts_sdk_count files indexed"

@@ -41,7 +41,7 @@ If the skill is invoked from a context without the `Task` tool:
 
 ## Agent type — `sui-pilot:sui-pilot-agent` is load-bearing
 
-All 11 dispatched subagents (10 reviewers + 1 consolidator) MUST use `subagent_type: sui-pilot:sui-pilot-agent` (the fully-qualified plugin-namespaced name). The agent definition enforces the **doc-first rule**: consult the embedded doc index inside `${CLAUDE_PLUGIN_ROOT}/agents/sui-pilot-agent.md` (between the `<!-- AGENTS-MD-START -->` / `<!-- AGENTS-MD-END -->` markers) and the `.sui-docs/` / `.walrus-docs/` / `.seal-docs/` / `.ts-sdk-docs/` directories before reasoning about Sui / Move / Walrus / Seal / Sui TypeScript SDK. This is non-negotiable for accurate findings — Sui Move evolves rapidly and LLM training data goes stale fast.
+All 11 dispatched subagents (10 reviewers + 1 consolidator) MUST use `subagent_type: sui-pilot:sui-pilot-agent` (the fully-qualified plugin-namespaced name). The agent definition enforces the **doc-first rule**: consult the embedded doc index inside `${CLAUDE_PLUGIN_ROOT}/agents/sui-pilot-agent.md` (between the `<!-- AGENTS-MD-START -->` / `<!-- AGENTS-MD-END -->` markers) and the `.sui-docs/` / `.move-book-docs/` / `.walrus-docs/` / `.seal-docs/` / `.ts-sdk-docs/` directories before reasoning about Sui / Move / Walrus / Seal / Sui TypeScript SDK. This is non-negotiable for accurate findings — Sui Move evolves rapidly and LLM training data goes stale fast.
 
 Fallback chain if the primary name isn't registered in the current session:
 

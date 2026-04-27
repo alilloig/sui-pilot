@@ -4,7 +4,16 @@ All notable changes to sui-pilot are documented in this file. The format is base
 
 ## [Unreleased]
 
+### Added
+
+- **Move Book is now indexed as a fifth doc corpus.** [`MystenLabs/move-book`](https://github.com/MystenLabs/move-book) (the canonical Move-language tutorial + language reference) is pulled into `.move-book-docs/` alongside the existing `.sui-docs/`, `.walrus-docs/`, `.seal-docs/`, and `.ts-sdk-docs/`. The new `[Move Book Docs Index]` section appears between Sui and Seal in `agents/sui-pilot-agent.md`, giving subagents direct routing for Move language questions (syntax, types, abilities, idioms) instead of forcing them through Sui-specific docs. Total bundled doc files: ~695 (was 548).
+- **`sync_repo_multi` helper in `sync-docs.sh`** — handles repos with multiple upstream subtrees in a single tarball fetch (the Move Book ships `book/`, `reference/`, and `packages/` as separate top-level dirs). Existing single-path corpora keep using `sync_repo` unchanged. A post-extract cleanup drops empty top-level directories that bsdtar materializes for archive entries that don't match the include filter.
+- **`generate_index()` accepts an optional `skip_subdir` argument** to exclude subtrees from the generated index. Used by `.move-book-docs/packages/`: the `.move` source examples are co-located on disk for follow-up reads (so `file=` directives in the prose remain resolvable) but are excluded from the searchable pipe-delimited index, keeping the index pure prose.
+
 ### Changed
+
+- **`scripts/sync-sui-pilot-docs.sh`, `scripts/verify.sh`, `.github/workflows/ci.yml`, `.github/workflows/refresh-docs.yml`** all extended to handle `.move-book-docs/` and the new `[Move Book Docs Index]` section header. CI assertions now check the indexed doc-source set (Sui, Move Book, Walrus, Seal, TS SDK) rather than the previous "four-ecosystem" set.
+- **README, CLAUDE, and the six skill files** (`move-code-quality`, `move-code-review`, `move-tests`, `move-pr-review` SKILL.md + reviewer/consolidator prompts) updated to enumerate the fifth corpus in their doc-first prose. CLAUDE's routing table heading renamed from "Ecosystem" to a more accurate framing since Move Book is a language reference rather than a protocol layer.
 
 - **Doc index relocated into the agent prompt.** The pipe-delimited documentation index (previously at `/AGENTS.md`) now lives inside `agents/sui-pilot-agent.md`, between `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` markers. Because the agent's system prompt is auto-loaded when the agent is invoked, docs-first guidance now works with zero setup for plugin consumers — no `@AGENTS.md` import in a user CLAUDE.md is required. `generate-docs-index.sh` was rewritten to rewrite only the block between the markers, preserving frontmatter and prose.
 - **`/CLAUDE.md` dropped the `@AGENTS.md` import** and the Usage section now points to the embedded index in the agent file.
