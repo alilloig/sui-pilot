@@ -66,18 +66,27 @@ The `sui-pilot-agent` enforces a doc-first workflow: consult documentation befor
 
 ### From the marketplace (recommended)
 
-sui-pilot hosts its own Claude Code plugin marketplace. Inside Claude Code:
+sui-pilot is distributed via the [Contract Hero plugin marketplace](https://github.com/contract-hero/plugin-marketplace). Inside Claude Code:
 
 ```
-/plugin marketplace add alilloig/sui-pilot
-/plugin install sui-pilot@alilloig
+/plugin marketplace add contract-hero/plugin-marketplace
+/plugin install sui-pilot@contract-hero
 ```
 
 Then restart Claude Code — MCP servers launch at session start.
 
 The MCP server bundle ships prebuilt with the plugin, so end users do not need Node.js or pnpm installed.
 
-> Must be added via GitHub (`alilloig/sui-pilot`) or a git URL. A raw `marketplace.json` URL will not resolve the plugin's `./` source.
+### Migrating from the old `alilloig/sui-pilot` marketplace
+
+Earlier releases were distributed from a self-hosted marketplace at `alilloig/sui-pilot`. That install path is **deprecated** — the catalog has moved into `contract-hero/plugin-marketplace`. To migrate:
+
+```
+/plugin uninstall sui-pilot@alilloig
+/plugin marketplace remove alilloig
+/plugin marketplace add contract-hero/plugin-marketplace
+/plugin install sui-pilot@contract-hero
+```
 
 ### Upgrading from a manual install
 
@@ -263,9 +272,9 @@ find ~/.claude/plugins/cache -path '*sui-pilot*/mcp/move-lsp-mcp/dist/index.js'
 If the file is missing, remove and reinstall the plugin from the marketplace:
 
 ```
-/plugin uninstall sui-pilot@alilloig
-/plugin marketplace update alilloig
-/plugin install sui-pilot@alilloig
+/plugin uninstall sui-pilot@contract-hero
+/plugin marketplace update contract-hero
+/plugin install sui-pilot@contract-hero
 ```
 
 ---

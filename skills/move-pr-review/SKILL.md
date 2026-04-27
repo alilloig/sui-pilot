@@ -47,7 +47,7 @@ Fallback chain if the primary name isn't registered in the current session:
 
 1. Try `sui-pilot:sui-pilot-agent` (primary — the fully-qualified name other plugin-provided agents use).
 2. Try `sui-pilot-agent` (bare name — some harnesses register plugin agents without the namespace prefix).
-3. If both fail, halt and tell the user: "The sui-pilot plugin doesn't appear to be loaded in the current session. Please (a) verify `sui-pilot@alilloig` is `true` in `~/.claude/settings.json`'s `enabledPlugins`, (b) verify `alilloig` is in `extraKnownMarketplaces` pointing at the sui-pilot repo path, then (c) run `/reload-plugins` or restart the session."
+3. If both fail, halt and tell the user: "The sui-pilot plugin doesn't appear to be loaded in the current session. Please (a) verify `sui-pilot@contract-hero` is `true` in `~/.claude/settings.json`'s `enabledPlugins`, (b) verify `contract-hero` is in `extraKnownMarketplaces` pointing at `contract-hero/plugin-marketplace`, then (c) run `/reload-plugins` or restart the session."
 4. `general-purpose` is a **last-resort fallback**, not a replacement. If you have to use it, the reviewer prompt's Step 2 still enforces the doc-first rule via explicit paths (see `references/reviewer_prompt.md`), and you MUST LOUDLY note the degradation in the final Markdown's methodology section — the doc-first enforcement is softer because it relies on the reviewer actually following the prompt rather than being baked into the subagent definition.
 
 ## Why this skill exists
