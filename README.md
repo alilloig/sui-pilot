@@ -100,7 +100,7 @@ rm -rf ~/.claude/plugins/sui-pilot
 
 | Component            | Version      | Notes                                                                  |
 | -------------------- | ------------ | ---------------------------------------------------------------------- |
-| suiup                | Latest       | `curl -fsSL https://sui.io/install.sh \| sh`                           |
+| suiup                | Latest       | `curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh \| sh` |
 | sui + move-analyzer  | Same version | **Must match versions** — install both via suiup                       |
 | Claude Code          | Latest       | Plugin host environment                                                |
 | Node.js              | 18+          | Used to run the bundled MCP server (usually already present)           |
@@ -111,7 +111,7 @@ rm -rf ~/.claude/plugins/sui-pilot
 
 ```bash
 # Install suiup
-curl -fsSL https://sui.io/install.sh | sh
+curl -sSfL https://raw.githubusercontent.com/Mystenlabs/suiup/main/install.sh | sh
 export PATH="$HOME/.local/bin:$PATH"  # Add to shell profile
 
 # Install sui and move-analyzer (versions must match!)
