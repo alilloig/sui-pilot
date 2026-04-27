@@ -204,7 +204,7 @@ sui-pilot/
 ├── skills/                      # Bundled skills (code-quality, code-review, tests, pr-review, oz-math)
 ├── mcp/move-lsp-mcp/            # MCP server wrapping move-analyzer
 ├── .sui-docs/                   # 339 Sui documentation files
-├── .move-book-docs/             # 143 Move Book files (book/ + reference/) + packages/ examples
+├── .move-book-docs/             # 143 Move Book files (+ packages/ examples)
 ├── .walrus-docs/                # 84 Walrus documentation files
 ├── .seal-docs/                  # 14 Seal documentation files
 └── .ts-sdk-docs/                # 115 TS SDK documentation files

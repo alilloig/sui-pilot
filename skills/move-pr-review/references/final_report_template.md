@@ -142,7 +142,7 @@ If nothing merge-blocking: **"No build / reproducibility blockers identified."**
 
 **Workflow.** 1 orchestrator (main session) + 10 parallel `sui-pilot-agent` reviewer subagents + 1 `sui-pilot-agent` consolidator subagent. All ten reviewers received the same context bundle (`reviews/.raw/_context.md`) and reviewer prompt (`reviews/.raw/_reviewer_prompt.md`). They worked independently.
 
-**Subagent type actually used.** `sui-pilot-agent` (enforces doc-first rule: reads the embedded doc index in `${CLAUDE_PLUGIN_ROOT}/agents/sui-pilot-agent.md` and the `.sui-docs/` / `.walrus-docs/` / `.seal-docs/` / `.ts-sdk-docs/` trees before reasoning about Move). If a fallback (`sui-pilot:sui-pilot-agent` or `general-purpose`) was used, note which phases and why.
+**Subagent type actually used.** `sui-pilot-agent` (enforces doc-first rule: reads the embedded doc index in `${CLAUDE_PLUGIN_ROOT}/agents/sui-pilot-agent.md` and the `.sui-docs/` / `.move-book-docs/` / `.walrus-docs/` / `.seal-docs/` / `.ts-sdk-docs/` trees before reasoning about Move). If a fallback (`sui-pilot:sui-pilot-agent` or `general-purpose`) was used, note which phases and why.
 
 **Skills invoked per reviewer.** `move-code-review`, `move-code-quality`, plus manual review of off-chain scripts.
 

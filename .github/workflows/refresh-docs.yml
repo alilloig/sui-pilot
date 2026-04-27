@@ -60,7 +60,7 @@ jobs:
           title: "chore(docs): refresh upstream docs"
           labels: docs
           body: |
-            Automated weekly refresh of bundled ecosystem docs.
+            Automated weekly refresh of bundled upstream docs.
 
             Pipeline:
             1. `./sync-docs.sh` — pulls latest from `MystenLabs/sui`, `MystenLabs/move-book`, `MystenLabs/walrus`, `MystenLabs/seal`, `MystenLabs/ts-sdks`.
