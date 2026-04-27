@@ -49,6 +49,23 @@ When reviewing existing code, actively check for and upgrade:
 - Missing Move 2024 macros (`do!`, `fold!`, `destroy!`)
 - Explicit framework dependencies in Move.toml (Sui 1.45+ uses implicit)
 
+## Watch for SDK 2.0 Migration (TypeScript)
+
+When reviewing or writing TypeScript that imports `@mysten/*` packages, assume the codebase may still be on the 1.x API. The 2.0 release has extensive breaking changes that your training data does not know about.
+
+Before touching TS SDK code:
+1. Read `.ts-sdk-docs/sui/migrations/sui-2.0/index.mdx` for the cross-package overview, then the package-specific guide for whichever `@mysten/*` package the file imports (e.g. `dapp-kit.mdx`, `kiosk.mdx`, `walrus.mdx`, `seal.mdx`, `json-rpc-migration.mdx`).
+2. Canonical upstream URL: https://sdk.mystenlabs.com/sui/migrations/sui-2.0 (use only if the local docs look stale — prefer the local copy).
+
+Flag and offer to upgrade these legacy 1.x patterns on sight:
+- `import { SuiClient } from '@mysten/sui/client'` → `SuiJsonRpcClient` from `@mysten/sui/jsonRpc` (or `SuiGrpcClient` from `@mysten/sui/grpc` for new code).
+- Client constructors missing the now-required `network: 'mainnet' | ...` parameter.
+- Direct use of removed kiosk / zksend / suins / walrus / seal / deepbook helpers — 2.0 ships these as client extensions.
+- CommonJS consumers of `@mysten/*` (packages are ESM-only in 2.0; project needs `"type": "module"` and `moduleResolution: "NodeNext" | "Bundler"`).
+- Dapp-kit legacy hooks/providers (`SuiClientProvider`, `WalletProvider`, `useSuiClient`, etc.) — replaced by the new framework-agnostic core in 2.0.
+
+If the project is mid-migration or pinned to 1.x for a stated reason, do not silently rewrite — call it out and ask before changing.
+
 ## After Implementation
 
 Run quality checks in order:
