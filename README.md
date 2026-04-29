@@ -45,20 +45,35 @@ Real-time feedback from `move-analyzer`:
 
 ### Slash commands
 
-| Command              | Purpose                                          |
-| -------------------- | ------------------------------------------------ |
-| `/sui-pilot`         | Doc-first entry point; routes to the sui-pilot agent |
-| `/move-code-quality` | Move Book Code Quality Checklist compliance      |
-| `/move-code-review`  | Security and architecture review                 |
-| `/move-tests`        | Test generation best practices                   |
-| `/move-pr-review`    | Multi-agent deep PR review (10 reviewers + consolidator) |
-| `/oz-math`           | OpenZeppelin math library recommendations        |
+| Command               | Purpose                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| `/sui-pilot`          | Doc-first entry point; routes to the sui-pilot agent           |
+| `/move-code-quality`  | Move Book Code Quality Checklist compliance                    |
+| `/move-code-review`   | Security and architecture review                               |
+| `/move-tests`         | Test generation best practices                                 |
+| `/move-pr-review`     | Multi-agent deep PR review (10 reviewers + consolidator)       |
+| `/oz-math`            | OpenZeppelin math library recommendations                      |
+| `/sui-pilot-doctor`   | Health-check the install (manifest, hooks, sui.md, MCP bundle) |
 
 Each command routes to a bundled skill of the same name; skills live under `skills/` and hold the actual behavior.
 
 ### Specialized Agent
 
-The `sui-pilot-agent` enforces a doc-first workflow: consult documentation before writing code, use LSP for real-time validation.
+The `sui-pilot-agent` enforces a doc-first workflow: consult documentation before writing code, use LSP for real-time validation. Its always-loaded preamble is a 2.9 KB topic→corpus routing table — it tells the agent to navigate `.<source>-docs/` directly via `Glob`/`Grep` rather than precomputing an index.
+
+### On-demand context injection (the matcher pipeline)
+
+Skill bodies and the `sui.md` ecosystem graph are **never always-loaded**. A hook pipeline at four events (`SessionStart`, `PreToolUse`, `UserPromptSubmit`, `SessionEnd`) decides what to inject based on what you're doing:
+
+| Signal           | What it matches                                            | Example                                              |
+| ---------------- | ---------------------------------------------------------- | ---------------------------------------------------- |
+| `pathPatterns`   | File paths in `Read`/`Edit`/`Write` tool calls             | `**/*.move` triggers `move-code-quality`             |
+| `bashPatterns`   | `Bash` tool inputs                                         | `sui client publish` triggers `move-code-review`     |
+| `importPatterns` | Imports in TypeScript/JavaScript files                     | `@mysten/sui` triggers SDK-shaped skills             |
+| `promptSignals`  | User prompt scoring (phrases +6, allOf +4, anyOf +1×2)     | "review this for security" triggers `move-code-review` |
+| MCP LSP boost    | Any `move_diagnostics` / `move_hover` MCP call             | +5 priority to all Move skills for the rest of session |
+
+Matched skills are injected with their bundled body **plus a chunk extracted from `sui.md`** (the relational graph at the plugin root). The pipeline enforces byte budgets (18 KB per `PreToolUse`, 8 KB per `UserPromptSubmit`) and dedups within a session so nothing is injected twice. Average per-session context cost drops ~89% versus shipping the full doc index — the agent gets *more* targeted material, paying *fewer* tokens.
 
 ---
 
@@ -207,16 +222,27 @@ The sync script clones or pulls each upstream repo and copies the prose into the
 
 ```
 sui-pilot/
-├── .claude-plugin/plugin.json   # Plugin manifest
-├── agents/sui-pilot-agent.md    # Specialized Sui Move agent
-├── skills/                      # Bundled skills (code-quality, code-review, tests, pr-review, oz-math)
-├── mcp/move-lsp-mcp/            # MCP server wrapping move-analyzer
-├── .sui-docs/                   # 339 Sui documentation files
-├── .move-book-docs/             # 143 Move Book files (+ packages/ examples)
-├── .walrus-docs/                # 84 Walrus documentation files
-├── .seal-docs/                  # 14 Seal documentation files
-└── .ts-sdk-docs/                # 115 TS SDK documentation files
+├── .claude-plugin/plugin.json    # Plugin manifest (registers move-lsp MCP server)
+├── agents/sui-pilot-agent.md     # Slim doc-first directive (~2.9 KB, always-loaded)
+├── sui.md                        # Hand-curated ecosystem graph (chunks injected on demand)
+├── sui-session.md                # ~600 B SessionStart payload (the doc-first warning)
+├── commands/                     # 7 slash commands (sui-pilot, move-*, oz-math, doctor)
+├── skills/                       # 5 bundled skills (each with matcher frontmatter)
+├── hooks/                        # Matcher pipeline (compiled .mjs + sources in src/)
+│   ├── hooks.json                #   event registration
+│   ├── *.mjs                     #   compiled hook scripts (committed)
+│   └── src/*.mts                 #   TypeScript sources
+├── generated/skill-manifest.json # Pre-compiled regex sources for the matcher
+├── scripts/                      # build-manifest.ts, doctor.ts, sync-docs glue
+├── mcp/move-lsp-mcp/             # MCP server wrapping move-analyzer (prebuilt bundle)
+├── .sui-docs/                    # 339 Sui documentation files
+├── .move-book-docs/              # 143 Move Book files (+ packages/ examples)
+├── .walrus-docs/                 # 84 Walrus documentation files
+├── .seal-docs/                   # 14 Seal documentation files
+└── .ts-sdk-docs/                 # 115 TS SDK documentation files
 ```
+
+For a deeper walkthrough of how the matcher pipeline boots, scores, and injects, see [`SUI_PILOT_FOR_DUMMIES.md`](SUI_PILOT_FOR_DUMMIES.md) Appendix B and Appendix C.
 
 ---
 
