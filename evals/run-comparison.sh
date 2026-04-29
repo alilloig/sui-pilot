@@ -75,6 +75,8 @@ run_one_version() {
         local prompt=$(echo "$task" | jq -r .prompt)
 
         echo "[$version] [$i/$n] $id"
+        echo "[$version/$id] start $(date -u +%H:%M:%S) prompt=\"${prompt:0:80}...\"" \
+            >> "$RESULTS_DIR/run.log"
 
         local tmpdir
         tmpdir=$(mktemp -d -t "sui-pilot-eval.XXXXXX")
@@ -82,10 +84,18 @@ run_one_version() {
         cp -a "$SCRIPT_DIR/$fixture/." "$tmpdir/"
 
         # Run claude -p in the fixture; capture stdout/stderr.
+        # CRITICAL: stdin must be /dev/null. claude -p reads stdin in addition to
+        # the positional prompt arg, and inside a `while read` loop fed by process
+        # substitution it would inherit and consume the remaining JSON, terminating
+        # the loop after one iteration.
         # Set the project root explicitly so SessionStart profiler sees the right dir.
-        (cd "$tmpdir" && CLAUDE_PROJECT_ROOT="$tmpdir" claude -p "$prompt") \
+        local exit_code=0
+        (cd "$tmpdir" && CLAUDE_PROJECT_ROOT="$tmpdir" claude -p "$prompt" < /dev/null) \
             > "$RESULTS_DIR/$version/$id.out" \
-            2> "$RESULTS_DIR/$version/$id.err" || true
+            2> "$RESULTS_DIR/$version/$id.err" || exit_code=$?
+
+        echo "[$version/$id] end   $(date -u +%H:%M:%S) exit=$exit_code" \
+            >> "$RESULTS_DIR/run.log"
 
         # Diff post-state vs initial fixture (this is the canonical evidence
         # of what the model actually changed).
