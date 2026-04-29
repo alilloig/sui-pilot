@@ -52,6 +52,17 @@ trap 'echo "Restoring $SUI_PILOT_DIR to $ORIGINAL_BRANCH"; git -C "$SUI_PILOT_DI
 mkdir -p "$RESULTS_DIR"
 echo "Results directory: $RESULTS_DIR"
 
+# Cache tasks.json + fixtures into $RESULTS_DIR BEFORE any branch switch.
+# Critical: $SCRIPT_DIR may live inside $SUI_PILOT_DIR (when the runner is the
+# plugin's own evals/run-comparison.sh). Switching $SUI_PILOT_DIR to a branch
+# that lacks the eval suite would otherwise erase tasks.json mid-run.
+CACHE_DIR="$RESULTS_DIR/.cache"
+mkdir -p "$CACHE_DIR"
+cp -a "$TASKS_FILE" "$CACHE_DIR/tasks.json"
+cp -a "$SCRIPT_DIR/fixtures" "$CACHE_DIR/fixtures"
+TASKS_FILE="$CACHE_DIR/tasks.json"
+FIXTURES_ROOT="$CACHE_DIR"
+
 # ---- Run one version ----------------------------------------------------
 run_one_version() {
     local version="$1"   # "v1" | "v2"
@@ -81,7 +92,9 @@ run_one_version() {
         local tmpdir
         tmpdir=$(mktemp -d -t "sui-pilot-eval.XXXXXX")
         # Copy fixture contents (using -a preserves perms; trailing /. copies hidden files).
-        cp -a "$SCRIPT_DIR/$fixture/." "$tmpdir/"
+        # Source is the cached copy in $FIXTURES_ROOT — never $SCRIPT_DIR, since
+        # $SCRIPT_DIR may have been wiped by a branch switch.
+        cp -a "$FIXTURES_ROOT/$fixture/." "$tmpdir/"
 
         # Run claude -p in the fixture; capture stdout/stderr.
         # CRITICAL: stdin must be /dev/null. claude -p reads stdin in addition to
@@ -98,8 +111,8 @@ run_one_version() {
             >> "$RESULTS_DIR/run.log"
 
         # Diff post-state vs initial fixture (this is the canonical evidence
-        # of what the model actually changed).
-        diff -ruN "$SCRIPT_DIR/$fixture" "$tmpdir" \
+        # of what the model actually changed). Use the cached fixture copy.
+        diff -ruN "$FIXTURES_ROOT/$fixture" "$tmpdir" \
             > "$RESULTS_DIR/$version/$id.diff" 2>/dev/null || true
 
         rm -rf "$tmpdir"
