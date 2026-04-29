@@ -1,57 +1,146 @@
-# Eval suite (stub)
+# sui-pilot eval suite
 
-Move tasks where Sui training data is stale enough that a baseline model fails. Used to
-score baseline / v1 (pipe-index) / v2 (slim preamble + sui.md + hooks) on pass-rate and
-token-cost-per-task.
+Empirical A/B comparison: does sui-pilot v2 outperform v1 on real Sui/Move tasks where training data is stale?
 
-## Task seed list
+## TL;DR — one command
 
-10–15 tasks covering:
-
-1. Convert `module x::y { ... }` to `module x::y;` (Move 2024 file-level form).
-2. Replace `vector::push_back(&mut v, x)` calls with method-call syntax.
-3. Use `vector::do!` macro for a hand-written loop.
-4. Implement a one-time witness module (consumes OTW in `init`, creates a `Coin` currency).
-5. Add a dynamic object field (`dof`) accessor to a parent object.
-6. Migrate a Sui 1.x explicit-framework `Move.toml` to implicit (Sui 1.45+).
-7. Add a hot-potato pattern for a multi-step trade flow.
-8. Build a transfer policy with a royalty rule.
-9. Write a `test_scenario` that exercises a shared object's contention path.
-10. Migrate `@mysten/sui/client.SuiClient` to `@mysten/sui/jsonRpc.SuiJsonRpcClient` with required `network` parameter.
-11. Implement a derived object child with deterministic UID derivation.
-12. Add a randomness-driven raffle using `sui::random::Random`.
-13. Write a Walrus blob-publish flow that anchors the commitment as a Sui object.
-14. Add a Seal-encrypted secret with a capability-gated decryption policy.
-15. Write a Move 2024 enum + `match` exhaustive handler for a state machine.
-
-## Schema (target file: `evals/move-tasks.json`)
-
-```json
-[
-  {
-    "id": "task-01-module-syntax",
-    "title": "Convert legacy module syntax to Move 2024 file-level form",
-    "fixturePath": "fixtures/legacy-module",
-    "prompt": "Update the module declaration to Move 2024 file-level syntax.",
-    "expectedSkills": ["move-code-quality"],
-    "expectedChunk": "Move type system & abilities",
-    "passCriteria": {
-      "containsString": "module example::demo;",
-      "doesNotContainString": "module example::demo {"
-    }
-  }
-]
+```bash
+bash evals/run-comparison.sh
 ```
 
-## Runner (target: `evals/run.ts`)
+That's the whole flow. The runner switches `~/.claude/sui-pilot` between `main` (v1) and `feat/v2-graph-port` (v2), runs every task in `tasks.json` against each version using `claude -p`, captures diffs of what the model changed in each fixture, then auto-invokes `claude -p` one more time to score the delta and write a Markdown report to `results/<timestamp>/score.md`.
 
-For each task:
-1. Set up the fixture as `CLAUDE_PROJECT_ROOT`.
-2. Run baseline (no plugin), v1 (current main), v2 (this branch).
-3. Score: pass/fail per `passCriteria`, token cost via prompt+completion estimation.
-4. Emit a JSON report; fail CI if v2 pass-rate < v1 pass-rate.
+Restores your original branch when finished, even on error.
+
+## What it does, step by step
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ run-comparison.sh                                           │
+│                                                             │
+│  1. Save current branch of ~/.claude/sui-pilot              │
+│                                                             │
+│  2. For each version v in [v1=main, v2=feat/v2-graph-port]: │
+│      a. cd ~/.claude/sui-pilot && git checkout <v's ref>    │
+│      b. For each task in tasks.json:                        │
+│          - mktemp -d → tmpdir                               │
+│          - cp -a fixtures/<task.fixturePath>/. tmpdir/      │
+│          - cd tmpdir && claude -p "<task.prompt>"           │
+│              > results/<TS>/<v>/<id>.out                    │
+│              2> results/<TS>/<v>/<id>.err                   │
+│          - diff -ruN fixture tmpdir > <id>.diff             │
+│                                                             │
+│  3. Restore original branch                                 │
+│                                                             │
+│  4. Auto-score: claude -p < compare-prompt.md               │
+│                  > results/<TS>/score.md                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+User intervention: **0 commands** between launching the script and reading the scored report.
+
+## Prerequisites
+
+Already present if you're using sui-pilot:
+
+- `claude` CLI on PATH (the runner uses `claude -p` non-interactive mode)
+- `jq` (for parsing `tasks.json`)
+- `git`, `diff`, `mktemp` (standard)
+- Network access (the model contacts Anthropic; fixtures don't make network calls)
+
+The runner refuses to start if any tool is missing.
+
+## Files
+
+| File | Purpose |
+|---|---|
+| `run-comparison.sh` | The runner. One command, no flags needed for the default v1-vs-v2 comparison. |
+| `tasks.json` | The task definitions: `id`, `title`, `fixturePath`, `prompt`, `passCriteria`. |
+| `compare-prompt.md` | The scoring template. The runner pipes this to `claude -p` after both versions have run. |
+| `fixtures/<task>/` | The starting state for each task. Each fixture is a self-contained tiny project (Move package or TS source). |
+| `results/<UTC-timestamp>/` | Per-run output. Created by the runner. Gitignored — see below. |
+
+## Tasks shipped in this PR (3 seed tasks)
+
+| ID | Stale-training-data axis | Fixture | Pass criterion |
+|---|---|---|---|
+| `task-01-module-syntax` | Move 2024 file-level module form (`module x::y;` vs `module x::y { ... }`) | `fixtures/legacy-module/` | Updated module declaration uses the file-level form |
+| `task-02-sdk-2-client` | `@mysten/sui` v2 SDK migration (`SuiClient` → `SuiJsonRpcClient`) | `fixtures/sdk-1-client/` | Import switched to `@mysten/sui/jsonRpc` |
+| `task-03-otw` | One-time-witness pattern for `coin::create_currency` | `fixtures/otw-coin/` | OTW struct `DEMO has drop` declared and consumed |
+
+These three were chosen because v1 fails them with high probability (training data predates Move 2024 file-level form, predates SDK 2.0, and the OTW pattern is often misimplemented as a non-OTW witness). v2 should fix them via the matcher pipeline injecting the relevant `move-code-quality` / `move-code-review` skills + `sui.md` chunks.
+
+## Adding more tasks
+
+1. Create `evals/fixtures/<your-task>/` with a starting state (whatever directory layout the model would see in a real project — `Move.toml` + `sources/`, or `package.json` + `src/`).
+2. Add an entry to `tasks.json`:
+
+   ```json
+   {
+     "id": "task-04-your-id",
+     "title": "Short human description",
+     "fixturePath": "fixtures/your-task",
+     "prompt": "What you'd type to Claude Code in a fresh session in this fixture",
+     "passCriteria": {
+       "file": "<relative path inside fixture>",
+       "containsString": "<expected substring after fix>",
+       "doesNotContainString": "<substring that should be gone>"
+     }
+   }
+   ```
+
+   Optional: `alsoContainsString` for a second positive check.
+
+3. Re-run `bash evals/run-comparison.sh`. No code changes, no fixture wiring.
+
+## Customizing the comparison
+
+```bash
+# Compare a specific tag against your working branch
+bash evals/run-comparison.sh --v1-ref v0.1.0 --v2-ref feat/my-improvement
+
+# Run the suite without auto-scoring (e.g., to inspect raw diffs first)
+bash evals/run-comparison.sh --no-score
+
+# Use a non-default sui-pilot install location
+SUI_PILOT_DIR=/path/to/other/sui-pilot bash evals/run-comparison.sh
+```
+
+## Output layout
+
+```
+evals/results/2026-04-29T18-42-15Z/
+├── v1.sha                         # full SHA of the v1 run
+├── v2.sha                         # full SHA of the v2 run
+├── v1/
+│   ├── task-01-module-syntax.out  # claude -p stdout
+│   ├── task-01-module-syntax.err  # claude -p stderr
+│   ├── task-01-module-syntax.diff # diff -ruN of fixture vs post-run state
+│   └── ...
+├── v2/
+│   └── ... (same shape as v1/)
+└── score.md                       # the auto-scored Markdown report
+```
+
+You only need to read `score.md`. The other files are kept for spot-checking when a result looks surprising.
+
+## Why this design
+
+- **`claude -p` non-interactive** — every invocation is a fresh session, so SessionStart fires, hooks register, MCP servers spawn, dedup state starts clean. No "did the previous session contaminate this one?" risk.
+- **`diff` of fixture vs post-state** — what the model *did* matters more than what it *said*. The diff is the canonical evidence; `.out` is supporting context for the scorer.
+- **Auto-scoring via `claude -p`** — a separate Claude turn reads `tasks.json`, applies `passCriteria` literally, and produces the Markdown delta report. Removes the user from the scoring loop entirely.
+- **One report file** — `results/<TS>/score.md` is the only thing you read after a run. Everything else is debug evidence.
+- **Branch restore on exit** — the trap restores your original branch on `EXIT`, even if the runner crashes mid-task. You don't end up stranded on a feature branch.
 
 ## Status
 
-Stub only — task fixtures and runner are follow-up work. The plan-of-record gates v2
-release on this suite passing, but it can be authored after the hooks land.
+This PR ships:
+- Runner (`run-comparison.sh`)
+- 3 seed tasks + fixtures
+- Scoring prompt (`compare-prompt.md`)
+- This README
+
+Follow-up work, when v2 is in main and you want a denser baseline:
+- Expand to 10–15 tasks (Move 2024 macros, transfer policies, dynamic-object fields, randomness, party objects, Walrus blob anchoring, Seal access policies, gRPC client, dapp-kit-react migration, etc.)
+- Wire `score.md`'s aggregate pass-rate into CI as a regression gate (block merges where v2 pass-rate < current main).
+- Add token-cost capture alongside pass-rate (`claude -p --json` gives usage; aggregate per-task and per-run averages).

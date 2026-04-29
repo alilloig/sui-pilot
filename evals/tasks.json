@@ -1,0 +1,35 @@
+[
+  {
+    "id": "task-01-module-syntax",
+    "title": "Convert legacy module syntax to Move 2024 file-level form",
+    "fixturePath": "fixtures/legacy-module",
+    "prompt": "Update sources/legacy.move to use the Move 2024 file-level module syntax. Do not change function bodies; only change the module declaration form.",
+    "passCriteria": {
+      "file": "sources/legacy.move",
+      "containsString": "module example::demo;",
+      "doesNotContainString": "module example::demo {"
+    }
+  },
+  {
+    "id": "task-02-sdk-2-client",
+    "title": "Migrate to @mysten/sui v2 JSON-RPC client",
+    "fixturePath": "fixtures/sdk-1-client",
+    "prompt": "Update src/index.ts to use the @mysten/sui v2 SDK. The 1.x SuiClient is deprecated; switch to SuiJsonRpcClient from @mysten/sui/jsonRpc and pass the now-required network parameter (mainnet).",
+    "passCriteria": {
+      "file": "src/index.ts",
+      "containsString": "@mysten/sui/jsonRpc",
+      "doesNotContainString": "@mysten/sui/client"
+    }
+  },
+  {
+    "id": "task-03-otw",
+    "title": "Implement the one-time-witness pattern for a currency module",
+    "fixturePath": "fixtures/otw-coin",
+    "prompt": "Implement the one-time-witness (OTW) pattern in sources/demo.move so the coin::create_currency call in init() compiles. The OTW struct must match the module name uppercased (DEMO) and have only the drop ability. Pass the OTW by value into init.",
+    "passCriteria": {
+      "file": "sources/demo.move",
+      "containsString": "struct DEMO has drop",
+      "alsoContainsString": "coin::create_currency"
+    }
+  }
+]
