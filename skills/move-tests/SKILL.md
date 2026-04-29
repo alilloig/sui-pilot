@@ -1,19 +1,39 @@
 ---
 name: move-tests
-description: |
-  Generates Move unit tests for Sui Move packages following best practices.
-  Use this skill when the user asks to "write Move tests", "add tests", "create
-  test cases", "generate tests for this module", "test this Move code", or wants
-  to improve test coverage for a Sui Move package. Also trigger when the user
-  says "move tests", "unit tests for Move", "test coverage", or "/move-tests".
-  Complements /move-code-review (which identifies test gaps via TST-* findings)
-  and /move-code-quality (which checks test quality). This skill fills the gap
-  by prescribing HOW to write the tests.
+description: "Generates Move unit tests for Sui Move packages following best practices. Use this skill when the user asks to 'write Move tests', 'add tests', 'create test cases', 'generate tests for this module', 'test this Move code', or wants to improve test coverage for a Sui Move package. Also trigger when the user says 'move tests', 'unit tests for Move', 'test coverage', or '/move-tests'. Complements /move-code-review (which identifies test gaps via TST-* findings) and /move-code-quality (which checks test quality). This skill fills the gap by prescribing HOW to write the tests."
+metadata:
+  priority: 4
+  pathPatterns:
+    - "**/tests/*.move"
+    - "**/*_tests.move"
+    - "**/Move.toml"
+  bashPatterns:
+    - '\bsui\s+move\s+test\b'
+  importPatterns: []
+  promptSignals:
+    phrases:
+      - "move tests"
+      - "test coverage"
+      - "unit test"
+      - "write tests"
+      - "test_scenario"
+    allOf:
+      - ["move", "test"]
+    anyOf:
+      - "scenario"
+      - "test_scenario"
+      - "assert_eq"
+      - "test coverage"
+    noneOf:
+      - "jest"
+      - "vitest"
+      - "playwright"
+    minScore: 6
 ---
 
 # Move Tests
 
-> **Doc-First Requirement**: Before generating test code, verify current testing patterns against the sui-pilot documentation (`.sui-docs/`, `.move-book-docs/`, `.walrus-docs/`, `.seal-docs/`, `.ts-sdk-docs/`). The full pipe-delimited index lives in `agents/sui-pilot-agent.md`. Test utilities and conventions evolve—`test_scenario`, `tx_context::dummy()`, and assertion helpers may have changed. When using specific test APIs, reference the doc file path.
+> **Doc-First Requirement**: Before generating test code, verify current testing patterns against the sui-pilot documentation (`.move-book-docs/`, `.sui-docs/`, `.walrus-docs/`, `.seal-docs/`, `.ts-sdk-docs/`). Use `Glob`/`Grep` against `${CLAUDE_PLUGIN_ROOT}/.<source>-docs/`. Test utilities and conventions evolve—`test_scenario`, `tx_context::dummy()`, and assertion helpers may have changed. When using specific test APIs, reference the doc file path.
 
 ## File Organization
 

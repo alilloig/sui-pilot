@@ -1,14 +1,35 @@
 ---
 name: oz-math
-description: |
-  Analyzes Move code and suggests improvements using OpenZeppelin math contracts.
-  Use when:
-  (1) User asks to "analyze math", "check arithmetic safety", "find overflow risks"
-  (2) User mentions "OpenZeppelin math", "mul_div", "safe math", "fixed-point"
-  (3) Working with DeFi Move code (pools, oracles, AMMs, staking, vaults)
-  (4) User explicitly invokes "/oz-math"
-  Complements /move-code-review (which flags SEC-AR-* arithmetic issues) by
-  providing concrete OpenZeppelin library recommendations.
+description: "Analyzes Move code and suggests improvements using OpenZeppelin math contracts. Use when: (1) User asks to 'analyze math', 'check arithmetic safety', 'find overflow risks'; (2) User mentions 'OpenZeppelin math', 'mul_div', 'safe math', 'fixed-point'; (3) Working with DeFi Move code (pools, oracles, AMMs, staking, vaults); (4) User explicitly invokes '/oz-math'. Complements /move-code-review (which flags SEC-AR-* arithmetic issues) by providing concrete OpenZeppelin library recommendations."
+metadata:
+  priority: 5
+  pathPatterns:
+    - "**/*.move"
+  bashPatterns: []
+  importPatterns:
+    - 'use\s+\w+::math\b'
+    - 'use\s+\w+::fixed_point\b'
+    - 'use\s+openzeppelin'
+  promptSignals:
+    phrases:
+      - "mul_div"
+      - "fixed point"
+      - "openzeppelin math"
+      - "safe math"
+      - "overflow"
+      - "arithmetic safety"
+    allOf:
+      - ["move", "math"]
+      - ["arithmetic", "safety"]
+    anyOf:
+      - "amm"
+      - "oracle"
+      - "lending"
+      - "vault"
+      - "staking"
+      - "pool"
+    noneOf: []
+    minScore: 6
 ---
 
 # OpenZeppelin Math Analyzer

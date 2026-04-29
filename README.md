@@ -193,14 +193,13 @@ The docs are extracted directly from the official MystenLabs repositories — th
 
 ### Updating the Docs
 
-Run these scripts periodically (e.g., monthly, or before a major project):
+Run periodically (e.g., monthly, or before a major project):
 
 ```bash
 ./sync-docs.sh           # Pull latest from MystenLabs repos
-./generate-docs-index.sh # Rewrite the index block in agents/sui-pilot-agent.md
 ```
 
-The sync script clones or pulls each upstream repo and copies the prose into the corresponding `.{source}-docs/` folder. Most sources contribute a single `docs/content/` tree; the Move Book contributes its `book/`, `reference/`, and `packages/` subtrees into `.move-book-docs/` (with `packages/` available on disk but excluded from the searchable index). The index script walks these directories and rewrites the block between `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` inside `agents/sui-pilot-agent.md` — a compact, pipe-delimited file list that ships as part of the agent's system prompt, so docs-first behavior works out of the box when the agent is invoked. A scheduled GitHub Actions workflow (`.github/workflows/refresh-docs.yml`) runs this pipeline weekly and opens a chore PR when upstream docs change.
+The sync script clones or pulls each upstream repo and copies the prose into the corresponding `.{source}-docs/` folder. Most sources contribute a single `docs/content/` tree; the Move Book contributes its `book/`, `reference/`, and `packages/` subtrees into `.move-book-docs/` (with `packages/` available on disk for `file=` example references). v2 no longer generates a precomputed pipe-delimited index — the agent navigates the corpora directly via `Glob`/`Grep`, routed by a small topic table at the top of `agents/sui-pilot-agent.md`. A scheduled GitHub Actions workflow (`.github/workflows/refresh-docs.yml`) runs this pipeline weekly and opens a chore PR when upstream docs change.
 
 ---
 

@@ -15,15 +15,13 @@ Always search and read these docs before writing code for these ecosystems.
 
 ## Usage
 
-1. The full pipe-delimited file index is embedded in `agents/sui-pilot-agent.md` between `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->`.
-2. The `sui-pilot-agent` subagent auto-loads that index when invoked, so commands that route through it (`/sui-pilot`, `/move-pr-review`, etc.) are docs-first out of the box.
-3. If you are developing on this repo directly, grep the appropriate `.<source>-docs/` directory for your topic. When unsure which source, search all five.
-4. Walrus and Seal build on Sui — Sui docs may also be relevant. For Move language questions (syntax, idioms, language semantics), prefer `.move-book-docs/` first.
-5. `.move-book-docs/packages/` holds Move source examples referenced from the Move Book prose (`file=` directives) — read them when an example would clarify a pattern, but they are not part of the indexed search corpus.
+1. The `sui-pilot-agent` subagent auto-loads the slim doc-first directive in `agents/sui-pilot-agent.md`. Commands routing through it (`/sui-pilot`, `/move-pr-review`, etc.) are docs-first out of the box.
+2. If you are developing on this repo directly, use `Glob` and `Grep` against the appropriate `.<source>-docs/` directory for your topic. When unsure which source, search all five.
+3. Walrus and Seal build on Sui — Sui docs may also be relevant. For Move language questions (syntax, idioms, language semantics), prefer `.move-book-docs/` first.
+4. `.move-book-docs/packages/` holds Move source examples referenced from the Move Book prose (`file=` directives) — read them when an example would clarify a pattern.
 
 ## Keeping Docs Up to Date
 
 ```bash
 ./sync-docs.sh            # Pull latest from upstream MystenLabs repos
-./generate-docs-index.sh  # Rewrite the index block inside agents/sui-pilot-agent.md
 ```

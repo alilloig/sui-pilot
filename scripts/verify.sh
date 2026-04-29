@@ -70,18 +70,28 @@ for dir in .sui-docs .move-book-docs .walrus-docs .seal-docs .ts-sdk-docs; do
     fi
 done
 
+# v2 budget guard: agent preamble must stay slim. Threshold mirrors
+# .github/workflows/ci.yml — keep in sync.
 AGENT_FILE="$PLUGIN_ROOT/agents/sui-pilot-agent.md"
-if [ -f "$AGENT_FILE" ] \
-    && grep -qF "<!-- AGENTS-MD-START -->" "$AGENT_FILE" \
-    && grep -qF "<!-- AGENTS-MD-END -->" "$AGENT_FILE" \
-    && grep -qF "[Sui Docs Index]" "$AGENT_FILE" \
-    && grep -qF "[Move Book Docs Index]" "$AGENT_FILE" \
-    && grep -qF "[Walrus Docs Index]" "$AGENT_FILE" \
-    && grep -qF "[Seal Docs Index]" "$AGENT_FILE" \
-    && grep -qF "[TS SDK Docs Index]" "$AGENT_FILE"; then
-    pass "agents/sui-pilot-agent.md contains the indexed doc-source set (Sui, Move Book, Walrus, Seal, TS SDK)"
+AGENT_BUDGET_BYTES=4000
+if [ -f "$AGENT_FILE" ]; then
+    AGENT_SIZE=$(wc -c < "$AGENT_FILE" | tr -d ' ')
+    if [ "$AGENT_SIZE" -le "$AGENT_BUDGET_BYTES" ]; then
+        pass "agent preamble within budget ($AGENT_SIZE / $AGENT_BUDGET_BYTES bytes)"
+    else
+        fail "agent preamble exceeds budget ($AGENT_SIZE / $AGENT_BUDGET_BYTES bytes) — slim further or raise the cap deliberately"
+    fi
+    if grep -qF ".sui-docs" "$AGENT_FILE" \
+        && grep -qF ".move-book-docs" "$AGENT_FILE" \
+        && grep -qF ".walrus-docs" "$AGENT_FILE" \
+        && grep -qF ".seal-docs" "$AGENT_FILE" \
+        && grep -qF ".ts-sdk-docs" "$AGENT_FILE"; then
+        pass "agent preamble routes all five corpora"
+    else
+        fail "agent preamble missing one of the five corpus references"
+    fi
 else
-    warn "agents/sui-pilot-agent.md missing doc index — run ./generate-docs-index.sh"
+    fail "agents/sui-pilot-agent.md missing"
 fi
 
 # Check move-analyzer
