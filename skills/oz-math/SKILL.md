@@ -6,10 +6,7 @@ metadata:
   pathPatterns:
     - "**/*.move"
   bashPatterns: []
-  importPatterns:
-    - 'use\s+\w+::math\b'
-    - 'use\s+\w+::fixed_point\b'
-    - 'use\s+openzeppelin'
+  importPatterns: []
   promptSignals:
     phrases:
       - "mul_div"

@@ -18,7 +18,7 @@ import {
 } from "node:fs";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { normalizeInput } from "./compat.mjs";
+import { normalizeInput, setSessionEnv } from "./compat.mjs";
 import { pluginRoot, safeReadJson, writeSessionFile } from "./hook-env.mjs";
 import { createLogger, logCaughtError, type Logger } from "./logger.mjs";
 import { hasSessionStartActivationMarkers } from "./session-start-activation.mjs";
@@ -410,6 +410,18 @@ function main(): void {
   if (sessionId) {
     writeSessionFile(sessionId, SESSION_GREENFIELD_KIND, greenfieldValue);
     writeSessionFile(sessionId, SESSION_LIKELY_SKILLS_KIND, likelySkillsValue);
+  }
+
+  // Persist env vars so downstream PreToolUse / UserPromptSubmit hooks see the
+  // profiler's signal. Each hook runs as a separate Node process — process.env
+  // mutations don't propagate; CLAUDE_ENV_FILE does.
+  const envVars = buildSessionStartProfilerEnvVars({
+    greenfield: greenfield !== null,
+    likelySkills,
+    setupSignals,
+  });
+  for (const [key, value] of Object.entries(envVars)) {
+    setSessionEnv("claude-code", key, value);
   }
 
   const additionalContext = userMessages.join("\n\n");

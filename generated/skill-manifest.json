@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-04-29T10:20:23.242Z",
+  "generatedAt": "2026-04-29T10:54:54.106Z",
   "version": 2,
   "skills": {
     "move-code-review": {
@@ -182,30 +182,13 @@
         "**/*.move"
       ],
       "bashPatterns": [],
-      "importPatterns": [
-        "use\\s+\\w+::math\\b",
-        "use\\s+\\w+::fixed_point\\b",
-        "use\\s+openzeppelin"
-      ],
+      "importPatterns": [],
       "bodyPath": "skills/oz-math/SKILL.md",
       "pathRegexSources": [
         "^(?:[^/]+\\/)*[^/]*\\.move$"
       ],
       "bashRegexSources": [],
-      "importRegexSources": [
-        {
-          "source": "(?:from\\s+|require\\s*\\(\\s*|import\\s*\\(\\s*)['\"]use\\\\s\\+\\\\w\\+::math\\\\b(?:\\/[^'\"]*)?['\"]",
-          "flags": "m"
-        },
-        {
-          "source": "(?:from\\s+|require\\s*\\(\\s*|import\\s*\\(\\s*)['\"]use\\\\s\\+\\\\w\\+::fixed_point\\\\b(?:\\/[^'\"]*)?['\"]",
-          "flags": "m"
-        },
-        {
-          "source": "(?:from\\s+|require\\s*\\(\\s*|import\\s*\\(\\s*)['\"]use\\\\s\\+openzeppelin(?:\\/[^'\"]*)?['\"]",
-          "flags": "m"
-        }
-      ],
+      "importRegexSources": [],
       "promptSignals": {
         "phrases": [
           "mul_div",
