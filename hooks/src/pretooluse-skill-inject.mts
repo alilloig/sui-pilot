@@ -29,10 +29,9 @@ import {
   safeReadFile,
   syncSessionFileFromClaims,
   tryClaimSessionKey,
-  writeSessionFile,
 } from "./hook-env.mjs";
 
-import { buildSkillMap, extractFrontmatter, validateSkillMap } from "./skill-map-frontmatter.mjs";
+import { buildSkillMap, validateSkillMap } from "./skill-map-frontmatter.mjs";
 import type { SkillConfig } from "./skill-map-frontmatter.mjs";
 import {
   COMPACTION_REINJECT_MIN_PRIORITY,

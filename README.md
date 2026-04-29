@@ -165,9 +165,9 @@ sui-pilot also works as a standalone documentation source for non-Claude Code en
 
 1. Clone or copy this repo into your workspace
 2. Point your AI agent at the project
-3. The agent reads `agents/sui-pilot-agent.md`, which contains the full pipe-delimited doc index between the `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` markers in the prompt body
+3. The agent reads `agents/sui-pilot-agent.md`, a slim doc-first directive that routes topics to the bundled `.<source>-docs/` corpora and instructs the agent to navigate them with `Glob` and `Grep`
 
-The index is a compact, pipe-delimited file list that any AI agent can parse. It includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
+The directive includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
 
 ---
 
@@ -296,19 +296,19 @@ sui-pilot is designed for Claude Code. Some capabilities are environment-specifi
 - **macOS and Linux only**: Windows is not officially supported.
 - **Documentation lag**: Bundled docs are point-in-time snapshots. Run `./sync-docs.sh` to update.
 
-### Doc index is subagent-scoped by default
+### Doc-first directive is subagent-scoped by default
 
-The pipe-delimited doc index lives inside `agents/sui-pilot-agent.md` and is loaded into context only when something invokes the `sui-pilot-agent` subagent. The bundled skills (`/sui-pilot`, `/move-pr-review`, `/move-code-review`, `/move-code-quality`, `/move-tests`, `/oz-math`) all dispatch the subagent, so they get the index for free.
+The slim doc-first directive in `agents/sui-pilot-agent.md` is loaded into context only when something invokes the `sui-pilot-agent` subagent. The bundled skills (`/sui-pilot`, `/move-pr-review`, `/move-code-review`, `/move-code-quality`, `/move-tests`, `/oz-math`) all dispatch the subagent, so they get the directive for free.
 
 **Free-form Claude Code chat does not.** If you ask a Sui/Move/Walrus/Seal question without invoking one of the sui-pilot skills, Claude falls back to its training memory — which is stale. You may see deprecated Move 1.x syntax, removed `SuiClient` imports, missing `network` parameters on the new TS SDK 2.0 clients, and similar drift.
 
-**Workaround for users whose work is predominantly Sui-related:** add this line to your `~/.claude/CLAUDE.md` so the doc index loads in every session:
+**Workaround for users whose work is predominantly Sui-related:** add this line to your `~/.claude/CLAUDE.md` so the directive loads in every session:
 
 ```markdown
 @~/.claude/sui-pilot/agents/sui-pilot-agent.md
 ```
 
-The trade-off is a fixed ≈16 KB of context per session (vs. zero when only skills are invoked). For occasional Sui work, prefer running the skills on demand instead.
+The trade-off is ~2 KB of context per session (vs. zero when only skills are invoked). For occasional Sui work, prefer running the skills on demand instead.
 
 ---
 

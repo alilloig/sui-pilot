@@ -26,7 +26,6 @@ import {
   listSessionKeys,
   pluginRoot as resolvePluginRoot,
   readSessionFile,
-  safeReadFile,
   syncSessionFileFromClaims,
   tryClaimSessionKey,
   writeSessionFile,
