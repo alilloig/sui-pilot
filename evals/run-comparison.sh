@@ -17,20 +17,48 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SUI_PILOT_DIR="${SUI_PILOT_DIR:-$HOME/.claude/sui-pilot}"
 TASKS_FILE="$SCRIPT_DIR/tasks.json"
 COMPARE_PROMPT="$SCRIPT_DIR/compare-prompt.md"
-RESULTS_DIR="$SCRIPT_DIR/results/$(date -u +%Y-%m-%dT%H-%M-%SZ)"
 
 V1_REF="main"
 V2_REF="feat/v2-graph-port"
 SCORE=true
+RESUME_DIR=""
+VERSIONS="v1,v2"
+
+usage() {
+    cat <<'USAGE'
+Usage: bash run-comparison.sh [options]
+
+Options:
+  --v1-ref REF        git ref for v1 (default: main)
+  --v2-ref REF        git ref for v2 (default: feat/v2-graph-port)
+  --versions LIST     comma-separated subset of {v1,v2} to run (default: v1,v2)
+  --resume DIR        reuse DIR as the results directory; tasks whose .diff
+                      already exists in DIR/<version>/ are skipped. Combined
+                      with --versions v2 this lets you run v2 only against
+                      tasks v1 already covered, without re-spending API
+                      credits on the v1 phase.
+  --no-score          skip the auto-scoring claude -p turn at the end
+USAGE
+}
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --v1-ref)   V1_REF="$2"; shift 2 ;;
-        --v2-ref)   V2_REF="$2"; shift 2 ;;
-        --no-score) SCORE=false; shift ;;
-        *) echo "Unknown arg: $1" >&2; exit 1 ;;
+        --v1-ref)    V1_REF="$2"; shift 2 ;;
+        --v2-ref)    V2_REF="$2"; shift 2 ;;
+        --versions)  VERSIONS="$2"; shift 2 ;;
+        --resume)    RESUME_DIR="$2"; shift 2 ;;
+        --no-score)  SCORE=false; shift ;;
+        -h|--help)   usage; exit 0 ;;
+        *) echo "Unknown arg: $1" >&2; usage >&2; exit 1 ;;
     esac
 done
+
+if [[ -n "$RESUME_DIR" ]]; then
+    [[ -d "$RESUME_DIR" ]] || { echo "ERROR: --resume $RESUME_DIR not a directory" >&2; exit 1; }
+    RESULTS_DIR="$RESUME_DIR"
+else
+    RESULTS_DIR="$SCRIPT_DIR/results/$(date -u +%Y-%m-%dT%H-%M-%SZ)"
+fi
 
 # ---- Pre-flight ----------------------------------------------------------
 for cmd in claude jq git diff mktemp; do
@@ -58,7 +86,11 @@ echo "Results directory: $RESULTS_DIR"
 # that lacks the eval suite would otherwise erase tasks.json mid-run.
 CACHE_DIR="$RESULTS_DIR/.cache"
 mkdir -p "$CACHE_DIR"
+# Idempotent — overwriting cached files on resume is harmless and ensures
+# the cache reflects the current $SCRIPT_DIR (in case tasks/fixtures evolved
+# since the original run).
 cp -a "$TASKS_FILE" "$CACHE_DIR/tasks.json"
+rm -rf "$CACHE_DIR/fixtures"
 cp -a "$SCRIPT_DIR/fixtures" "$CACHE_DIR/fixtures"
 TASKS_FILE="$CACHE_DIR/tasks.json"
 FIXTURES_ROOT="$CACHE_DIR"
@@ -84,6 +116,15 @@ run_one_version() {
         local id=$(echo "$task" | jq -r .id)
         local fixture=$(echo "$task" | jq -r .fixturePath)
         local prompt=$(echo "$task" | jq -r .prompt)
+
+        # Skip if this task already has a captured diff — supports --resume.
+        # The .diff is the canonical "this task ran" marker because it's the
+        # last file the loop writes per task. .out/.err alone are insufficient
+        # (rate-limited claude -p creates an empty .out file before crashing).
+        if [[ -s "$RESULTS_DIR/$version/$id.diff" ]]; then
+            echo "[$version] [$i/$n] $id  (skip: already in resume dir)"
+            continue
+        fi
 
         echo "[$version] [$i/$n] $id"
         echo "[$version/$id] start $(date -u +%H:%M:%S) prompt=\"${prompt:0:80}...\"" \
@@ -119,8 +160,15 @@ run_one_version() {
     done < <(jq -c '.[]' "$TASKS_FILE")
 }
 
-run_one_version "v1" "$V1_REF"
-run_one_version "v2" "$V2_REF"
+# Run only the versions requested via --versions (default: both).
+IFS=',' read -ra REQUESTED_VERSIONS <<< "$VERSIONS"
+for v in "${REQUESTED_VERSIONS[@]}"; do
+    case "$v" in
+        v1) run_one_version "v1" "$V1_REF" ;;
+        v2) run_one_version "v2" "$V2_REF" ;;
+        *)  echo "ERROR: unknown version '$v' in --versions (must be v1 or v2)" >&2; exit 1 ;;
+    esac
+done
 
 echo ""
 echo "=== Eval runs complete ==="
