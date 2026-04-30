@@ -60,15 +60,29 @@ The runner refuses to start if any tool is missing.
 | `fixtures/<task>/` | The starting state for each task. Each fixture is a self-contained tiny project (Move package or TS source). |
 | `results/<UTC-timestamp>/` | Per-run output. Created by the runner. Gitignored — see below. |
 
-## Tasks shipped in this PR (3 seed tasks)
+## Tasks shipped in this PR (15 tasks)
 
-| ID | Stale-training-data axis | Fixture | Pass criterion |
-|---|---|---|---|
-| `task-01-module-syntax` | Move 2024 file-level module form (`module x::y;` vs `module x::y { ... }`) | `fixtures/legacy-module/` | Updated module declaration uses the file-level form |
-| `task-02-sdk-2-client` | `@mysten/sui` v2 SDK migration (`SuiClient` → `SuiJsonRpcClient`) | `fixtures/sdk-1-client/` | Import switched to `@mysten/sui/jsonRpc` |
-| `task-03-otw` | One-time-witness pattern for `coin::create_currency` | `fixtures/otw-coin/` | OTW struct `DEMO has drop` declared and consumed |
+The full set from the original `DESIGN_V2.md` brief — covering Move 2024 syntax/idiom migrations, Sui-runtime patterns where post-cutoff training is shaky, and the off-chain stack (Walrus, Seal, TS SDK 2.0). Each task starts from a fixture that's a working stub and asks for a specific, narrow change.
 
-These three were chosen because v1 fails them with high probability (training data predates Move 2024 file-level form, predates SDK 2.0, and the OTW pattern is often misimplemented as a non-OTW witness). v2 should fix them via the matcher pipeline injecting the relevant `move-code-quality` / `move-code-review` skills + `sui.md` chunks.
+| ID | Stale-training axis | Fixture |
+|---|---|---|
+| `task-01-module-syntax` | Move 2024 file-level module form (`module x::y;` vs `{ }`) | `fixtures/legacy-module/` |
+| `task-02-sdk-2-client` | `@mysten/sui` v2 SDK migration (`SuiClient` → `SuiJsonRpcClient`) | `fixtures/sdk-1-client/` |
+| `task-03-otw` | One-time-witness for `coin::create_currency` | `fixtures/otw-coin/` |
+| `task-04-vector-method-syntax` | `v.push_back(x)` Move 2024 method-call form | `fixtures/vector-method-syntax/` |
+| `task-05-do-macro` | `vector::do!` replacing a hand-written `while` | `fixtures/do-macro/` |
+| `task-06-dynamic-object-field` | `dof::add` + `dof::borrow` accessor on a parent | `fixtures/dynamic-object-field/` |
+| `task-07-implicit-framework` | `Move.toml` Sui 1.45+ implicit-deps migration | `fixtures/implicit-framework/` |
+| `task-08-hot-potato` | `Receipt` (no abilities) + consume function | `fixtures/hot-potato/` |
+| `task-09-transfer-policy-royalty` | `transfer_policy::new` + royalty rule | `fixtures/transfer-policy-royalty/` |
+| `task-10-test-scenario` | `test_scenario::take_shared` contention path | `fixtures/test-scenario/` |
+| `task-11-derived-object` | `sui::derived_object` deterministic-UID child | `fixtures/derived-object/` |
+| `task-12-randomness-raffle` | `sui::random::Random` raffle draw | `fixtures/randomness-raffle/` |
+| `task-13-walrus-blob-anchor` | `@mysten/walrus` write + Sui object commitment | `fixtures/walrus-blob-anchor/` |
+| `task-14-seal-policy-encrypt` | `@mysten/seal` capability-gated encryption | `fixtures/seal-policy-encrypt/` |
+| `task-15-enum-match` | Move 2024 `enum` + exhaustive `match` | `fixtures/enum-match/` |
+
+**Pass criteria are tightened past substring-match in comments.** Where a task could be falsely passed by a TODO comment that mentions the function name (the failure mode the first eval run exposed), the criterion includes parentheses or type parameters (e.g. `coin::create_currency<DEMO>(`) so the model has to actually write the call, not just reference it.
 
 ## Adding more tasks
 

@@ -1,0 +1,9 @@
+{
+  "name": "seal-policy-encrypt-fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mysten/sui": "^2.0.0",
+    "@mysten/seal": "^2.0.0"
+  }
+}
