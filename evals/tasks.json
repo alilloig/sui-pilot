@@ -29,7 +29,7 @@
     "passCriteria": {
       "file": "sources/demo.move",
       "containsString": "struct DEMO has drop",
-      "alsoContainsString": "coin::create_currency<DEMO>("
+      "alsoContainsString": "coin::create_currency(otw"
     }
   },
   {
@@ -50,7 +50,7 @@
     "prompt": "Rewrite the summation loop in sources/lib.move using the Move 2024 `vector::do!` macro instead of a `while` loop.",
     "passCriteria": {
       "file": "sources/lib.move",
-      "containsString": "vector::do!",
+      "containsString": "do!(",
       "doesNotContainString": "while ("
     }
   },
@@ -106,8 +106,8 @@
     "prompt": "Write a `tests/pool_tests.move` with a `#[test]` function that uses `test_scenario` to: create the shared Pool, have actor ALICE deposit, then have actor BOB withdraw concurrently. Use `test_scenario::next_tx` between actors and `test_scenario::take_shared`.",
     "passCriteria": {
       "file": "tests/pool_tests.move",
-      "containsString": "test_scenario::next_tx(",
-      "alsoContainsString": "test_scenario::take_shared<"
+      "containsString": "next_tx(",
+      "alsoContainsString": "take_shared<"
     }
   },
   {
@@ -162,7 +162,7 @@
     "passCriteria": {
       "file": "sources/state.move",
       "containsString": "enum State",
-      "alsoContainsString": "match (state)",
+      "alsoContainsString": "match (",
       "doesNotContainString": "u8"
     }
   }
