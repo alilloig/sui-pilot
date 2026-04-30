@@ -29,9 +29,6 @@ jobs:
       - name: Pull upstream docs
         run: ./sync-docs.sh
 
-      - name: Regenerate index inside agent file
-        run: ./generate-docs-index.sh
-
       - name: Skip bundler if nothing drifted
         id: drift
         # sync-sui-pilot-docs.sh always rewrites docs/VERSION.json with a fresh
@@ -40,7 +37,7 @@ jobs:
         # git status (not git diff) so upstream-added files (untracked) count as drift.
         run: |
           if [ -z "$(git status --porcelain --untracked-files=all -- \
-              .sui-docs .move-book-docs .walrus-docs .seal-docs .ts-sdk-docs agents/sui-pilot-agent.md)" ]; then
+              .sui-docs .move-book-docs .walrus-docs .seal-docs .ts-sdk-docs)" ]; then
             echo "drifted=false" >> "$GITHUB_OUTPUT"
             echo "No upstream doc changes this run."
           else
@@ -64,7 +61,6 @@ jobs:
 
             Pipeline:
             1. `./sync-docs.sh` — pulls latest from `MystenLabs/sui`, `MystenLabs/move-book`, `MystenLabs/walrus`, `MystenLabs/seal`, `MystenLabs/ts-sdks`.
-            2. `./generate-docs-index.sh` — rewrites the index block inside `agents/sui-pilot-agent.md`.
-            3. `./scripts/sync-sui-pilot-docs.sh` — refreshes the `docs/` bundle and `docs/VERSION.json`.
+            2. `./scripts/sync-sui-pilot-docs.sh` — refreshes the `docs/` bundle and `docs/VERSION.json`.
 
-            Review the diff, especially the markered block in `agents/sui-pilot-agent.md`, `docs/VERSION.json`, and any newly added or renamed MDX files under `.*-docs/`.
+            Review the diff, especially `docs/VERSION.json` and any newly added or renamed MDX files under `.*-docs/`. The agent preamble at `agents/sui-pilot-agent.md` no longer contains a generated index — it's hand-curated routing only.

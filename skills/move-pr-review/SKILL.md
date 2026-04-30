@@ -1,28 +1,33 @@
 ---
 name: move-pr-review
-description: |
-  Multi-agent deep PR review for Sui Move packages. Orchestrates 11 sui-pilot-agent
-  subagents — 10 parallel reviewers + 1 consolidator — to produce a high-confidence,
-  evidence-backed Markdown review of a Move pull request. Each reviewer independently
-  invokes /move-code-review and /move-code-quality, cross-checks integration
-  boundaries against upstream Move dependencies, and emits strict-schema JSON
-  findings. The consolidator clusters, deduplicates, verifies high-severity claims
-  against the source code, and writes the final report.
-
-  Use this skill whenever the user asks to "review this Move PR", "audit this Move
-  pull request", "do a deep / multi-agent / team review of a Move package", "Move
-  consultation", "pre-audit review of Move code", "security review of this PR",
-  or wants a more rigorous PR review than a single /move-code-review pass would
-  give. Also trigger on "review PR #N" or "review this branch" when the changes
-  are predominantly Move (.move files in the diff). Even when the user does not
-  explicitly say "multi-agent", default to this skill for any non-trivial Move PR
-  review (≥ ~100 lines of Move diff or any new module) — the redundancy and
-  verification pass meaningfully reduces false positives compared to a single
-  reviewer pass.
-
-  Do NOT use for: single-file syntax checks (use /move-code-quality), security
-  reviews of an entire package without a PR scope (use /move-code-review), or
-  pure off-chain TypeScript reviews (use the pr-review-toolkit instead).
+description: "Multi-agent deep PR review for Sui Move packages. Orchestrates 11 sui-pilot-agent subagents — 10 parallel reviewers + 1 consolidator — to produce a high-confidence, evidence-backed Markdown review of a Move pull request. Each reviewer independently invokes /move-code-review and /move-code-quality, cross-checks integration boundaries against upstream Move dependencies, and emits strict-schema JSON findings. The consolidator clusters, deduplicates, verifies high-severity claims against the source code, and writes the final report. Use this skill whenever the user asks to 'review this Move PR', 'audit this Move pull request', 'do a deep / multi-agent / team review of a Move package', 'Move consultation', 'pre-audit review of Move code', 'security review of this PR', or wants a more rigorous PR review than a single /move-code-review pass would give. Also trigger on 'review PR #N' or 'review this branch' when the changes are predominantly Move (.move files in the diff). Even when the user does not explicitly say 'multi-agent', default to this skill for any non-trivial Move PR review (≥ ~100 lines of Move diff or any new module) — the redundancy and verification pass meaningfully reduces false positives compared to a single reviewer pass. Do NOT use for: single-file syntax checks (use /move-code-quality), security reviews of an entire package without a PR scope (use /move-code-review), or pure off-chain TypeScript reviews (use the pr-review-toolkit instead)."
+metadata:
+  priority: 6
+  pathPatterns:
+    - "**/*.move"
+    - "**/Move.toml"
+  bashPatterns:
+    - '\bgh\s+pr\s+(view|diff|checkout|create|review)\b'
+    - '\bgit\s+diff\s+(main|master)\b'
+  importPatterns: []
+  promptSignals:
+    phrases:
+      - "review this pr"
+      - "review pr"
+      - "deep review"
+      - "multi-agent review"
+      - "team review"
+      - "pre-audit review"
+    allOf:
+      - ["move", "pr"]
+      - ["pull request", "review"]
+    anyOf:
+      - "consultation"
+      - "team review"
+      - "audit"
+    noneOf:
+      - "typescript only"
+    minScore: 6
 ---
 
 # Move PR Review (multi-agent)

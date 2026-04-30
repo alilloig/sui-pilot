@@ -1,0 +1,6 @@
+[package]
+name = "trade"
+edition = "2024"
+
+[addresses]
+trade = "0x0"

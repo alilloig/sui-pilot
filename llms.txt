@@ -1,21 +1,21 @@
 # sui-pilot
 
-> Documentation copilot for AI agents working with Sui blockchain, Walrus storage, Seal secrets management, and the Sui TypeScript SDK.
+> Documentation copilot for AI agents working with Sui blockchain, Move language, Walrus storage, Seal secrets management, and the Sui TypeScript SDK.
 
-This repository contains 548 documentation files across four ecosystems, designed for AI agent consumption.
+This repository bundles ~695 documentation files across five ecosystems, designed for AI agent consumption via `Glob` and `Grep`.
 
 ## Docs
 
-- [Full File Index](agents/sui-pilot-agent.md): Embedded pipe-delimited index (inside the `<!-- AGENTS-MD-START -->` / `<!-- AGENTS-MD-END -->` markers) of every doc file, organized by ecosystem
-- [Sui blockchain docs](.sui-docs/): 336 MDX files — concepts, guides, references, standards
+- [Sui blockchain docs](.sui-docs/): 339 MDX files — concepts, guides, references, on-chain finance
+- [Move Book docs](.move-book-docs/): 143 files — language tutorial + reference (syntax, types, abilities, idioms)
 - [Walrus storage docs](.walrus-docs/): 84 MDX files — blob storage, Walrus Sites, SDK, operators
 - [Seal secrets docs](.seal-docs/): 14 MDX files — encryption, key servers, access control
-- [TypeScript SDK docs](.ts-sdk-docs/): 114 MDX files — dapp-kit, payment-kit, kiosk, React hooks, transactions
+- [TypeScript SDK docs](.ts-sdk-docs/): 115 MDX files — dapp-kit, payment-kit, kiosk, transactions, SDK 2.0 migration
 
 ## How to Use
 
-Read `agents/sui-pilot-agent.md` first. Between the index markers near the top of the prompt body you will find a compact, parseable index of every documentation file organized by ecosystem and directory structure. Search the appropriate `.{ecosystem}-docs/` directory for detailed content.
+Read `agents/sui-pilot-agent.md` first — it routes topics to corpora. Then `Glob` for filenames and `Grep` for content within the matching `.<source>-docs/` directory. There is no precomputed file index; the corpora are intended for direct search.
 
 ## Important
 
-Your training data about Sui Move is likely outdated. Always search and read these docs before generating Sui, Move, Walrus, Seal, or Sui TypeScript SDK code.
+Your training data about Sui, Move, Walrus, Seal, and the `@mysten/*` TypeScript SDK is likely outdated. Always search and read these docs before generating code in these ecosystems.

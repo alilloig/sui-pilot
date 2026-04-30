@@ -1,0 +1,6 @@
+[package]
+name = "raffle"
+edition = "2024"
+
+[addresses]
+raffle = "0x0"

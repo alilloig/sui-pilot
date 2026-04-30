@@ -1,0 +1,6 @@
+[package]
+name = "pool"
+edition = "2024"
+
+[addresses]
+pool = "0x0"

@@ -1,0 +1,9 @@
+{
+  "name": "walrus-blob-anchor-fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mysten/sui": "^2.0.0",
+    "@mysten/walrus": "^2.0.0"
+  }
+}

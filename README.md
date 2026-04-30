@@ -45,20 +45,35 @@ Real-time feedback from `move-analyzer`:
 
 ### Slash commands
 
-| Command              | Purpose                                          |
-| -------------------- | ------------------------------------------------ |
-| `/sui-pilot`         | Doc-first entry point; routes to the sui-pilot agent |
-| `/move-code-quality` | Move Book Code Quality Checklist compliance      |
-| `/move-code-review`  | Security and architecture review                 |
-| `/move-tests`        | Test generation best practices                   |
-| `/move-pr-review`    | Multi-agent deep PR review (10 reviewers + consolidator) |
-| `/oz-math`           | OpenZeppelin math library recommendations        |
+| Command               | Purpose                                                        |
+| --------------------- | -------------------------------------------------------------- |
+| `/sui-pilot`          | Doc-first entry point; routes to the sui-pilot agent           |
+| `/move-code-quality`  | Move Book Code Quality Checklist compliance                    |
+| `/move-code-review`   | Security and architecture review                               |
+| `/move-tests`         | Test generation best practices                                 |
+| `/move-pr-review`     | Multi-agent deep PR review (10 reviewers + consolidator)       |
+| `/oz-math`            | OpenZeppelin math library recommendations                      |
+| `/sui-pilot-doctor`   | Health-check the install (manifest, hooks, sui.md, MCP bundle) |
 
 Each command routes to a bundled skill of the same name; skills live under `skills/` and hold the actual behavior.
 
 ### Specialized Agent
 
-The `sui-pilot-agent` enforces a doc-first workflow: consult documentation before writing code, use LSP for real-time validation.
+The `sui-pilot-agent` enforces a doc-first workflow: consult documentation before writing code, use LSP for real-time validation. Its always-loaded preamble is a 2.9 KB topic→corpus routing table — it tells the agent to navigate `.<source>-docs/` directly via `Glob`/`Grep` rather than precomputing an index.
+
+### On-demand context injection (the matcher pipeline)
+
+Skill bodies and the `sui.md` ecosystem graph are **never always-loaded**. A hook pipeline at four events (`SessionStart`, `PreToolUse`, `UserPromptSubmit`, `SessionEnd`) decides what to inject based on what you're doing:
+
+| Signal           | What it matches                                            | Example                                              |
+| ---------------- | ---------------------------------------------------------- | ---------------------------------------------------- |
+| `pathPatterns`   | File paths in `Read`/`Edit`/`Write` tool calls             | `**/*.move` triggers `move-code-quality`             |
+| `bashPatterns`   | `Bash` tool inputs                                         | `sui client publish` triggers `move-code-review`     |
+| `importPatterns` | Imports in TypeScript/JavaScript files                     | `@mysten/sui` triggers SDK-shaped skills             |
+| `promptSignals`  | User prompt scoring (phrases +6, allOf +4, anyOf +1×2)     | "review this for security" triggers `move-code-review` |
+| MCP LSP boost    | Any `move_diagnostics` / `move_hover` MCP call             | +5 priority to all Move skills for the rest of session |
+
+Matched skills are injected with their bundled body **plus a chunk extracted from `sui.md`** (the relational graph at the plugin root). The pipeline enforces byte budgets (18 KB per `PreToolUse`, 8 KB per `UserPromptSubmit`) and dedups within a session so nothing is injected twice. Average per-session context cost drops ~89% versus shipping the full doc index — the agent gets *more* targeted material, paying *fewer* tokens.
 
 ---
 
@@ -165,9 +180,9 @@ sui-pilot also works as a standalone documentation source for non-Claude Code en
 
 1. Clone or copy this repo into your workspace
 2. Point your AI agent at the project
-3. The agent reads `agents/sui-pilot-agent.md`, which contains the full pipe-delimited doc index between the `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` markers in the prompt body
+3. The agent reads `agents/sui-pilot-agent.md`, a slim doc-first directive that routes topics to the bundled `.<source>-docs/` corpora and instructs the agent to navigate them with `Glob` and `Grep`
 
-The index is a compact, pipe-delimited file list that any AI agent can parse. It includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
+The directive includes a warning: *"What you remember about Sui and Move is WRONG or OUTDATED — always search these docs first."*
 
 ---
 
@@ -193,14 +208,13 @@ The docs are extracted directly from the official MystenLabs repositories — th
 
 ### Updating the Docs
 
-Run these scripts periodically (e.g., monthly, or before a major project):
+Run periodically (e.g., monthly, or before a major project):
 
 ```bash
 ./sync-docs.sh           # Pull latest from MystenLabs repos
-./generate-docs-index.sh # Rewrite the index block in agents/sui-pilot-agent.md
 ```
 
-The sync script clones or pulls each upstream repo and copies the prose into the corresponding `.{source}-docs/` folder. Most sources contribute a single `docs/content/` tree; the Move Book contributes its `book/`, `reference/`, and `packages/` subtrees into `.move-book-docs/` (with `packages/` available on disk but excluded from the searchable index). The index script walks these directories and rewrites the block between `<!-- AGENTS-MD-START -->` and `<!-- AGENTS-MD-END -->` inside `agents/sui-pilot-agent.md` — a compact, pipe-delimited file list that ships as part of the agent's system prompt, so docs-first behavior works out of the box when the agent is invoked. A scheduled GitHub Actions workflow (`.github/workflows/refresh-docs.yml`) runs this pipeline weekly and opens a chore PR when upstream docs change.
+The sync script clones or pulls each upstream repo and copies the prose into the corresponding `.{source}-docs/` folder. Most sources contribute a single `docs/content/` tree; the Move Book contributes its `book/`, `reference/`, and `packages/` subtrees into `.move-book-docs/` (with `packages/` available on disk for `file=` example references). v2 no longer generates a precomputed pipe-delimited index — the agent navigates the corpora directly via `Glob`/`Grep`, routed by a small topic table at the top of `agents/sui-pilot-agent.md`. A scheduled GitHub Actions workflow (`.github/workflows/refresh-docs.yml`) runs this pipeline weekly and opens a chore PR when upstream docs change.
 
 ---
 
@@ -208,16 +222,27 @@ The sync script clones or pulls each upstream repo and copies the prose into the
 
 ```
 sui-pilot/
-├── .claude-plugin/plugin.json   # Plugin manifest
-├── agents/sui-pilot-agent.md    # Specialized Sui Move agent
-├── skills/                      # Bundled skills (code-quality, code-review, tests, pr-review, oz-math)
-├── mcp/move-lsp-mcp/            # MCP server wrapping move-analyzer
-├── .sui-docs/                   # 339 Sui documentation files
-├── .move-book-docs/             # 143 Move Book files (+ packages/ examples)
-├── .walrus-docs/                # 84 Walrus documentation files
-├── .seal-docs/                  # 14 Seal documentation files
-└── .ts-sdk-docs/                # 115 TS SDK documentation files
+├── .claude-plugin/plugin.json    # Plugin manifest (registers move-lsp MCP server)
+├── agents/sui-pilot-agent.md     # Slim doc-first directive (~2.9 KB, always-loaded)
+├── sui.md                        # Hand-curated ecosystem graph (chunks injected on demand)
+├── sui-session.md                # ~600 B SessionStart payload (the doc-first warning)
+├── commands/                     # 7 slash commands (sui-pilot, move-*, oz-math, doctor)
+├── skills/                       # 5 bundled skills (each with matcher frontmatter)
+├── hooks/                        # Matcher pipeline (compiled .mjs + sources in src/)
+│   ├── hooks.json                #   event registration
+│   ├── *.mjs                     #   compiled hook scripts (committed)
+│   └── src/*.mts                 #   TypeScript sources
+├── generated/skill-manifest.json # Pre-compiled regex sources for the matcher
+├── scripts/                      # build-manifest.ts, doctor.ts, sync-docs glue
+├── mcp/move-lsp-mcp/             # MCP server wrapping move-analyzer (prebuilt bundle)
+├── .sui-docs/                    # 339 Sui documentation files
+├── .move-book-docs/              # 143 Move Book files (+ packages/ examples)
+├── .walrus-docs/                 # 84 Walrus documentation files
+├── .seal-docs/                   # 14 Seal documentation files
+└── .ts-sdk-docs/                 # 115 TS SDK documentation files
 ```
+
+For a deeper walkthrough of how the matcher pipeline boots, scores, and injects, see [`SUI_PILOT_FOR_DUMMIES.md`](SUI_PILOT_FOR_DUMMIES.md) Appendix B and Appendix C.
 
 ---
 
@@ -297,19 +322,19 @@ sui-pilot is designed for Claude Code. Some capabilities are environment-specifi
 - **macOS and Linux only**: Windows is not officially supported.
 - **Documentation lag**: Bundled docs are point-in-time snapshots. Run `./sync-docs.sh` to update.
 
-### Doc index is subagent-scoped by default
+### Doc-first directive is subagent-scoped by default
 
-The pipe-delimited doc index lives inside `agents/sui-pilot-agent.md` and is loaded into context only when something invokes the `sui-pilot-agent` subagent. The bundled skills (`/sui-pilot`, `/move-pr-review`, `/move-code-review`, `/move-code-quality`, `/move-tests`, `/oz-math`) all dispatch the subagent, so they get the index for free.
+The slim doc-first directive in `agents/sui-pilot-agent.md` is loaded into context only when something invokes the `sui-pilot-agent` subagent. The bundled skills (`/sui-pilot`, `/move-pr-review`, `/move-code-review`, `/move-code-quality`, `/move-tests`, `/oz-math`) all dispatch the subagent, so they get the directive for free.
 
 **Free-form Claude Code chat does not.** If you ask a Sui/Move/Walrus/Seal question without invoking one of the sui-pilot skills, Claude falls back to its training memory — which is stale. You may see deprecated Move 1.x syntax, removed `SuiClient` imports, missing `network` parameters on the new TS SDK 2.0 clients, and similar drift.
 
-**Workaround for users whose work is predominantly Sui-related:** add this line to your `~/.claude/CLAUDE.md` so the doc index loads in every session:
+**Workaround for users whose work is predominantly Sui-related:** add this line to your `~/.claude/CLAUDE.md` so the directive loads in every session:
 
 ```markdown
 @~/.claude/sui-pilot/agents/sui-pilot-agent.md
 ```
 
-The trade-off is a fixed ≈16 KB of context per session (vs. zero when only skills are invoked). For occasional Sui work, prefer running the skills on demand instead.
+The trade-off is ~2 KB of context per session (vs. zero when only skills are invoked). For occasional Sui work, prefer running the skills on demand instead.
 
 ---
 

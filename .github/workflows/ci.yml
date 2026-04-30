@@ -81,27 +81,27 @@ jobs:
           test -d .walrus-docs && echo "✓ .walrus-docs exists ($(count_doc_files .walrus-docs) doc files)"
           test -d .seal-docs && echo "✓ .seal-docs exists ($(count_doc_files .seal-docs) doc files)"
           test -d .ts-sdk-docs && echo "✓ .ts-sdk-docs exists ($(count_doc_files .ts-sdk-docs) doc files)"
+
+      - name: Enforce slim-preamble budget
+        # v2: agents/sui-pilot-agent.md is always-loaded into every session via
+        # the global @-import. Keep it slim — anything over ~4 KB starts to
+        # dominate the SessionStart cost. Mirror BUDGET in scripts/verify.sh.
+        run: |
           AGENT_FILE=agents/sui-pilot-agent.md
-          for marker in '<!-- AGENTS-MD-START -->' '<!-- AGENTS-MD-END -->' \
-              '[Sui Docs Index]' '[Move Book Docs Index]' '[Walrus Docs Index]' '[Seal Docs Index]' '[TS SDK Docs Index]'; do
-            if ! grep -qF "$marker" "$AGENT_FILE"; then
-              echo "::error::$AGENT_FILE missing required content: $marker"
+          AGENT_BUDGET_BYTES=4000
+          SIZE=$(wc -c < "$AGENT_FILE")
+          echo "Agent preamble size: ${SIZE} bytes (budget: ${AGENT_BUDGET_BYTES})"
+          if [ "$SIZE" -gt "$AGENT_BUDGET_BYTES" ]; then
+            echo "::error::$AGENT_FILE exceeds ${AGENT_BUDGET_BYTES} bytes (current: ${SIZE}). Slim it or raise the cap deliberately."
+            exit 1
+          fi
+          for needle in '.sui-docs' '.move-book-docs' '.walrus-docs' '.seal-docs' '.ts-sdk-docs'; do
+            if ! grep -qF "$needle" "$AGENT_FILE"; then
+              echo "::error::$AGENT_FILE missing routing entry: $needle"
               exit 1
             fi
           done
-          echo "✓ $AGENT_FILE contains the indexed doc-source set (Sui, Move Book, Walrus, Seal, TS SDK)"
-
-      - name: Verify doc index is up to date
-        # Guard against hand-edits inside the <!-- AGENTS-MD-START/END --> block.
-        # Regenerating must leave no diff; otherwise the committed index has
-        # drifted from the source doc trees.
-        run: |
-          ./generate-docs-index.sh
-          if ! git diff --exit-code agents/sui-pilot-agent.md; then
-            echo ""
-            echo "::error::agents/sui-pilot-agent.md index is out of sync. Run './generate-docs-index.sh' and recommit."
-            exit 1
-          fi
+          echo "✓ $AGENT_FILE within budget and routes all five corpora"
 
       - name: Smoke test move-pr-review scripts
         run: bash skills/move-pr-review/scripts/tests/smoke.sh

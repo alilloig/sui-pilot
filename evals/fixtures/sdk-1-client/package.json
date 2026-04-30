@@ -1,0 +1,8 @@
+{
+  "name": "sdk-1-client-fixture",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@mysten/sui": "^2.0.0"
+  }
+}

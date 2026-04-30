@@ -1,0 +1,169 @@
+[
+  {
+    "id": "task-01-module-syntax",
+    "title": "Convert legacy module syntax to Move 2024 file-level form",
+    "fixturePath": "fixtures/legacy-module",
+    "prompt": "Update sources/legacy.move to use the Move 2024 file-level module syntax. Do not change function bodies; only change the module declaration form.",
+    "passCriteria": {
+      "file": "sources/legacy.move",
+      "containsString": "module example::demo;",
+      "doesNotContainString": "module example::demo {"
+    }
+  },
+  {
+    "id": "task-02-sdk-2-client",
+    "title": "Migrate to @mysten/sui v2 JSON-RPC client",
+    "fixturePath": "fixtures/sdk-1-client",
+    "prompt": "Update src/index.ts to use the @mysten/sui v2 SDK. The 1.x SuiClient is deprecated; switch to SuiJsonRpcClient from @mysten/sui/jsonRpc and pass the now-required network parameter (mainnet).",
+    "passCriteria": {
+      "file": "src/index.ts",
+      "containsString": "@mysten/sui/jsonRpc",
+      "doesNotContainString": "@mysten/sui/client"
+    }
+  },
+  {
+    "id": "task-03-otw",
+    "title": "Implement the one-time-witness pattern for a currency module",
+    "fixturePath": "fixtures/otw-coin",
+    "prompt": "Implement the one-time-witness (OTW) pattern in sources/demo.move so the coin::create_currency call in init() compiles. The OTW struct must match the module name uppercased (DEMO) and have only the drop ability. Pass the OTW by value into init.",
+    "passCriteria": {
+      "file": "sources/demo.move",
+      "containsString": "struct DEMO has drop",
+      "alsoContainsString": "coin::create_currency(otw"
+    }
+  },
+  {
+    "id": "task-04-vector-method-syntax",
+    "title": "Use Move 2024 method-call syntax for vector ops",
+    "fixturePath": "fixtures/vector-method-syntax",
+    "prompt": "Update sources/lib.move to use Move 2024 method-call syntax (`v.push_back(x)`, `v.pop_back()`) instead of the function-call form. Behaviour must be identical.",
+    "passCriteria": {
+      "file": "sources/lib.move",
+      "containsString": ".push_back(",
+      "doesNotContainString": "vector::push_back("
+    }
+  },
+  {
+    "id": "task-05-do-macro",
+    "title": "Replace a while loop with the vector::do! macro",
+    "fixturePath": "fixtures/do-macro",
+    "prompt": "Rewrite the summation loop in sources/lib.move using the Move 2024 `vector::do!` macro instead of a `while` loop.",
+    "passCriteria": {
+      "file": "sources/lib.move",
+      "containsString": "do!(",
+      "doesNotContainString": "while ("
+    }
+  },
+  {
+    "id": "task-06-dynamic-object-field",
+    "title": "Attach and read a dynamic object field on a Parent",
+    "fixturePath": "fixtures/dynamic-object-field",
+    "prompt": "Add two public functions to sources/lib.move: `add_child(parent: &mut Parent, key: u64, child: Child)` using `dynamic_object_field::add`, and `borrow_child(parent: &Parent, key: u64): &Child` using `dynamic_object_field::borrow`. Define a simple `Child` struct with `key + store` abilities.",
+    "passCriteria": {
+      "file": "sources/lib.move",
+      "containsString": "dynamic_object_field::add(",
+      "alsoContainsString": "dynamic_object_field::borrow("
+    }
+  },
+  {
+    "id": "task-07-implicit-framework",
+    "title": "Drop explicit Sui framework dep in favour of implicit (1.45+)",
+    "fixturePath": "fixtures/implicit-framework",
+    "prompt": "Update Move.toml to use Sui 1.45+ implicit framework dependencies — remove the explicit `Sui = { ... }` line entirely. Edition stays at 2024.",
+    "passCriteria": {
+      "file": "Move.toml",
+      "containsString": "edition = \"2024\"",
+      "doesNotContainString": "Sui = {"
+    }
+  },
+  {
+    "id": "task-08-hot-potato",
+    "title": "Apply the hot-potato pattern to a Receipt struct",
+    "fixturePath": "fixtures/hot-potato",
+    "prompt": "Make the trade flow safe: ensure `Receipt` has NO abilities (hot-potato pattern), and add a `complete_trade(receipt: Receipt, ...)` function that destroys the receipt by-value via destructuring.",
+    "passCriteria": {
+      "file": "sources/trade.move",
+      "containsString": "struct Receipt",
+      "doesNotContainString": "Receipt has",
+      "alsoContainsString": "complete_trade("
+    }
+  },
+  {
+    "id": "task-09-transfer-policy-royalty",
+    "title": "Create a TransferPolicy with a 5% royalty rule",
+    "fixturePath": "fixtures/transfer-policy-royalty",
+    "prompt": "Add a function `init_policy(publisher: &Publisher, ctx: &mut TxContext)` that creates a `TransferPolicy<MyNft>` via `transfer_policy::new`, attaches a 5% royalty rule, and shares the policy.",
+    "passCriteria": {
+      "file": "sources/nft.move",
+      "containsString": "transfer_policy::new",
+      "alsoContainsString": "royalty_rule::add"
+    }
+  },
+  {
+    "id": "task-10-test-scenario",
+    "title": "Write a multi-actor test_scenario test for a shared Pool",
+    "fixturePath": "fixtures/test-scenario",
+    "prompt": "Write a `tests/pool_tests.move` with a `#[test]` function that uses `test_scenario` to: create the shared Pool, have actor ALICE deposit, then have actor BOB withdraw concurrently. Use `test_scenario::next_tx` between actors and `test_scenario::take_shared`.",
+    "passCriteria": {
+      "file": "tests/pool_tests.move",
+      "containsString": "next_tx(",
+      "alsoContainsString": "take_shared<"
+    }
+  },
+  {
+    "id": "task-11-derived-object",
+    "title": "Mint a Child via sui::derived_object",
+    "fixturePath": "fixtures/derived-object",
+    "prompt": "Add a `derive_child(parent: &mut Parent, index: u64, ctx: &mut TxContext)` function that uses `sui::derived_object` to create a `Child` with a deterministic UID derived from the parent's UID and the index.",
+    "passCriteria": {
+      "file": "sources/lib.move",
+      "containsString": "sui::derived_object",
+      "alsoContainsString": "derived_object::claim"
+    }
+  },
+  {
+    "id": "task-12-randomness-raffle",
+    "title": "Pick a random raffle winner with sui::random",
+    "fixturePath": "fixtures/randomness-raffle",
+    "prompt": "Implement a `draw_winner(raffle: &mut Raffle, r: &Random, ctx: &mut TxContext)` function that uses `sui::random::Random` to pick a random index in the participants vector. Use `random::new_generator(r, ctx)` and `random_generator::generate_u64_in_range`.",
+    "passCriteria": {
+      "file": "sources/raffle.move",
+      "containsString": "random::new_generator(",
+      "alsoContainsString": "generate_u64_in_range("
+    }
+  },
+  {
+    "id": "task-13-walrus-blob-anchor",
+    "title": "Publish a blob to Walrus and anchor its id on Sui",
+    "fixturePath": "fixtures/walrus-blob-anchor",
+    "prompt": "In src/index.ts, implement `publishAndAnchor(blob: Uint8Array): Promise<{ blobId: string; suiObjectId: string }>` that writes the blob to Walrus via `WalrusClient.writeBlob`, then submits a Sui transaction creating a `BlobCommitment` object containing the returned blobId. Use the v2 SDK shape.",
+    "passCriteria": {
+      "file": "src/index.ts",
+      "containsString": "writeBlob(",
+      "alsoContainsString": "tx.moveCall("
+    }
+  },
+  {
+    "id": "task-14-seal-policy-encrypt",
+    "title": "Encrypt a secret with a Seal capability-gated policy",
+    "fixturePath": "fixtures/seal-policy-encrypt",
+    "prompt": "In src/index.ts, implement `encryptForCapability(secret: Uint8Array, capabilityId: string): Promise<Uint8Array>` that uses `@mysten/seal`'s SealClient to encrypt the secret with a capability-gated decryption policy referencing the given capabilityId.",
+    "passCriteria": {
+      "file": "src/index.ts",
+      "containsString": "SealClient",
+      "alsoContainsString": ".encrypt("
+    }
+  },
+  {
+    "id": "task-15-enum-match",
+    "title": "Refactor a u8-tagged state machine to a Move 2024 enum + match",
+    "fixturePath": "fixtures/enum-match",
+    "prompt": "Refactor sources/state.move to replace the `u8` tag with a Move 2024 `enum State` (variants `Idle`, `Running`, `Done`), and rewrite `step` to use exhaustive `match` over the variants.",
+    "passCriteria": {
+      "file": "sources/state.move",
+      "containsString": "enum State",
+      "alsoContainsString": "match (",
+      "doesNotContainString": "u8"
+    }
+  }
+]

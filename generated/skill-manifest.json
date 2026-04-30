@@ -1,0 +1,277 @@
+{
+  "generatedAt": "2026-04-29T10:54:54.106Z",
+  "version": 2,
+  "skills": {
+    "move-code-review": {
+      "priority": 7,
+      "summary": "",
+      "docs": [],
+      "pathPatterns": [
+        "**/*.move",
+        "**/Move.toml"
+      ],
+      "bashPatterns": [
+        "\\bsui\\s+client\\s+publish\\b",
+        "\\bsui\\s+client\\s+upgrade\\b"
+      ],
+      "importPatterns": [
+        "@mysten/sui"
+      ],
+      "bodyPath": "skills/move-code-review/SKILL.md",
+      "pathRegexSources": [
+        "^(?:[^/]+\\/)*[^/]*\\.move$",
+        "^(?:[^/]+\\/)*Move\\.toml$"
+      ],
+      "bashRegexSources": [
+        "\\bsui\\s+client\\s+publish\\b",
+        "\\bsui\\s+client\\s+upgrade\\b"
+      ],
+      "importRegexSources": [
+        {
+          "source": "(?:from\\s+|require\\s*\\(\\s*|import\\s*\\(\\s*)['\"]@mysten\\/sui(?:\\/[^'\"]*)?['\"]",
+          "flags": "m"
+        }
+      ],
+      "promptSignals": {
+        "phrases": [
+          "security review",
+          "audit",
+          "is this safe",
+          "pre-deploy",
+          "pre-mainnet",
+          "pre-launch check",
+          "contract audit"
+        ],
+        "allOf": [
+          [
+            "move",
+            "security"
+          ],
+          [
+            "audit",
+            "contract"
+          ],
+          [
+            "move",
+            "review"
+          ]
+        ],
+        "anyOf": [
+          "overflow",
+          "access control",
+          "shared object",
+          "blind transfer",
+          "capability",
+          "publish"
+        ],
+        "noneOf": [],
+        "minScore": 6
+      }
+    },
+    "move-tests": {
+      "priority": 4,
+      "summary": "",
+      "docs": [],
+      "pathPatterns": [
+        "**/tests/*.move",
+        "**/*_tests.move",
+        "**/Move.toml"
+      ],
+      "bashPatterns": [
+        "\\bsui\\s+move\\s+test\\b"
+      ],
+      "importPatterns": [],
+      "bodyPath": "skills/move-tests/SKILL.md",
+      "pathRegexSources": [
+        "^(?:[^/]+\\/)*tests\\/[^/]*\\.move$",
+        "^(?:[^/]+\\/)*[^/]*_tests\\.move$",
+        "^(?:[^/]+\\/)*Move\\.toml$"
+      ],
+      "bashRegexSources": [
+        "\\bsui\\s+move\\s+test\\b"
+      ],
+      "importRegexSources": [],
+      "promptSignals": {
+        "phrases": [
+          "move tests",
+          "test coverage",
+          "unit test",
+          "write tests",
+          "test_scenario"
+        ],
+        "allOf": [
+          [
+            "move",
+            "test"
+          ]
+        ],
+        "anyOf": [
+          "scenario",
+          "test_scenario",
+          "assert_eq",
+          "test coverage"
+        ],
+        "noneOf": [
+          "jest",
+          "vitest",
+          "playwright"
+        ],
+        "minScore": 6
+      }
+    },
+    "move-code-quality": {
+      "priority": 5,
+      "summary": "",
+      "docs": [],
+      "pathPatterns": [
+        "**/*.move",
+        "**/Move.toml"
+      ],
+      "bashPatterns": [
+        "\\bsui\\s+move\\s+build\\b",
+        "\\bmove\\s+build\\b"
+      ],
+      "importPatterns": [],
+      "bodyPath": "skills/move-code-quality/SKILL.md",
+      "pathRegexSources": [
+        "^(?:[^/]+\\/)*[^/]*\\.move$",
+        "^(?:[^/]+\\/)*Move\\.toml$"
+      ],
+      "bashRegexSources": [
+        "\\bsui\\s+move\\s+build\\b",
+        "\\bmove\\s+build\\b"
+      ],
+      "importRegexSources": [],
+      "promptSignals": {
+        "phrases": [
+          "move 2024",
+          "move quality",
+          "code quality checklist",
+          "move compliance",
+          "move idiom"
+        ],
+        "allOf": [
+          [
+            "move",
+            "review"
+          ],
+          [
+            "move",
+            "compliance"
+          ]
+        ],
+        "anyOf": [
+          "idiom",
+          "syntax",
+          "edition",
+          "best practice"
+        ],
+        "noneOf": [
+          "typescript",
+          "react",
+          "next.js"
+        ],
+        "minScore": 6
+      }
+    },
+    "oz-math": {
+      "priority": 5,
+      "summary": "",
+      "docs": [],
+      "pathPatterns": [
+        "**/*.move"
+      ],
+      "bashPatterns": [],
+      "importPatterns": [],
+      "bodyPath": "skills/oz-math/SKILL.md",
+      "pathRegexSources": [
+        "^(?:[^/]+\\/)*[^/]*\\.move$"
+      ],
+      "bashRegexSources": [],
+      "importRegexSources": [],
+      "promptSignals": {
+        "phrases": [
+          "mul_div",
+          "fixed point",
+          "openzeppelin math",
+          "safe math",
+          "overflow",
+          "arithmetic safety"
+        ],
+        "allOf": [
+          [
+            "move",
+            "math"
+          ],
+          [
+            "arithmetic",
+            "safety"
+          ]
+        ],
+        "anyOf": [
+          "amm",
+          "oracle",
+          "lending",
+          "vault",
+          "staking",
+          "pool"
+        ],
+        "noneOf": [],
+        "minScore": 6
+      }
+    },
+    "move-pr-review": {
+      "priority": 6,
+      "summary": "",
+      "docs": [],
+      "pathPatterns": [
+        "**/*.move",
+        "**/Move.toml"
+      ],
+      "bashPatterns": [
+        "\\bgh\\s+pr\\s+(view|diff|checkout|create|review)\\b",
+        "\\bgit\\s+diff\\s+(main|master)\\b"
+      ],
+      "importPatterns": [],
+      "bodyPath": "skills/move-pr-review/SKILL.md",
+      "pathRegexSources": [
+        "^(?:[^/]+\\/)*[^/]*\\.move$",
+        "^(?:[^/]+\\/)*Move\\.toml$"
+      ],
+      "bashRegexSources": [
+        "\\bgh\\s+pr\\s+(view|diff|checkout|create|review)\\b",
+        "\\bgit\\s+diff\\s+(main|master)\\b"
+      ],
+      "importRegexSources": [],
+      "promptSignals": {
+        "phrases": [
+          "review this pr",
+          "review pr",
+          "deep review",
+          "multi-agent review",
+          "team review",
+          "pre-audit review"
+        ],
+        "allOf": [
+          [
+            "move",
+            "pr"
+          ],
+          [
+            "pull request",
+            "review"
+          ]
+        ],
+        "anyOf": [
+          "consultation",
+          "team review",
+          "audit"
+        ],
+        "noneOf": [
+          "typescript only"
+        ],
+        "minScore": 6
+      }
+    }
+  }
+}
