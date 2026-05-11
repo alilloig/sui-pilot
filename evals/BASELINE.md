@@ -213,11 +213,12 @@ bash ~/.claude/sui-pilot/evals/run-comparison.sh
 
 ## Status
 
-This is the v2-minimal baseline that ships with the PR. The Vercel-port
-follow-ups are no longer applicable (matcher is gone). The remaining
-follow-up is still **tightening the grader** — a future eval iteration
-should accept method-call ↔ module-qualified equivalence and reject
-substring matches inside comment blocks.
+This is the v2-minimal baseline that ships with the PR. The
+matcher-pipeline-related follow-ups are no longer applicable (it's been
+rolled back). The remaining follow-up is still **tightening the
+grader** — a future eval iteration should accept method-call ↔
+module-qualified equivalence and reject substring matches inside
+comment blocks.
 
 ---
 
@@ -354,9 +355,12 @@ bash ~/.claude/sui-pilot/evals/run-comparison.sh
 
 ## Status
 
-Tier-2 baseline captured. The verdict on the cut (commit `97484c5`)
-is now empirically grounded across the full difficulty spectrum: the
-slim shape introduces no regression on quality, costs ~10% more on
-the public rate card, and the maintenance-burden win (-17 K LOC) is
-unchanged. The full rationale and the eval framework itself are
-documented in `NOTES.md`.
+Tier-2 baseline captured. The verdict on backing out the matcher
+pipeline (commit `97484c5`) is now empirically grounded across the
+full difficulty spectrum: the slim shape introduces no regression on
+quality, costs ~10% more on the public rate card, and the
+maintenance-burden win (-17 K LOC) is unchanged. The full rationale —
+including what we tried, why we adopted the pattern from vercel-plugin
+in the first place, and what the evals revealed — is in `NOTES.md`.
+The eval framework itself is documented in `NOTES.md` §5 (design) and
+`evals/README.md` (operator manual).

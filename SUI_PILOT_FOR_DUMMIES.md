@@ -199,7 +199,7 @@ Each command routes to a bundled skill of the same name. Skills hold the actual 
 
 ## Appendix B: Why There Is No Matcher
 
-An earlier iteration of this plugin shipped a hook-based matcher pipeline ported from `vercel-plugin` (skill scoring, prompt signals, `sui.md` chunk injection, manifest, doctor). The 15-task eval suite under `evals/` showed dead-heat parity with no matcher, so it was cut. The full rationale is in [`NOTES.md`](NOTES.md); the numbers are in [`evals/BASELINE.md`](evals/BASELINE.md).
+Earlier work on this branch adopted a hook-based skill-matcher pattern modeled on Vercel's own Claude Code plugin (skill scoring, prompt signals, `sui.md` chunk injection, manifest, doctor). It's a well-engineered pattern that solves a real problem in plugins with many overlapping skills. sui-pilot ships 5 explicitly-named skills, so there's nothing for a matcher to disambiguate — and the 15-task eval suite under `evals/` confirmed dead-heat parity with no matcher. The simpler shape ships. Full rationale in [`NOTES.md`](NOTES.md); the numbers in [`evals/BASELINE.md`](evals/BASELINE.md).
 
 ## Appendix C: Important Files
 
@@ -212,7 +212,7 @@ An earlier iteration of this plugin shipped a hook-based matcher pipeline ported
 | `mcp/move-lsp-mcp/dist/index.js`  | Compiled MCP bundle (committed; ~480 KB)                                    |
 | `sync-docs.sh`                    | Pulls the 5 doc corpora from upstream Mysten Labs repos                     |
 | `evals/`                          | 15-task A/B harness — `run-comparison.sh`, `tasks.json`, fixtures, baseline |
-| `NOTES.md`                   | Why the matcher pipeline was tried and cut                                  |
+| `NOTES.md`                   | Branch narrative: why we tried a matcher pattern from a sibling plugin, what the evals showed, how to extend the eval framework |
 
 ## Appendix D: Glossary
 

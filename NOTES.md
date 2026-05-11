@@ -28,15 +28,17 @@ What this meant for sui-pilot: the slim-preamble + bundled-docs + curated-graph 
 
 ---
 
-## 2. What got tried — `v2-graph-port` (the full Vercel transplant)
+## 2. What got tried — `v2-graph-port` (adopting vercel-plugin's matcher pattern)
+
+`vercel-plugin` is the Claude Code plugin Vercel ships for Next.js development. It uses a particular architecture pattern that several plugins in the Mysten/Vercel/Anthropic ecosystem have converged on: slim preamble + bundled docs + curated relational graph + hook-driven skill injection. v2-graph-port adopted that pattern for sui-pilot, drawing heavily on vercel-plugin's implementation as the reference.
 
 Three layers landed on this branch in early commits (`41d5a5c` and below):
 
 1. **Slim always-loaded preamble** — `agents/sui-pilot-agent.md` collapsed from a 19.4 KB pipe-delimited file index to a 2.9 KB topic-routing table. The agent navigates `.<source>-docs/` directly via `Glob`/`Grep` instead of reading a precomputed index.
 
-2. **Ecosystem graph** — a new `sui.md` (445 lines, 13 sections) modeled on `vercel.md`, with `⤳ skill:` markers and `→ depends on` edges. Co-injected per matched skill via a chunk-extraction mechanism.
+2. **Ecosystem graph** — a new `sui.md` (445 lines, 13 sections) modeled on vercel-plugin's `vercel.md`, with `⤳ skill:` markers and `→ depends on` edges. Co-injected per matched skill via a chunk-extraction mechanism.
 
-3. **Hooks pipeline** — ported wholesale from `vercel-plugin/hooks/src/*.mts`. A SessionStart profiler, a PreToolUse path/bash/import matcher, a UserPromptSubmit prompt scorer, byte budgets, dedup, a `/sui-pilot-doctor` health check, a `scripts/build-manifest.ts` step that precompiled `skills/*/SKILL.md` frontmatter into `generated/skill-manifest.json`. ~7,500 LOC of `.mts` source / ~15 K LOC including compiled `.mjs`.
+3. **Hooks pipeline** — closely mirrored on `vercel-plugin/hooks/src/*.mts`, some files essentially copied with names swapped (vercel→sui-pilot). A SessionStart profiler, a PreToolUse path/bash/import matcher, a UserPromptSubmit prompt scorer, byte budgets, dedup, a `/sui-pilot-doctor` health check, a `scripts/build-manifest.ts` step that precompiled `skills/*/SKILL.md` frontmatter into `generated/skill-manifest.json`. ~7,500 LOC of `.mts` source / ~15 K LOC including compiled `.mjs`.
 
 (Doc co-location layer was already in place from v1 — `.sui-docs/`, `.move-book-docs/`, `.walrus-docs/`, `.seal-docs/`, `.ts-sdk-docs/` — no changes.)
 
@@ -46,7 +48,7 @@ Three layers landed on this branch in early commits (`41d5a5c` and below):
 
 To validate the port, we built a 15-task A/B comparison suite (`evals/`) covering Move 2024 syntax migrations, OTW pattern, dynamic object fields, transfer policies, randomness, Walrus, Seal, and SDK 2.0. First scored run:
 
-| | v1 (main) | v2 (full vercel-port) |
+| | v1 (main) | v2 (with the borrowed matcher pipeline) |
 |---|---|---|
 | Literal grader pass rate | 15/15 | 13/15 |
 | Functional pass rate (after adjudicating grader artefacts) | 13/15 | 13/15 |
@@ -55,21 +57,21 @@ To validate the port, we built a 15-task A/B comparison suite (`evals/`) coverin
 
 The scoring run flagged a **suspected verbose-TODO regression** on v2: tasks 09/14/15 showed v2 deferring implementation to TODO comments more often than v1, plausibly caused by the matcher over-injecting reading material and the agent satisficing on implementation as a result. Not a confident verdict — just a tracked concern.
 
-**Verdict from this run**: zero quality lift from the full vercel-port machinery on this suite. The architectural complexity didn't pay rent.
+**Verdict from this run**: zero quality lift from the borrowed matcher pipeline on this suite. The architectural complexity didn't pay rent.
 
 ---
 
 ## 4. What got cut and why — `v2-minimal` (commit `97484c5`)
 
-The matcher exists to disambiguate skills against vague prompts when a plugin has many of them. `vercel-plugin` ships ~19 skills. sui-pilot ships **5, all directly invokable as slash commands** (`/move-code-quality`, `/move-code-review`, `/move-pr-review`, `/move-tests`, `/oz-math`). The matcher was solving a problem this plugin doesn't have.
+The matcher exists to disambiguate skills against vague prompts when a plugin has many of them. `vercel-plugin` ships ~19 skills, many of which compete for the same kinds of prompts. sui-pilot ships **5, all directly invokable as slash commands** (`/move-code-quality`, `/move-code-review`, `/move-pr-review`, `/move-tests`, `/oz-math`). The pattern works for vercel-plugin because the disambiguation matters; it doesn't here because there's nothing to disambiguate.
 
-A second smoking gun: `hooks/src/lexical-index.mts` shipped 1,978 lines of `SYNONYM_MAP` that was Vercel vocabulary verbatim (`ssr`, `isr`, `next-rewrite`, `edge-middleware`, `satori`, `preview-deployment`, `feature-flag`, `og/opengraph`) — never re-tuned for Sui. The transplant was structural, not semantic.
+A second tell: `hooks/src/lexical-index.mts` carried a 1,978-line `SYNONYM_MAP` of vocabulary inherited from vercel-plugin (`ssr`, `isr`, `next-rewrite`, `edge-middleware`, `satori`, `preview-deployment`, `feature-flag`, `og/opengraph`) — we'd copied the file and never re-tuned the vocabulary for Sui/Move. That's not a problem the pattern caused; it's a problem we created by copying without adapting. Either way, it confirmed the pattern wasn't earning the per-byte attention required to keep it tuned.
 
 The cut (commit `97484c5`, -17,389 LOC across 57 files):
 
 | Path | Reason |
 |---|---|
-| `hooks/` (full tree: `src/*.mts`, compiled `*.mjs`, tsup config, tests) | Matcher pipeline + Vercel-vocab lexical index + orphans `stemmer.mts` + `unified-ranker.mts`. |
+| `hooks/` (full tree: `src/*.mts`, compiled `*.mjs`, tsup config, tests) | Matcher pipeline + lexical index (carrying un-retuned vocabulary from vercel-plugin) + orphans `stemmer.mts` + `unified-ranker.mts`. |
 | `sui.md` | Runtime consumer was only `hooks/src/sui-context.mts`. |
 | `sui-session.md` | Runtime consumer was only `hooks/src/inject-sui-context.mts`. |
 | `generated/skill-manifest.json` + `scripts/build-manifest.ts` | Consumed only by the two injection hooks. |
@@ -97,7 +99,7 @@ The eval harness in `evals/` was built ad-hoc to validate the cut. But it genera
 
 Training drift on Sui/Move is real and fast. The Sui framework, Move standard library, and TypeScript SDK ship breaking changes monthly. A plugin's value proposition is "ground the agent in current docs instead of stale training memory," but that's an empirical claim — easy to assume, hard to validate without measurement.
 
-The eval suite turns "the plugin makes the agent better" from a hope into a falsifiable hypothesis. The 2026-04-30 result killed our confidence that the full vercel-port mattered; the post-cut result preserved confidence that the slim shape is parity-or-better. Same machinery, different verdicts.
+The eval suite turns "the plugin makes the agent better" from a hope into a falsifiable hypothesis. The 2026-04-30 result killed our confidence that the borrowed matcher pipeline was worth its complexity; the post-rollback result preserved confidence that the slim shape is parity-or-better. Same machinery, different verdicts.
 
 ### 5.2 Architecture
 
@@ -231,8 +233,8 @@ For "should we re-run with the env fix?" → not urgent. The next run would surf
 
 Three things this branch surfaced that are worth carrying forward:
 
-1. **Transplanted architecture is a hypothesis, not a conclusion.** The matcher was a good idea for the plugin where it was first written; it didn't pay rent here because sui-pilot's skills aren't ambiguous. Resist the urge to assume a sibling-plugin's approach generalizes — test it.
+1. **Borrowed architecture patterns are hypotheses, not conclusions.** Adopting vercel-plugin's matcher pipeline was a defensible bet — the pattern is well-engineered, broadly recommended, and used by a serious team — but the value it delivers depends on the host plugin's shape, and sui-pilot's shape (5 explicitly-named skills) doesn't match the shape it solves (many skills, ambiguous prompts). When copying a pattern from a sibling plugin, name the *problem* the pattern solves first; if your plugin doesn't have that problem, the pattern is overhead.
 
 2. **Eval before refactor.** The 15-task suite caught what review wouldn't have. The cut was justified by data, not vibes. Future significant refactors should land an eval baseline first.
 
-3. **Substring grading is noisy.** Half the work on this branch was repeatedly tightening the grader as the suite revealed new false-positive and false-negative classes (TODO comments, idiomatic form variants, comment-vs-implementation). Plan for the grader to be a living artifact, not a write-once script.
+3. **Substring grading is noisy.** Half the work on this branch was repeatedly tightening the grader as the suite revealed new false-positive and false-negative classes (TODO comments, idiomatic form variants, comment-vs-implementation, RPC-method-name false positives). Plan for the grader to be a living artifact, not a write-once script.
