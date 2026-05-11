@@ -119,3 +119,102 @@ This is the v0 baseline. Two tracked follow-ups:
   budget? Or is it the user's interactive output style propagating?
   Add token-cost-per-task capture to the next runner iteration so
   this can be measured directly.
+
+---
+
+# Eval baseline — v2-minimal (2026-05-11)
+
+Second scored A/B run, after the `refactor!: cut Vercel-port runtime`
+commit (`97484c5`) that stripped the matcher pipeline, `sui.md` graph,
+`sui-session.md`, manifest, doctor, and all matcher frontmatter from
+the 5 skills. Snapshot of `results/2026-05-11T08-21-13Z/score.md`.
+
+- **v1 SHA**: `f0368e0` (main; unchanged from precut baseline)
+- **v2 SHA**: `97484c5` (feat/v2-graph-port HEAD after the cut)
+- **Tasks**: 15 (same suite as the precut run)
+- **Run date (UTC)**: 2026-05-11T08:21:13Z
+
+## Headline
+
+| Pass rate | v1 | v2 | Δ |
+|---|---|---|---|
+| 15 tasks | **14/15** | **14/15** | **0** |
+
+Dead heat. The trimmed v2 reproduces v1's output on every task in the
+suite, including bit-identical edits on the one shared miss. The cut
+removes ~17,389 LOC across 57 files with zero measurable regression.
+
+## Per-task results
+
+| Task | v1 | v2 | Notes |
+|---|---|---|---|
+| task-01-module-syntax | ✓ | ✓ | |
+| task-02-sdk-2-client | ✓ | ✓ | |
+| task-03-otw | ✗ * | ✗ * | **Grader artefact** — both versions wrote `coin::create_currency<DEMO>(otw, …)`, the idiomatic Move 2024 form with explicit type parameter; the criterion `coin::create_currency(otw,` rejects this. Loosening the criterion to `coin::create_currency` would push both to 15/15. |
+| task-04-vector-method-syntax | ✓ | ✓ | |
+| task-05-do-macro | ✓ | ✓ | |
+| task-06-dynamic-object-field | ✓ | ✓ | |
+| task-07-implicit-framework | ✓ | ✓ | |
+| task-08-hot-potato | ✓ | ✓ | |
+| task-09-transfer-policy-royalty | ✓ | ✓ | |
+| task-10-test-scenario | ✓ | ✓ | |
+| task-11-derived-object | ✓ | ✓ | |
+| task-12-randomness-raffle | ✓ | ✓ | |
+| task-13-walrus-blob-anchor | ✓ | ✓ | |
+| task-14-seal-policy-encrypt | ✓ | ✓ | |
+| task-15-enum-match | ✓ | ✓ | |
+
+`*` = grader artefact (correct code rejected by literal criterion).
+
+## What changed since the precut baseline
+
+Precut (2026-04-30): v1=15/15 vs full-v2=13/15 literal; v2 had two
+false negatives on tasks 12 + 15 (destructure / prose-TODO) and the
+suite raised a "verbose-TODO tendency" concern about matcher
+over-injection.
+
+Postcut (2026-05-11): both versions converge to 14/15 literal —
+identical pass set, identical failure mode. The suspected
+matcher-over-injection regression on tasks 12/14/15 has resolved
+without the matcher. The lone failure is a grader bug that was always
+present and now affects v1 too (it didn't in the precut run because v1
+hadn't moved to the idiomatic form on that run; the new claude session
+chose Move 2024 idioms more aggressively in both v1 and v2 alike).
+
+## What we learned
+
+1. **The cut is empirically safe.** v2-minimal matches main 1:1 on
+   every task. The matcher's complexity was not buying observable
+   quality on these tasks.
+
+2. **The slim preamble alone is sufficient.** This was the open
+   question after the precut baseline: did slim-preamble + matcher
+   beat the legacy pipe-delimited preamble because of the preamble or
+   because of the matcher? The answer: neither helps over the legacy
+   preamble on this suite. They're all functionally equivalent.
+
+3. **Grader bug surfaces consistently.** The `coin::create_currency`
+   criterion's intolerance for type parameters caught both versions.
+   That's a tracked follow-up (semantic substring matching), not a
+   plugin-quality signal.
+
+4. **Token-cost note (not measured here)**: even at parity, v2-minimal
+   wins on always-loaded preamble bytes (~2.9 KB vs main's pipe index)
+   and on per-tool-call hook overhead (zero hooks vs main's zero too,
+   since hooks live on this branch). The dominant savings are in
+   maintenance complexity, not per-session tokens.
+
+## How to reproduce
+
+```bash
+bash ~/.claude/sui-pilot/evals/run-comparison.sh
+# v1 ref defaults to main, v2 ref to feat/v2-graph-port HEAD.
+```
+
+## Status
+
+This is the v2-minimal baseline that ships with the PR. The Vercel-port
+follow-ups are no longer applicable (matcher is gone). The remaining
+follow-up is still **tightening the grader** — a future eval iteration
+should accept method-call ↔ module-qualified equivalence and reject
+substring matches inside comment blocks.
