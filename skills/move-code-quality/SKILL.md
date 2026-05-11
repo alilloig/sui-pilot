@@ -1,35 +1,6 @@
 ---
 name: move-code-quality
 description: Analyzes Move language packages against the official Move Book Code Quality Checklist. Use this skill when reviewing Move code, checking Move 2024 Edition compliance, or analyzing Move packages for best practices. Activates automatically when working with .move files or Move.toml manifests.
-metadata:
-  priority: 5
-  pathPatterns:
-    - "**/*.move"
-    - "**/Move.toml"
-  bashPatterns:
-    - '\bsui\s+move\s+build\b'
-    - '\bmove\s+build\b'
-  importPatterns: []
-  promptSignals:
-    phrases:
-      - "move 2024"
-      - "move quality"
-      - "code quality checklist"
-      - "move compliance"
-      - "move idiom"
-    allOf:
-      - ["move", "review"]
-      - ["move", "compliance"]
-    anyOf:
-      - "idiom"
-      - "syntax"
-      - "edition"
-      - "best practice"
-    noneOf:
-      - "typescript"
-      - "react"
-      - "next.js"
-    minScore: 6
 ---
 
 # Move Code Quality Checker

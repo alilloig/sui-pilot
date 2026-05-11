@@ -1,38 +1,6 @@
 ---
 name: move-code-review
 description: Security, architecture, and design review for Sui Move smart contracts. Analyzes access control, arithmetic safety, object model design, shared object congestion, version management, unused code, blind transfers, and testing strategy. Use this skill whenever the user asks to review Move code, audit a Move package, check for security vulnerabilities, do a pre-deploy or pre-mainnet check, assess if a contract is safe, or wants any kind of thorough Move code review beyond syntax. Also trigger when the user pastes Move code and asks "is this safe?" or "anything wrong with this?", or mentions "security review", "contract audit", or "pre-launch check" in the context of Move/Sui code. Does NOT cover Move 2024 syntax/idiom — use /move-code-quality for that.
-metadata:
-  priority: 7
-  pathPatterns:
-    - "**/*.move"
-    - "**/Move.toml"
-  bashPatterns:
-    - '\bsui\s+client\s+publish\b'
-    - '\bsui\s+client\s+upgrade\b'
-  importPatterns:
-    - '@mysten/sui'
-  promptSignals:
-    phrases:
-      - "security review"
-      - "audit"
-      - "is this safe"
-      - "pre-deploy"
-      - "pre-mainnet"
-      - "pre-launch check"
-      - "contract audit"
-    allOf:
-      - ["move", "security"]
-      - ["audit", "contract"]
-      - ["move", "review"]
-    anyOf:
-      - "overflow"
-      - "access control"
-      - "shared object"
-      - "blind transfer"
-      - "capability"
-      - "publish"
-    noneOf: []
-    minScore: 6
 ---
 
 # Move Code Review
