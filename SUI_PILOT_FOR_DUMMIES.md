@@ -8,7 +8,7 @@ A beginner's guide to making Claude Code into a competent Sui/Move developer tha
 
 **sui-pilot is a Claude Code plugin** that fixes the single biggest problem with using LLMs for Sui/Move work: training data goes stale fast, and a model fresh out of pretraining will confidently generate Move 2023 syntax, deprecated framework calls, and APIs that no longer exist.
 
-The plugin solves this by shipping the official Mysten Labs documentation — 695 files across five sources — directly into your Claude Code session, plus a thin matcher pipeline that injects the *right* docs at the *right* moment based on what you're doing. It also wires `move-analyzer` (the official Move language server) into Claude through MCP, so the agent can run real compiler diagnostics instead of guessing whether code compiles.
+The plugin solves this by shipping the official Mysten Labs documentation — 695 files across five sources — directly into your Claude Code session, plus a slim always-loaded preamble that points the agent at the right corpus, plus a handful of procedural slash commands for the common workflows. It also wires `move-analyzer` (the official Move language server) into Claude through MCP, so the agent can run real compiler diagnostics instead of guessing whether code compiles.
 
 After installing this guide, you can ask Claude to write Move 2024, audit a Sui contract for security, generate `test_scenario`-style unit tests, or do a multi-agent PR review — and the answers come back grounded in the bundled docs and verified against `move-analyzer`, not invented from training memory.
 
@@ -20,18 +20,14 @@ After installing this guide, you can ask Claude to write Move 2024, audit a Sui 
   ┌──────────────────────┐
   │  Claude Code         │   (your editor — host process)
   └──────────┬───────────┘
-             │ hook events (SessionStart, PreToolUse,
-             │ UserPromptSubmit, SessionEnd)
+             │ @-import loads the slim preamble
   ┌──────────▼─────────────────────────────────────┐
   │  sui-pilot plugin (${CLAUDE_PLUGIN_ROOT})      │
   │                                                │
   │  ├── agents/sui-pilot-agent.md  (always-loaded │
   │  │     ~2.9 KB doc-first directive)            │
-  │  ├── commands/  (7 slash commands)             │
+  │  ├── commands/  (6 slash commands)             │
   │  ├── skills/    (5 procedural skills)          │
-  │  ├── hooks/*.mjs  (the matcher pipeline)       │
-  │  ├── sui.md     (on-demand chunked graph)      │
-  │  ├── generated/skill-manifest.json             │
   │  └── .{sui,move-book,walrus,seal,ts-sdk}-docs/ │
   │      (695 documentation files, lazy-grepped)   │
   └──────────┬─────────────────────────────────────┘
@@ -42,7 +38,7 @@ After installing this guide, you can ask Claude to write Move 2024, audit a Sui 
   └────────────────────────┘         └─────────────────────┘
 ```
 
-**Three things to know about how this fits together.** First, the *always-loaded* surface is tiny — only `sui-pilot-agent.md` (~2.9 KB) hits every session; everything else loads on demand. Second, the hook pipeline is what makes the plugin feel smart: when you Edit a `*.move` file, a PreToolUse hook injects the right skill body plus a chunk of `sui.md`; when you type "review this for security" the same pipeline scores your prompt and injects `move-code-review`. Third, the `move-lsp` MCP server is a separate process that bridges Claude to your locally-installed `move-analyzer` — `move_diagnostics` is the fast iteration loop you should reach for instead of `sui move build`.
+**Two things to know about how this fits together.** First, the always-loaded surface is tiny — only `sui-pilot-agent.md` (~2.9 KB) hits every session, and it tells the agent to `Glob`/`Grep` the bundled `.<source>-docs/` corpora before writing code. Second, the `move-lsp` MCP server is a separate process that bridges Claude to your locally-installed `move-analyzer` — `move_diagnostics` is the fast iteration loop you should reach for instead of `sui move build`. There is no matcher pipeline and no hooks: you type a slash command when you want a procedural skill, and the agent does the rest by reading docs.
 
 ---
 
@@ -87,33 +83,21 @@ The MCP server bundle and the compiled hook scripts ship prebuilt with the plugi
 
 ## 5. First-Time Verification
 
-Run the doctor to confirm the install is healthy:
+Open Claude Code in any directory and try the LSP path — the most failure-prone piece:
 
 ```
-/sui-pilot-doctor
+> Check diagnostics for any .move file you have handy
 ```
 
-Behind the scenes, the doctor command runs `bun run scripts/doctor.ts` which performs six checks:
+If `move_diagnostics` returns compiler output, the MCP bridge is up and `move-analyzer` is reachable. If it errors with "move-analyzer not found" or "Max restarts exceeded", jump to § 8 (Troubleshooting).
 
-1. **Manifest** — `generated/skill-manifest.json` exists and parses.
-2. **Manifest/disk parity** — every `skills/*/SKILL.md` is in the manifest and vice versa.
-3. **Agent preamble** — `agents/sui-pilot-agent.md` is under the 4 KB byte budget.
-4. **sui.md graph** — every heading the chunk extractor maps to actually exists.
-5. **Hook scripts** — all six compiled `.mjs` hooks are present.
-6. **move-lsp MCP** — the bundled `mcp/move-lsp-mcp/dist/index.js` is on disk.
-
-A green run looks like:
+For docs grounding, ask the agent something where stale training would betray itself:
 
 ```
-✓ manifest          — parses; 5 skills
-✓ manifest/disk parity — 5 skills match
-✓ agent preamble    — 2859 / 4000 bytes
-✓ sui.md graph      — all 5 skill chunks resolve
-✓ hook scripts      — all 6 compiled
-✓ move-lsp MCP      — bundle present (480972 bytes)
+> What's the Move 2024 syntax for module declarations?
 ```
 
-If any check fails or warns, the doctor's output tells you exactly which `pnpm`/`bun` command to run to recover. Most problems are fixed by a clean reinstall from the marketplace.
+The answer should match the bundled docs (a file-level `module x::y;` form, not the legacy curly-brace form). If the agent answers from stale training and doesn't reach for `.move-book-docs/`, your `~/.claude/CLAUDE.md` is probably missing the `@~/.claude/sui-pilot/agents/sui-pilot-agent.md` import — see § *Doc-first directive is subagent-scoped* in the README.
 
 ---
 
@@ -125,28 +109,26 @@ A realistic Move-development session with sui-pilot:
 # Open Claude Code in your Move package directory
 cd ~/projects/my-defi-pool
 
-# Ask the agent to plan a feature — sui-pilot routes through the
-# specialized sui-pilot-agent and grounds the answer in the bundled
-# .sui-docs/ and .move-book-docs/ corpora.
+# Ask the agent to plan a feature. The slim doc-first preamble tells
+# Claude to grep .sui-docs/ and .move-book-docs/ for current patterns
+# before answering.
 > Plan a shared Pool object with a deposit/withdraw API following
   the Move 2024 capability pattern.
 
-# Edit the file. The PreToolUse hook fires automatically and injects
-# the move-code-quality skill body + the "Move type system & abilities"
-# chunk from sui.md, so the agent's edits respect Move 2024 idioms.
+# Implement.
 > Implement the deposit function with proper UID handling.
 
 # Get real compiler feedback — faster than re-running `sui move build`.
 > Check diagnostics for sources/pool.move
 
-# Mid-task: ask for a security review. The UserPromptSubmit hook
-# scores the phrase "security review" highly and injects move-code-review
-# with the "Sui object model" chunk.
-> Review this for security issues — focus on the shared-object access
-  control.
+# Quality pass.
+> /move-code-quality
 
-# Generate tests. Triggers move-tests skill.
-> Write tests for the deposit/withdraw flow.
+# Security pass — substantial changes only.
+> /move-code-review
+
+# Generate tests.
+> /move-tests
 
 # Before opening a PR — multi-agent deep review. Ten parallel reviewers
 # + one consolidator produce a high-confidence Markdown report.
@@ -156,7 +138,7 @@ cd ~/projects/my-defi-pool
 > /oz-math
 ```
 
-You don't need to remember which slash command to use for what — the matcher pipeline routes most requests automatically based on what you say and what files you touch. The slash commands are the manual override.
+The slash commands are the entry points. The doc-first preamble is what keeps the agent reading current docs instead of generating from stale training memory.
 
 ---
 
@@ -173,7 +155,7 @@ Behind the scenes, the script downloads tarballs from `MystenLabs/{sui,walrus,se
 
 If you maintain this repo yourself, a scheduled GitHub Actions workflow at `.github/workflows/refresh-docs.yml` runs the same pipeline weekly and opens a chore PR when upstream docs change.
 
-> **Note:** v2 of sui-pilot deliberately removed the precomputed pipe-delimited file index that v1 used to maintain. The agent now navigates the corpora directly with `Glob` and `Grep`, routed by the small topic table at the top of `agents/sui-pilot-agent.md`. There is nothing to regenerate after `sync-docs.sh`.
+The agent navigates the corpora directly with `Glob` and `Grep`, routed by the small topic table at the top of `agents/sui-pilot-agent.md`. There is nothing to regenerate after `sync-docs.sh`.
 
 ---
 
@@ -198,14 +180,7 @@ move-analyzer --version
 ```
 They must match. Fix with `suiup update sui && suiup update move-analyzer`.
 
-**`/sui-pilot-doctor` reports a missing manifest or compiled hooks.** The marketplace install is corrupted — reinstall:
-```
-/plugin uninstall sui-pilot@contract-hero
-/plugin install sui-pilot@contract-hero
-```
-Then fully restart Claude Code.
-
-**The agent ignores the bundled docs and falls back to training knowledge.** This usually means the agent didn't see the SessionStart injection (the doc-first directive in `sui-session.md`). Run `/sui-pilot-doctor` to verify the hook scripts exist; check that `CLAUDE_PROJECT_ROOT` is set in your environment if you launched Claude Code from a non-standard path.
+**The agent ignores the bundled docs and falls back to training knowledge.** This usually means the slim doc-first preamble isn't loaded into the session — Claude Code only loads `agents/sui-pilot-agent.md` if you `@`-import it from your global `~/.claude/CLAUDE.md` (see § *Doc-first directive is subagent-scoped* in the README) or invoke a slash command that routes through the `sui-pilot-agent` subagent.
 
 ---
 
@@ -219,93 +194,32 @@ Then fully restart Claude Code.
 | `/move-tests`         | Generate or improve `test_scenario`-style unit tests for a Move package         |
 | `/move-pr-review`     | Multi-agent deep PR review — 10 parallel reviewers + 1 consolidator             |
 | `/oz-math`            | Audit arithmetic and recommend OpenZeppelin math contracts where helpful        |
-| `/sui-pilot-doctor`   | Run the install-health check (6 checks); reports `pnpm`/`bun` recovery commands |
 
 Each command routes to a bundled skill of the same name. Skills hold the actual procedural behavior; commands are thin wrappers that invoke the right skill.
 
-## Appendix B: How sui-pilot Decides What to Inject
+## Appendix B: Why There Is No Matcher
 
-The matcher pipeline runs at four hook events and uses three signal types per skill. Reference for understanding *why* the agent suddenly picks up a skill mid-session.
+An earlier iteration of this plugin shipped a hook-based matcher pipeline ported from `vercel-plugin` (skill scoring, prompt signals, `sui.md` chunk injection, manifest, doctor). The 15-task eval suite under `evals/` showed dead-heat parity with no matcher, so it was cut. The full rationale is in [`POSTMORTEM.md`](POSTMORTEM.md); the numbers are in [`evals/BASELINE.md`](evals/BASELINE.md).
 
-**Hook events** (`hooks/hooks.json`):
+## Appendix C: Important Files
 
-| Event              | When it fires                                              | What it does                                                                  |
-| ------------------ | ---------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `SessionStart`     | `startup`, `resume`, `clear`, `compact`                    | Profiler scans the project for Move/Sui markers; injects `sui-session.md`     |
-| `PreToolUse`       | `Read`, `Edit`, `Write`, `MultiEdit`, `Bash`, `mcp__sui-pilot__move-lsp__*` | Matches skills against tool inputs (file paths, bash commands, imports)       |
-| `UserPromptSubmit` | Every user message                                         | Scores the prompt against each skill's `promptSignals`                        |
-| `SessionEnd`       | Session end                                                | Cleans up `/tmp/sui-pilot-<sessionId>-*` dedup files                          |
+| File                              | Description                                                                 |
+| --------------------------------- | --------------------------------------------------------------------------- |
+| `.claude-plugin/plugin.json`      | Plugin manifest — registers the `move-lsp` MCP server                       |
+| `agents/sui-pilot-agent.md`       | The slim doc-first directive (always-loaded via `@`-import; ~2.9 KB)        |
+| `commands/`                       | Slash command definitions (6 files)                                         |
+| `skills/<name>/SKILL.md`          | Skill body (5 skills)                                                       |
+| `mcp/move-lsp-mcp/dist/index.js`  | Compiled MCP bundle (committed; ~480 KB)                                    |
+| `sync-docs.sh`                    | Pulls the 5 doc corpora from upstream Mysten Labs repos                     |
+| `evals/`                          | 15-task A/B harness — `run-comparison.sh`, `tasks.json`, fixtures, baseline |
+| `POSTMORTEM.md`                   | Why the matcher pipeline was tried and cut                                  |
 
-**Per-skill signals** (in `skills/<name>/SKILL.md` frontmatter, compiled into `generated/skill-manifest.json`):
-
-| Field            | Purpose                                                                       |
-| ---------------- | ----------------------------------------------------------------------------- |
-| `priority`       | Base priority (1–10). Higher wins ties when multiple skills match.            |
-| `pathPatterns`   | Glob patterns matched against tool input file paths (e.g. `**/*.move`)        |
-| `bashPatterns`   | Regex matched against `Bash` tool inputs (e.g. `\bsui\s+move\s+test\b`)       |
-| `importPatterns` | Regex matched against TypeScript/JavaScript imports (e.g. `@mysten/sui`)      |
-| `promptSignals`  | Scoring rules: `phrases` +6 each, `allOf` +4, `anyOf` +1×2 cap, `noneOf`=−∞   |
-
-**Boosts that affect the score:**
-
-- The SessionStart profiler sets `SUI_PILOT_LIKELY_SKILLS` based on detected markers (`Move.toml`, `@mysten/*` deps). Skills in that list get **+5 priority**.
-- When any `mcp__sui-pilot__move-lsp__*` tool fires, the same +5 boost is applied to `move-code-quality`, `move-code-review`, and `move-tests` for the rest of the session.
-
-**Byte budgets (overridable via env):**
-
-| Env var                              | Default | What it caps                                  |
-| ------------------------------------ | ------- | --------------------------------------------- |
-| `SUI_PILOT_INJECTION_BUDGET`         | 18000   | Total bytes injected per `PreToolUse` event   |
-| `SUI_PILOT_PROMPT_INJECTION_BUDGET`  | 8000    | Total bytes injected per `UserPromptSubmit`   |
-| (constant in `sui-context.mts`)      | 5000    | Per-chunk extraction budget from `sui.md`     |
-
-**Dedup:** `/tmp/sui-pilot-<sessionId>-seen-skills.d/` and `seen-context-chunks.d/` track what's been injected this session. The same skill body is never injected twice.
-
-## Appendix C: How It Boots (Under the Hood)
-
-For the curious. The order of operations from `/plugin install` to your first prompt:
-
-1. **Plugin install** copies the entire `sui-pilot/` tree into `~/.claude/plugins/cache/sui-pilot/`.
-2. **Claude Code start** reads `.claude-plugin/plugin.json`, sees the `mcpServers.move-lsp` entry, and spawns `node ${CLAUDE_PLUGIN_ROOT}/mcp/move-lsp-mcp/dist/index.js` as a child process. The MCP server exposes 4 tools (`move_diagnostics`, `move_hover`, `move_completions`, `move_goto_definition`) over stdio.
-3. **Hook discovery** — Claude Code reads `hooks/hooks.json` and registers the 6 hook scripts at the 4 hook events.
-4. **First SessionStart fires.** Three hooks run in order: `session-start-seen-skills.mjs` (clears `/tmp` dedup state), `session-start-profiler.mjs` (scans `process.cwd()` for `Move.toml`, `*.move`, `@mysten/*` deps; sets `SUI_PILOT_LIKELY_SKILLS` and `SUI_PILOT_GREENFIELD` via `setSessionEnv`), `inject-sui-context.mjs` (writes ~600 B of doc-first directive from `sui-session.md` to additional context).
-5. **`agents/sui-pilot-agent.md` is loaded** by Claude Code's global `@`-import mechanism (~2.9 KB). This is the *only* always-loaded preamble.
-6. **First user prompt arrives.** `user-prompt-submit-skill-inject.mjs` reads the manifest, scores the prompt against every skill's `promptSignals`, applies boosts from `SUI_PILOT_LIKELY_SKILLS`, picks the top 2 skills under the 8 KB budget, and injects them.
-7. **First tool call fires** (typically a `Read` of the user's file). `pretooluse-skill-inject.mjs` runs the path/bash/import matcher pipeline, picks the top 3 skills under the 18 KB budget, and injects them along with a chunk extracted from `sui.md`.
-8. **Each subsequent tool call** repeats step 7 with dedup applied — a skill that was injected this session won't be re-injected unless the session is `clear`ed or `compact`ed.
-
-## Appendix D: Important Files
-
-| File                                          | Description                                                                 |
-| --------------------------------------------- | --------------------------------------------------------------------------- |
-| `.claude-plugin/plugin.json`                  | Plugin manifest — registers the `move-lsp` MCP server                       |
-| `agents/sui-pilot-agent.md`                   | The slim doc-first directive (always-loaded; ~2.9 KB)                       |
-| `sui.md`                                      | Hand-curated relational graph; chunks extracted on demand by skill match    |
-| `sui-session.md`                              | ~600 B SessionStart payload — the doc-first warning the agent sees on boot  |
-| `commands/`                                   | Slash command definitions (7 files)                                         |
-| `skills/<name>/SKILL.md`                      | Skill body + matcher frontmatter (5 skills)                                 |
-| `hooks/hooks.json`                            | Hook event registration                                                     |
-| `hooks/src/*.mts`                             | Source for the matcher pipeline (TypeScript)                                |
-| `hooks/*.mjs`                                 | Compiled hook scripts (committed; consumers don't build)                    |
-| `hooks/src/sui-context.mts`                   | The `SKILL_TO_CHUNK` map driving `sui.md` chunk extraction                  |
-| `hooks/src/session-start-profiler.mts`        | Move/Sui marker detection that drives `SUI_PILOT_LIKELY_SKILLS`             |
-| `mcp/move-lsp-mcp/dist/index.js`              | Compiled MCP bundle (committed; ~480 KB)                                    |
-| `scripts/build-manifest.ts`                   | Compiles `skills/*/SKILL.md` frontmatter into `generated/skill-manifest.json` |
-| `scripts/doctor.ts`                           | The 6-check install-health script behind `/sui-pilot-doctor`                |
-| `sync-docs.sh`                                | Pulls the 5 doc corpora from upstream Mysten Labs repos                     |
-| `generated/skill-manifest.json`               | Pre-compiled regex sources + skill metadata (committed)                     |
-| `docs/VERSION.json`                           | Sync timestamp + revision pin                                               |
-
-## Appendix E: Glossary
+## Appendix D: Glossary
 
 - **MCP** — Model Context Protocol. Anthropic's stdio-based protocol for plugging external tools into an LLM. The `move-lsp` MCP server is what lets Claude call `move_diagnostics` like any other tool.
 - **`move-analyzer`** — The official Move language server (LSP). The MCP server is a thin bridge that translates MCP tool calls into LSP requests.
-- **Skill** — A bundled procedural guide under `skills/<name>/SKILL.md`. Each skill has matcher frontmatter and a Markdown body the agent reads when the skill matches.
+- **Skill** — A bundled procedural guide under `skills/<name>/SKILL.md`. The Markdown body is what the agent reads when the slash command fires.
 - **Slash command** — A user-typed shortcut like `/move-code-quality` that invokes a skill.
-- **Manifest** — `generated/skill-manifest.json`. Pre-compiled regex sources for every skill's path/bash/import patterns. Built by `scripts/build-manifest.ts`.
-- **Doctor** — `scripts/doctor.ts`. The 6-check install-health script.
-- **Profiler** — `hooks/src/session-start-profiler.mts`. Scans the project at SessionStart to set `SUI_PILOT_LIKELY_SKILLS` so the matcher gives boosted priority to skills that match the project shape.
-- **sui.md** — The hand-curated ecosystem graph at the plugin root. Sectioned by topic; chunks are extracted by heading and injected per matched skill.
 - **Doc-first directive** — The opening rule in `agents/sui-pilot-agent.md` that tells the agent to grep `.<source>-docs/` *before* writing code, because training data on Sui is stale.
 - **suiup** — Sui's official version manager. Installs `sui` and `move-analyzer` as a matched pair.
 - **Walrus** — Mysten Labs' decentralized blob-storage protocol on Sui.
