@@ -199,7 +199,7 @@ Each command routes to a bundled skill of the same name. Skills hold the actual 
 
 ## Appendix B: Why There Is No Matcher
 
-An earlier iteration of this plugin shipped a hook-based matcher pipeline ported from `vercel-plugin` (skill scoring, prompt signals, `sui.md` chunk injection, manifest, doctor). The 15-task eval suite under `evals/` showed dead-heat parity with no matcher, so it was cut. The full rationale is in [`POSTMORTEM.md`](POSTMORTEM.md); the numbers are in [`evals/BASELINE.md`](evals/BASELINE.md).
+An earlier iteration of this plugin shipped a hook-based matcher pipeline ported from `vercel-plugin` (skill scoring, prompt signals, `sui.md` chunk injection, manifest, doctor). The 15-task eval suite under `evals/` showed dead-heat parity with no matcher, so it was cut. The full rationale is in [`NOTES.md`](NOTES.md); the numbers are in [`evals/BASELINE.md`](evals/BASELINE.md).
 
 ## Appendix C: Important Files
 
@@ -212,7 +212,7 @@ An earlier iteration of this plugin shipped a hook-based matcher pipeline ported
 | `mcp/move-lsp-mcp/dist/index.js`  | Compiled MCP bundle (committed; ~480 KB)                                    |
 | `sync-docs.sh`                    | Pulls the 5 doc corpora from upstream Mysten Labs repos                     |
 | `evals/`                          | 15-task A/B harness — `run-comparison.sh`, `tasks.json`, fixtures, baseline |
-| `POSTMORTEM.md`                   | Why the matcher pipeline was tried and cut                                  |
+| `NOTES.md`                   | Why the matcher pipeline was tried and cut                                  |
 
 ## Appendix D: Glossary
 

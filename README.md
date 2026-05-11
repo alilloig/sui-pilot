@@ -62,7 +62,7 @@ The `sui-pilot-agent` enforces a doc-first workflow: consult documentation befor
 
 ### Architecture
 
-The plugin is intentionally small: a slim always-loaded preamble plus user-invokable skills plus an MCP bridge to `move-analyzer`. No matcher pipeline, no hooks, no precomputed indexes — the agent reaches for `Glob`/`Grep` over the bundled corpora when it needs docs, and you type a slash command when you want a procedural skill. An earlier iteration on this branch ported the full `vercel-plugin` matcher architecture; the 15-task eval suite showed dead-heat parity with no matcher, so the matcher was cut. The full rationale is in [`POSTMORTEM.md`](./POSTMORTEM.md); the empirical numbers are in [`evals/BASELINE.md`](./evals/BASELINE.md).
+The plugin is intentionally small: a slim always-loaded preamble plus user-invokable skills plus an MCP bridge to `move-analyzer`. No matcher pipeline, no hooks, no precomputed indexes — the agent reaches for `Glob`/`Grep` over the bundled corpora when it needs docs, and you type a slash command when you want a procedural skill. An earlier iteration on this branch ported the full `vercel-plugin` matcher architecture; the 15-task eval suite showed dead-heat parity with no matcher, so the matcher was cut. The full rationale is in [`NOTES.md`](./NOTES.md); the empirical numbers are in [`evals/BASELINE.md`](./evals/BASELINE.md).
 
 ---
 
@@ -225,7 +225,7 @@ sui-pilot/
 └── .ts-sdk-docs/                 # 115 TS SDK documentation files
 ```
 
-For the onboarding walkthrough, see [`SUI_PILOT_FOR_DUMMIES.md`](SUI_PILOT_FOR_DUMMIES.md). For why the matcher pipeline was cut, see [`POSTMORTEM.md`](POSTMORTEM.md).
+For the onboarding walkthrough, see [`SUI_PILOT_FOR_DUMMIES.md`](SUI_PILOT_FOR_DUMMIES.md). For why the matcher pipeline was cut, see [`NOTES.md`](NOTES.md).
 
 ---
 
