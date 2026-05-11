@@ -60,9 +60,9 @@ The runner refuses to start if any tool is missing.
 | `fixtures/<task>/` | The starting state for each task. Each fixture is a self-contained tiny project (Move package or TS source). |
 | `results/<UTC-timestamp>/` | Per-run output. Created by the runner. Gitignored — see below. |
 
-## Tasks shipped in this PR (15 tasks)
+## Tasks (15 tier-1 + 12 Tier-2 = 27 total)
 
-The full set from the original `DESIGN_V2.md` brief — covering Move 2024 syntax/idiom migrations, Sui-runtime patterns where post-cutoff training is shaky, and the off-chain stack (Walrus, Seal, TS SDK 2.0). Each task starts from a fixture that's a working stub and asks for a specific, narrow change.
+The original 15-task seed suite (tier-1) covers Move 2024 syntax/idiom migrations, Sui-runtime patterns where post-cutoff training is shaky, and the off-chain stack (Walrus, Seal, TS SDK 2.0). Each tier-1 task starts from a fixture that's a working stub and asks for a specific, narrow change. The Tier-2 expansion (tasks 16-27) adds multi-file refactors, ambiguous-spec rubric-graded tasks, stale-training traps, and one token-pressure task — see `NOTES.md` §5 for the design rationale and per-category breakdown.
 
 | ID | Stale-training axis | Fixture |
 |---|---|---|

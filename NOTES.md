@@ -7,6 +7,8 @@
 > user-facing surface, release notes, raw eval data, or operator manuals.
 >
 > Companion docs:
+> - `EVAL_FRAMEWORK.html` — polished, shareable browser-renderable
+>   explainer of the eval methodology and findings; open in a browser
 > - `evals/BASELINE.md` — raw per-run data, append-only history
 > - `evals/README.md` — eval harness operator manual
 > - `CHANGELOG.md` — release-note format
