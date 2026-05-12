@@ -231,7 +231,7 @@ sui-pilot/
 └── .ts-sdk-docs/                 # 115 TS SDK documentation files
 ```
 
-For the onboarding walkthrough, see [`SUI_PILOT_FOR_DUMMIES.md`](SUI_PILOT_FOR_DUMMIES.md). For why we adopted a matcher pipeline from a sibling plugin and then rolled it back, see [`NOTES.md`](NOTES.md). For a polished, shareable explainer of the eval methodology and findings, open [`EVAL_FRAMEWORK.html`](EVAL_FRAMEWORK.html) in a browser.
+For the onboarding walkthrough, see [`SUI_PILOT_FOR_DUMMIES.md`](SUI_PILOT_FOR_DUMMIES.md). For why we adopted a matcher pipeline from a sibling plugin and then rolled it back, see [`NOTES.md`](NOTES.md). For a polished, shareable explainer of the eval methodology and findings, open [`EVAL_FRAMEWORK.html`](EVAL_FRAMEWORK.html) in a browser. For an interactive tour of the six ways sui-pilot injects context into Claude Code, open [`SUI_PILOT_TOUR.html`](SUI_PILOT_TOUR.html).
 
 ---
 

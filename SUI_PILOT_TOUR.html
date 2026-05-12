@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<!--
+  SUI_PILOT_TOUR.html — interactive dashboard showing what enters Claude's
+  context window at every step of a real Sui workflow under sui-pilot.
+
+  Generated from sui-pilot @ commit 2d09bf1 on 2026-05-12.
+  Scenario steps are illustrative reconstructions grounded in the actual
+  agent file, skills, MCP tool list, and doc corpora declared in this repo.
+  Self-contained: inline CSS, inline SVG, inline JS, no external requests.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sui-pilot lab — what's in Claude's context, step by step</title>
+<style>
+  :root {
+    --ink: #0f172a;
+    --muted: #475569;
+    --muted-2: #64748b;
+    --line: #e2e8f0;
+    --line-strong: #cbd5e1;
+    --bg: #f8fafc;
+    --panel: #ffffff;
+    --panel-alt: #fdfdfb;
+    --accent: #0a4a8a;
+    --accent-2: #1e6fb8;
+    --accent-soft: #e6f0fa;
+    --accent-deep: #083b6f;
+    --pass: #16a34a;
+    --pass-soft: #dcfce7;
+    --warn: #ca8a04;
+    --warn-soft: #fef9c3;
+    --fail: #dc2626;
+    --fail-soft: #fee2e2;
+    --code-bg: #f1f5f9;
+    --code-ink: #1e293b;
+    --radius: 10px;
+    --radius-sm: 6px;
+    --shadow-sm: 0 1px 2px rgba(15,23,42,0.05);
+    --shadow-md: 0 4px 12px rgba(15,23,42,0.08);
+    --shadow-lg: 0 10px 30px rgba(15,23,42,0.12);
+    --flash: 0 0 0 0 rgba(22,163,74,0.55);
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--font-sans);
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.55;
+    margin: 0;
+    min-height: 100vh;
+  }
+  .skip {
+    position: absolute; left: -9999px; top: 0;
+    background: var(--accent); color: white; padding: 0.5rem 1rem;
+    border-radius: 0 0 var(--radius) 0; z-index: 100;
+  }
+  .skip:focus { left: 0; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s; }
+  a:hover, a:focus-visible { border-bottom-color: var(--accent); }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 3px; }
+  code {
+    background: var(--code-bg); padding: 0.05em 0.35em;
+    border-radius: 3px; font-size: 0.88em;
+    font-family: var(--font-mono); color: var(--code-ink);
+  }
+  pre {
+    background: var(--code-bg); padding: 0.65rem 0.85rem; border-radius: var(--radius-sm);
+    overflow-x: auto; font-size: 0.78rem; line-height: 1.5;
+    font-family: var(--font-mono); color: var(--code-ink);
+    border: 1px solid var(--line); margin: 0.4rem 0;
+  }
+  pre code { background: none; padding: 0; font-size: 1em; }
+  .icon { width: 1em; height: 1em; vertical-align: -0.15em; flex-shrink: 0; }
+  .icon-lg { width: 1.35em; height: 1.35em; vertical-align: -0.25em; }
+
+  /* ────────── PAGE CHROME ────────── */
+  header.site {
+    background: linear-gradient(180deg, #fff 0%, #fff 70%, var(--bg) 100%);
+    padding: 1.25rem 1.5rem 1rem;
+    border-bottom: 1px solid var(--line);
+  }
+  .header-row {
+    max-width: 1400px; margin: 0 auto;
+    display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;
+  }
+  .brand { flex-grow: 1; min-width: 280px; }
+  h1 {
+    font-size: 1.5rem; margin: 0 0 0.15rem;
+    letter-spacing: -0.012em; font-weight: 700;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  h1 .droplet { color: var(--accent); }
+  .tagline { color: var(--muted); font-size: 0.92rem; margin: 0; }
+  .scenario-picker {
+    display: flex; gap: 0.4rem; flex-wrap: wrap;
+    background: var(--code-bg); padding: 0.35rem; border-radius: 999px;
+    border: 1px solid var(--line);
+  }
+  .scenario-chip {
+    background: transparent; border: 0;
+    padding: 0.4rem 0.85rem; border-radius: 999px;
+    font-size: 0.85rem; font-family: inherit; font-weight: 500;
+    color: var(--muted); cursor: pointer;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 0.35rem;
+  }
+  .scenario-chip:hover { color: var(--ink); }
+  .scenario-chip[aria-pressed="true"] {
+    background: var(--ink); color: white; box-shadow: var(--shadow-sm);
+  }
+  .scenario-chip .num {
+    font-family: var(--font-mono); font-size: 0.72rem;
+    background: rgba(0,0,0,0.07); padding: 0.05em 0.4em;
+    border-radius: 999px;
+  }
+  .scenario-chip[aria-pressed="true"] .num { background: rgba(255,255,255,0.2); }
+  .meta-chips {
+    display: flex; flex-wrap: wrap; gap: 0.4rem;
+    max-width: 1400px; margin: 0.75rem auto 0;
+    font-size: 0.78rem;
+  }
+  .chip {
+    display: inline-flex; align-items: center; gap: 0.3rem;
+    background: var(--code-bg); color: var(--muted);
+    padding: 0.15rem 0.55rem; border-radius: 999px;
+    border: 1px solid var(--line);
+  }
+  .chip.accent { background: var(--accent-soft); color: var(--accent); border-color: #cee0f3; }
+
+  /* ────────── LAB LAYOUT ────────── */
+  main.lab {
+    max-width: 1400px; margin: 1.25rem auto 0;
+    padding: 0 1.5rem;
+    display: grid;
+    grid-template-columns: 1fr 1.15fr;
+    gap: 1rem;
+  }
+  @media (max-width: 920px) {
+    main.lab { grid-template-columns: 1fr; }
+  }
+  .pane {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column;
+    min-height: 660px;
+    overflow: hidden;
+  }
+  .pane-head {
+    padding: 0.85rem 1rem 0.7rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-alt);
+  }
+  .pane-head h2 {
+    font-size: 0.78rem; margin: 0; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.08em; font-weight: 700;
+    display: flex; align-items: center; gap: 0.4rem;
+  }
+  .pane-head .sub { margin: 0.2rem 0 0; color: var(--ink); font-size: 1.02rem; font-weight: 600; }
+
+  /* ────────── STORYBOARD ────────── */
+  .storyboard-body {
+    flex-grow: 1; overflow-y: auto;
+    padding: 0.85rem 1rem 1rem;
+  }
+  .step-list { list-style: none; padding: 0; margin: 0; counter-reset: step; }
+  .step-item {
+    counter-increment: step;
+    position: relative;
+    padding: 0.65rem 0.65rem 0.65rem 2.5rem;
+    margin: 0 0 0.45rem;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    cursor: pointer;
+    transition: border-color 0.18s, background 0.18s, transform 0.12s;
+  }
+  .step-item:hover { border-color: var(--line-strong); background: var(--code-bg); }
+  .step-item::before {
+    content: counter(step);
+    position: absolute;
+    left: 0.5rem; top: 0.65rem;
+    width: 1.5rem; height: 1.5rem;
+    border-radius: 50%;
+    background: var(--code-bg);
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.78rem; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+    border: 1px solid var(--line);
+    transition: all 0.2s;
+  }
+  .step-item[data-state="done"]::before {
+    background: var(--pass-soft); color: var(--pass); border-color: #bbf7d0;
+    content: "✓";
+  }
+  .step-item[data-state="active"] {
+    border-color: var(--accent); background: var(--accent-soft);
+    box-shadow: var(--shadow-sm);
+  }
+  .step-item[data-state="active"]::before {
+    background: var(--accent); color: white; border-color: var(--accent);
+    animation: stepBeat 1.6s ease-in-out infinite;
+  }
+  @keyframes stepBeat {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(10,74,138,0.4); }
+    50% { box-shadow: 0 0 0 5px rgba(10,74,138,0); }
+  }
+  .step-title {
+    display: flex; align-items: center; gap: 0.45rem;
+    font-size: 0.92rem; font-weight: 600; color: var(--ink);
+  }
+  .step-actor {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    padding: 0.05em 0.4em; border-radius: 4px;
+    background: var(--code-bg); color: var(--muted);
+  }
+  .step-actor[data-actor="user"] { background: #fef3c7; color: #92400e; }
+  .step-actor[data-actor="claude"] { background: var(--accent-soft); color: var(--accent); }
+  .step-actor[data-actor="tool"] { background: #ede9fe; color: #6d28d9; }
+  .step-actor[data-actor="skill"] { background: #ccfbf1; color: #0f766e; }
+  .step-actor[data-actor="subagent"] { background: #ffe4e6; color: #be123c; }
+  .step-actor[data-actor="system"] { background: #f1f5f9; color: var(--muted); }
+
+  /* Step-Description card */
+  .step-card {
+    margin: 0.85rem 0 0.6rem;
+    padding: 0.85rem 1rem;
+    background: var(--accent-soft);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+  .step-card h3 {
+    margin: 0 0 0.25rem;
+    font-size: 0.93rem; font-weight: 700; color: var(--accent-deep);
+    display: flex; align-items: center; gap: 0.45rem;
+  }
+  .step-card p { margin: 0; color: var(--ink); }
+  .step-card .placeholder { color: var(--muted); font-style: italic; }
+
+  /* Storyboard controls */
+  .controls {
+    display: flex; gap: 0.35rem; align-items: center;
+    padding: 0.65rem 1rem;
+    border-top: 1px solid var(--line);
+    background: var(--panel-alt);
+    flex-wrap: wrap;
+  }
+  .ctrl-btn {
+    background: var(--panel); color: var(--ink);
+    border: 1px solid var(--line);
+    padding: 0.35rem 0.7rem; border-radius: var(--radius-sm);
+    font-size: 0.82rem; font-family: inherit;
+    cursor: pointer; display: inline-flex; align-items: center; gap: 0.3rem;
+    transition: all 0.15s;
+  }
+  .ctrl-btn:hover { background: var(--code-bg); border-color: var(--line-strong); }
+  .ctrl-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .ctrl-btn.primary {
+    background: var(--accent); color: white; border-color: var(--accent);
+  }
+  .ctrl-btn.primary:hover { background: var(--accent-deep); }
+  .ctrl-btn[aria-pressed="true"].primary { background: var(--ink); border-color: var(--ink); }
+  .ctrl-spacer { flex-grow: 1; }
+  .ctrl-progress {
+    font-family: var(--font-mono); font-size: 0.78rem; color: var(--muted);
+  }
+  .speed-pick {
+    background: var(--panel); border: 1px solid var(--line);
+    padding: 0.3rem 0.5rem; border-radius: var(--radius-sm);
+    font-size: 0.8rem; font-family: inherit;
+  }
+
+  /* ────────── INSPECTOR ────────── */
+  .inspector-head {
+    padding: 0.85rem 1rem;
+    border-bottom: 1px solid var(--line);
+    background: var(--panel-alt);
+    display: flex; flex-wrap: wrap; gap: 0.75rem;
+    align-items: center;
+  }
+  .meter { flex-grow: 1; min-width: 220px; }
+  .meter-label {
+    font-size: 0.7rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700;
+    display: flex; justify-content: space-between;
+    margin-bottom: 0.3rem;
+  }
+  .meter-label .val { color: var(--ink); font-family: var(--font-mono); font-size: 0.78rem; }
+  .meter-bar {
+    height: 8px; background: var(--code-bg); border-radius: 999px; overflow: hidden;
+    position: relative;
+  }
+  .meter-fill {
+    height: 100%; width: 0%;
+    background: linear-gradient(90deg, var(--accent) 0%, var(--accent-2) 100%);
+    transition: width 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+    border-radius: 999px;
+  }
+  .indicator-row { display: flex; gap: 0.85rem; flex-wrap: wrap; }
+  .indicator-group { display: flex; flex-direction: column; gap: 0.25rem; }
+  .indicator-group .label {
+    font-size: 0.7rem; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.07em; font-weight: 700;
+  }
+  .indicator-pills { display: flex; gap: 0.2rem; flex-wrap: wrap; }
+  .indicator {
+    font-family: var(--font-mono); font-size: 0.7rem;
+    padding: 0.15rem 0.45rem; border-radius: 999px;
+    border: 1px solid var(--line); background: var(--panel);
+    color: var(--muted);
+    opacity: 0.5;
+    transition: all 0.25s;
+  }
+  .indicator.lit {
+    opacity: 1;
+    background: var(--accent-soft); color: var(--accent);
+    border-color: #cee0f3;
+  }
+  .indicator.lit[data-kind="tool"] {
+    background: #ede9fe; color: #6d28d9; border-color: #ddd6fe;
+  }
+
+  .stream {
+    flex-grow: 1; overflow-y: auto;
+    padding: 0.65rem 0.85rem 1rem;
+    display: flex; flex-direction: column-reverse;
+    background: var(--panel);
+  }
+  /* column-reverse keeps newest at the top visually since we append-prepend in JS */
+  .stream-inner { display: flex; flex-direction: column; gap: 0.45rem; }
+  .stream-empty {
+    color: var(--muted); font-size: 0.9rem; text-align: center;
+    padding: 2.5rem 1rem; font-style: italic;
+  }
+  .stream-empty svg { color: var(--line-strong); display: block; margin: 0 auto 0.5rem; }
+
+  .entry {
+    border: 1px solid var(--line); border-radius: var(--radius-sm);
+    background: var(--panel);
+    transition: border-color 0.25s, background 0.4s, box-shadow 0.25s;
+  }
+  .entry.fresh {
+    border-color: var(--pass);
+    background: linear-gradient(90deg, var(--pass-soft) 0%, var(--panel) 60%);
+    animation: freshPulse 1.6s ease-out;
+  }
+  @keyframes freshPulse {
+    0% { box-shadow: 0 0 0 0 rgba(22,163,74,0.55); }
+    60% { box-shadow: 0 0 0 6px rgba(22,163,74,0); }
+    100% { box-shadow: 0 0 0 0 rgba(22,163,74,0); }
+  }
+  .entry-head {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: 0; width: 100%; text-align: left;
+    font-family: inherit; color: inherit; cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .entry-head .src-icon {
+    width: 1.6rem; height: 1.6rem; border-radius: var(--radius-sm);
+    display: inline-flex; align-items: center; justify-content: center;
+    background: var(--code-bg); color: var(--muted);
+    flex-shrink: 0;
+  }
+  .entry[data-source="system"] .src-icon { background: #f1f5f9; color: var(--muted); }
+  .entry[data-source="import"] .src-icon { background: var(--accent-soft); color: var(--accent); }
+  .entry[data-source="user"] .src-icon { background: #fef3c7; color: #92400e; }
+  .entry[data-source="claude"] .src-icon { background: #dbeafe; color: var(--accent-deep); }
+  .entry[data-source="skill"] .src-icon { background: #ccfbf1; color: #0f766e; }
+  .entry[data-source="tool"] .src-icon { background: #ede9fe; color: #6d28d9; }
+  .entry[data-source="doc"] .src-icon { background: #f3e8ff; color: #7e22ce; }
+  .entry[data-source="subagent"] .src-icon { background: #ffe4e6; color: #be123c; }
+  .entry[data-source="output"] .src-icon { background: var(--pass-soft); color: var(--pass); }
+  .entry-label { flex-grow: 1; font-weight: 600; color: var(--ink); }
+  .entry-meta {
+    font-family: var(--font-mono); font-size: 0.72rem; color: var(--muted);
+    display: flex; gap: 0.4rem; align-items: center;
+  }
+  .entry-meta .tok {
+    background: var(--code-bg); padding: 0.1em 0.45em; border-radius: 999px;
+  }
+  .entry-head::after {
+    content: "▸"; color: var(--muted); transition: transform 0.2s;
+    font-size: 0.75rem; flex-shrink: 0;
+  }
+  .entry-head[aria-expanded="true"]::after { transform: rotate(90deg); }
+  .entry-body { padding: 0 0.75rem 0.7rem; border-top: 1px solid var(--line); }
+  .entry-body[hidden] { display: none; }
+  .entry-body pre {
+    margin: 0.5rem 0 0; font-size: 0.74rem;
+    max-height: 280px;
+  }
+  .entry-body .from {
+    font-family: var(--font-mono); font-size: 0.7rem; color: var(--muted);
+    margin: 0.55rem 0 0;
+  }
+
+  /* ────────── REFERENCE PANEL ────────── */
+  section.reference {
+    max-width: 1400px; margin: 1.5rem auto 0;
+    padding: 0 1.5rem 3rem;
+  }
+  .ref-card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    overflow: hidden;
+  }
+  .ref-summary {
+    list-style: none;
+    padding: 0.85rem 1rem;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 0.5rem;
+    background: var(--panel-alt);
+    font-weight: 600;
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.15s;
+  }
+  details[open] .ref-summary { border-bottom-color: var(--line); }
+  .ref-summary::-webkit-details-marker { display: none; }
+  .ref-summary::marker { display: none; }
+  .ref-summary::before {
+    content: "▸"; color: var(--muted); transition: transform 0.2s;
+  }
+  details[open] .ref-summary::before { transform: rotate(90deg); }
+  .ref-body { padding: 1rem 1.25rem 1.5rem; }
+  .ref-body h3 {
+    font-size: 1.02rem; margin: 1.25rem 0 0.35rem;
+    display: flex; align-items: center; gap: 0.5rem;
+  }
+  .ref-body h3:first-child { margin-top: 0; }
+  .ref-body p { margin: 0.4rem 0 0.7rem; }
+  .ref-body table { width: 100%; border-collapse: collapse; font-size: 0.88rem; margin: 0.5rem 0 1rem; }
+  .ref-body th, .ref-body td { border: 1px solid var(--line); padding: 0.4rem 0.6rem; text-align: left; vertical-align: top; }
+  .ref-body th { background: var(--code-bg); font-weight: 600; }
+
+  footer.site {
+    max-width: 1400px; margin: 0 auto;
+    padding: 1.5rem 1.5rem 2rem;
+    color: var(--muted); font-size: 0.82rem;
+    display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: space-between;
+    border-top: 1px solid var(--line);
+  }
+
+  /* ────────── REDUCED MOTION ────────── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001s !important;
+      animation-delay: 0s !important;
+      transition-duration: 0.001s !important;
+    }
+    html { scroll-behavior: auto; }
+    .entry.fresh { animation: none; }
+    .step-item[data-state="active"]::before { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<a class="skip" href="#main">Skip to content</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-droplet" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2.5c-3 4-7 8-7 12a7 7 0 0 0 14 0c0-4-4-8-7-12z"/>
+    </symbol>
+    <symbol id="i-at" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a2 2 0 0 0 4 0v-1A8 8 0 1 0 16.5 19"/></symbol>
+    <symbol id="i-slash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M16 4 8 20"/></symbol>
+    <symbol id="i-fork" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="5" r="2"/><circle cx="18" cy="5" r="2"/><circle cx="12" cy="19" r="2"/><path d="M6 7v3a3 3 0 0 0 3 3h6a3 3 0 0 0 3-3V7M12 13v4"/></symbol>
+    <symbol id="i-brain" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3a3 3 0 0 0-3 3v1a3 3 0 0 0-3 3 3 3 0 0 0 1.5 2.6A3 3 0 0 0 3 15a3 3 0 0 0 3 3 3 3 0 0 0 3 3 3 3 0 0 0 3-3V6a3 3 0 0 0-3-3z"/><path d="M15 3a3 3 0 0 1 3 3v1a3 3 0 0 1 3 3 3 3 0 0 1-1.5 2.6A3 3 0 0 1 21 15a3 3 0 0 1-3 3 3 3 0 0 1-3 3 3 3 0 0 1-3-3"/></symbol>
+    <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h.1a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v.1a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1.1z"/></symbol>
+    <symbol id="i-scroll" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M19 18a3 3 0 0 1-3 3H6a3 3 0 0 0 3-3V4h7a3 3 0 0 1 3 3z"/><path d="M9 7h6M9 11h6M9 15h3"/><path d="M5 21a3 3 0 0 1-3-3V8a3 3 0 0 1 3-3h2"/></symbol>
+    <symbol id="i-user" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+    <symbol id="i-bot" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="12" rx="3"/><path d="M12 2v6M8 14h.01M16 14h.01M9 18h6"/></symbol>
+    <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6"/></symbol>
+    <symbol id="i-play" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5v14l12-7z"/></symbol>
+    <symbol id="i-pause" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></symbol>
+    <symbol id="i-next" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></symbol>
+    <symbol id="i-prev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></symbol>
+    <symbol id="i-reset" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 15.5-6.3L21 8"/><path d="M21 3v5h-5"/></symbol>
+    <symbol id="i-spark" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2l1.8 5.5L19 9l-4.5 3 1.8 5.5L12 14l-4.3 3.5L9.5 12 5 9l5.2-1.5z"/></symbol>
+    <symbol id="i-zap" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
+    <symbol id="i-board" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/></symbol>
+    <symbol id="i-inspect" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></symbol>
+    <symbol id="i-info" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></symbol>
+  </defs>
+</svg>
+
+<header class="site">
+  <div class="header-row">
+    <div class="brand">
+      <h1>
+        <svg class="icon-lg droplet" aria-hidden="true"><use href="#i-droplet"/></svg>
+        sui-pilot lab — what's in Claude's context, step by step
+      </h1>
+      <p class="tagline">Pick a workflow. Step through it. Watch what new context arrives at every turn — and where it came from.</p>
+    </div>
+    <div class="scenario-picker" role="tablist" aria-label="Scenarios">
+      <button class="scenario-chip" role="tab" aria-pressed="true" data-scenario="counter"><span class="num">01</span><span>Build Counter</span></button>
+      <button class="scenario-chip" role="tab" aria-pressed="false" data-scenario="review"><span class="num">02</span><span>Review AMM pool</span></button>
+      <button class="scenario-chip" role="tab" aria-pressed="false" data-scenario="prreview"><span class="num">03</span><span>PR fan-out</span></button>
+    </div>
+  </div>
+  <div class="meta-chips">
+    <span class="chip accent"><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>&nbsp;sui-pilot @ <code>2d09bf1</code></span>
+    <span class="chip">Verified 2026-05-12</span>
+    <span class="chip">6 injection mechanisms</span>
+    <span class="chip">695 bundled docs</span>
+    <span class="chip">10 LSP-backed MCP tools</span>
+  </div>
+</header>
+
+<main class="lab" id="main">
+
+  <aside class="pane storyboard" aria-label="Storyboard">
+    <div class="pane-head">
+      <h2><svg class="icon" aria-hidden="true"><use href="#i-board"/></svg>&nbsp;Storyboard</h2>
+      <p class="sub" id="scenario-title">Build Counter</p>
+      <p style="margin:0.15rem 0 0;color:var(--muted);font-size:0.85rem;" id="scenario-summary">A fresh Move package. The user asks Claude to build a Counter module.</p>
+    </div>
+
+    <div class="storyboard-body">
+      <div class="step-card" id="step-card" role="region" aria-live="polite">
+        <h3><svg class="icon" aria-hidden="true"><use href="#i-info"/></svg>&nbsp;<span id="step-card-title">Click Play, Next, or any step</span></h3>
+        <p id="step-card-blurb" class="placeholder">Hit <strong>Play</strong> to auto-step through the scenario, or click any step in the list below.</p>
+      </div>
+
+      <ol class="step-list" id="step-list" aria-label="Steps in this scenario"></ol>
+    </div>
+
+    <div class="controls" role="toolbar" aria-label="Storyboard controls">
+      <button class="ctrl-btn" id="btn-reset" type="button" title="Reset" aria-label="Reset scenario">
+        <svg class="icon" aria-hidden="true"><use href="#i-reset"/></svg><span>Reset</span>
+      </button>
+      <button class="ctrl-btn" id="btn-prev" type="button" title="Previous step" aria-label="Previous step">
+        <svg class="icon" aria-hidden="true"><use href="#i-prev"/></svg>
+      </button>
+      <button class="ctrl-btn primary" id="btn-play" type="button" aria-pressed="false" title="Play / Pause" aria-label="Play">
+        <svg class="icon" aria-hidden="true" id="play-icon"><use href="#i-play"/></svg><span id="play-label">Play</span>
+      </button>
+      <button class="ctrl-btn" id="btn-next" type="button" title="Next step" aria-label="Next step">
+        <svg class="icon" aria-hidden="true"><use href="#i-next"/></svg>
+      </button>
+      <span class="ctrl-spacer"></span>
+      <label for="speed" class="ctrl-progress">Speed</label>
+      <select id="speed" class="speed-pick" aria-label="Autoplay speed">
+        <option value="2600">0.5×</option>
+        <option value="1700" selected>1×</option>
+        <option value="1000">1.5×</option>
+        <option value="600">2×</option>
+      </select>
+      <span class="ctrl-progress" id="progress">— / —</span>
+    </div>
+  </aside>
+
+  <section class="pane inspector" aria-label="Context inspector">
+    <div class="pane-head">
+      <h2><svg class="icon" aria-hidden="true"><use href="#i-inspect"/></svg>&nbsp;Context inspector — what Claude can see right now</h2>
+      <div class="inspector-head" style="border:0;padding:0.55rem 0 0;background:transparent;">
+        <div class="meter">
+          <div class="meter-label"><span>Approx. tokens in context</span><span class="val" id="token-val">0 tok</span></div>
+          <div class="meter-bar"><div class="meter-fill" id="meter-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="inspector-head" style="border-top:1px solid var(--line);">
+      <div class="indicator-row">
+        <div class="indicator-group">
+          <div class="label">Doc corpora touched</div>
+          <div class="indicator-pills" id="ind-corpora">
+            <span class="indicator" data-kind="corpus" data-key="move-book">.move-book-docs</span>
+            <span class="indicator" data-kind="corpus" data-key="sui">.sui-docs</span>
+            <span class="indicator" data-kind="corpus" data-key="walrus">.walrus-docs</span>
+            <span class="indicator" data-kind="corpus" data-key="seal">.seal-docs</span>
+            <span class="indicator" data-kind="corpus" data-key="ts-sdk">.ts-sdk-docs</span>
+          </div>
+        </div>
+        <div class="indicator-group">
+          <div class="label">MCP tools called</div>
+          <div class="indicator-pills" id="ind-tools">
+            <span class="indicator" data-kind="tool" data-key="move_diagnostics">diagnostics</span>
+            <span class="indicator" data-kind="tool" data-key="move_hover">hover</span>
+            <span class="indicator" data-kind="tool" data-key="move_completions">completions</span>
+            <span class="indicator" data-kind="tool" data-key="move_goto_definition">goto_def</span>
+            <span class="indicator" data-kind="tool" data-key="move_find_references">find_refs</span>
+            <span class="indicator" data-kind="tool" data-key="move_document_symbols">doc_symbols</span>
+            <span class="indicator" data-kind="tool" data-key="move_type_definition">type_def</span>
+            <span class="indicator" data-kind="tool" data-key="move_code_actions">code_actions</span>
+            <span class="indicator" data-kind="tool" data-key="move_inlay_hints">inlay</span>
+            <span class="indicator" data-kind="tool" data-key="move_rename">rename</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="stream" id="stream" aria-live="polite">
+      <div class="stream-inner" id="stream-inner">
+        <div class="stream-empty" id="stream-empty">
+          <svg width="36" height="36" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-inspect"/></svg>
+          Context window is empty. Hit Play (or Next) to start the scenario; the system prompt and the always-on <code>@</code>-import will appear first.
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<section class="reference" aria-label="Reference: the six mechanisms">
+  <details class="ref-card">
+    <summary class="ref-summary">Reference — the six context-injection mechanisms (deep dive)</summary>
+    <div class="ref-body">
+      <p>This lab is a guided simulation. If you want the deep dive on each mechanism, the verbatim source snippets, and the file/line citations, expand the panels below. Each section maps to one of the six layers shown in the inspector.</p>
+
+      <h3><svg class="icon" aria-hidden="true"><use href="#i-at"/></svg>&nbsp;1 · Always-on <code>@</code>-import</h3>
+      <p>The user's global <code>~/.claude/CLAUDE.md</code> contains <code>@~/.claude/sui-pilot/agents/sui-pilot-agent.md</code>. Claude Code resolves that import at session start and pastes the 71-line agent body into the system prompt — for <em>every</em> session, in <em>every</em> directory. This is the only sui-pilot mechanism that loads without user action. Backing file: <code>agents/sui-pilot-agent.md</code> (lines 27–46 hold the Doc-First rule; lines 33–41 hold the topic→corpus routing table).</p>
+
+      <h3><svg class="icon" aria-hidden="true"><use href="#i-slash"/></svg>&nbsp;2 · Slash command <code>/sui-pilot</code></h3>
+      <p>Plugin registers six slash commands under <code>commands/</code>; five are skills (next section), and the sixth, <code>/sui-pilot</code>, is a routing command. The body of <code>commands/sui-pilot.md</code> is appended to the conversation when invoked — a short prologue that hands the work to the specialized subagent. Unlike the <code>@</code>-import, the command body lives in <em>conversation</em> context, not the system prompt.</p>
+
+      <h3><svg class="icon" aria-hidden="true"><use href="#i-fork"/></svg>&nbsp;3 · The <code>sui-pilot-agent</code> subagent</h3>
+      <p>The same file from §1 also doubles as a dispatchable subagent. The frontmatter (model: <code>opus</code>, 10 MCP tools, standard editor/shell tools) selects which tools and model a fresh subagent context gets when the Agent tool dispatches with <code>subagent_type: "sui-pilot:sui-pilot-agent"</code>. As an <code>@</code>-import the file body lives in the main session; as a subagent it is the system prompt of a <em>fresh</em> context with no memory of the main conversation. <code>/move-pr-review</code> uses this heavily — 10 parallel reviewer subagents + 1 consolidator.</p>
+
+      <h3><svg class="icon" aria-hidden="true"><use href="#i-brain"/></svg>&nbsp;4 · Five skills</h3>
+      <table>
+        <thead><tr><th>Command</th><th>Purpose</th><th>Body length</th></tr></thead>
+        <tbody>
+          <tr><td><code>/move-code-review</code></td><td>Security &amp; architecture review (SEC/DES/PAT/TST registries, S1–S4 severity)</td><td>~540 lines</td></tr>
+          <tr><td><code>/move-code-quality</code></td><td>Move Book Code Quality Checklist (11 categories, 45+ rules)</td><td>~430 lines</td></tr>
+          <tr><td><code>/move-tests</code></td><td>Unit-test generation following Sui best practices</td><td>~310 lines</td></tr>
+          <tr><td><code>/oz-math</code></td><td>OpenZeppelin math library recommendations for DeFi arithmetic</td><td>~290 lines</td></tr>
+          <tr><td><code>/move-pr-review</code></td><td>Multi-agent deep PR review (10 reviewers + consolidator)</td><td>~420 lines</td></tr>
+        </tbody>
+      </table>
+      <p>Each <code>SKILL.md</code> body is loaded into the conversation on invocation. Bodies include a Doc-First Requirement, finding registries with pre-assigned severities, and explicit workflows.</p>
+
+      <h3><svg class="icon" aria-hidden="true"><use href="#i-gear"/></svg>&nbsp;5 · <code>move-lsp</code> MCP server</h3>
+      <p>Declared in <code>.claude-plugin/plugin.json</code> (lines 15–21). 10 tools backed by <code>move-analyzer</code> inject <em>runtime</em> context computed from the user's current code: diagnostics, hover types, completions, goto/type definition, references, document symbols, code actions, inlay hints, and rename. The only injection mechanism whose payload is impossible to predict at design time.</p>
+
+      <h3><svg class="icon" aria-hidden="true"><use href="#i-scroll"/></svg>&nbsp;6 · Five doc corpora</h3>
+      <table>
+        <thead><tr><th>Corpus</th><th>Topic</th><th>Files</th></tr></thead>
+        <tbody>
+          <tr><td><code>.move-book-docs/</code></td><td>Move language: syntax, types, abilities, generics, modules, idioms</td><td>143</td></tr>
+          <tr><td><code>.sui-docs/</code></td><td>Sui runtime: objects, transactions, framework, on-chain finance</td><td>339</td></tr>
+          <tr><td><code>.walrus-docs/</code></td><td>Walrus: blobs, Sites, operators, HTTP API</td><td>84</td></tr>
+          <tr><td><code>.seal-docs/</code></td><td>Seal: encryption, key servers, access policies</td><td>14</td></tr>
+          <tr><td><code>.ts-sdk-docs/</code></td><td>TypeScript SDK: clients, dapp-kit, kiosk, payment-kit, SDK 2.0</td><td>115</td></tr>
+        </tbody>
+      </table>
+      <p>695 files total. None auto-loaded; the agent uses <code>Glob</code>/<code>Grep</code>/<code>Read</code> via the routing table at <code>agents/sui-pilot-agent.md:33-41</code>.</p>
+    </div>
+  </details>
+</section>
+
+<footer class="site">
+  <span>Generated from <code>sui-pilot</code> @ commit <code>2d09bf1</code> · 2026-05-12 · scenarios are illustrative reconstructions grounded in the repo's actual agent / skills / MCP / corpora.</span>
+  <span><a href="README.md">README</a> · <a href="EVAL_FRAMEWORK.html">Eval framework</a></span>
+</footer>
+
+<script>
+(function(){
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function el(tag, attrs, children) {
+    var e = document.createElement(tag);
+    if (attrs) for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (children) for (var i = 0; i < children.length; i++) {
+      var c = children[i];
+      if (c == null) continue;
+      e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c);
+    }
+    return e;
+  }
+  function svgEl(symbolId, cls) {
+    var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('class', cls || 'icon');
+    s.setAttribute('aria-hidden', 'true');
+    var u = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+    u.setAttribute('href', '#' + symbolId);
+    s.appendChild(u);
+    return s;
+  }
+  function clear(node) { while (node.firstChild) node.removeChild(node.firstChild); }
+
+  // ────────── SCENARIO DATA ──────────
+  // Each step describes a moment in a real sui-pilot workflow.
+  // `deltas` are entries that newly arrive in the context window at that step.
+  // Sources: system | import | user | claude | skill | tool | doc | subagent | output
+  // The actor on the step item is one of: system, user, claude, tool, skill, subagent.
+
+  var SCENARIOS = {
+    counter: {
+      title: 'Build Counter',
+      summary: 'A fresh Move package. The user asks Claude to build a Counter module from scratch.',
+      steps: [
+        {
+          title: 'Session starts — system prompt and @-import load',
+          actor: 'system',
+          blurb: 'Before Claude reads anything you typed, Claude Code resolves the @-import in your global ~/.claude/CLAUDE.md and pastes the 71-line agent file into the system prompt. The doc-first rule is in context from token zero, whether or not you ever interact with the plugin.',
+          deltas: [
+            { source: 'system', icon: 'i-bot', label: 'System prompt (Claude Code baseline)', tokens: 180, from: 'Built-in to the harness',
+              content: 'You are Claude Code, Anthropic\'s official CLI for Claude. You are an interactive agent that helps users with software engineering tasks. Use the tools available to you to assist the user.\n\n[...truncated for display: full system prompt is ~3K tokens of behavior, tool descriptions, and safety guidance...]' },
+            { source: 'import', icon: 'i-at', label: '@-import: agents/sui-pilot-agent.md (71 lines)', tokens: 650, from: '@~/.claude/sui-pilot/agents/sui-pilot-agent.md  ·  resolved by Claude Code at session start',
+              content: 'You are a Sui Move specialist working through the sui-pilot Claude Code plugin.\n\n## Doc-First Rule\n\nSTOP. What you remember about Sui, Move, Walrus, Seal, and the `@mysten/*` TypeScript SDK is likely stale or wrong. Read the bundled docs before writing or reviewing code.\n\nRoute by topic — the search root is `${CLAUDE_PLUGIN_ROOT}/.<source>-docs/`:\n\n| Move language       | `.move-book-docs/` |\n| Sui runtime         | `.sui-docs/`       |\n| Walrus storage      | `.walrus-docs/`    |\n| Seal secrets        | `.seal-docs/`      |\n| TypeScript SDK      | `.ts-sdk-docs/`    |\n\n## Upgrade Outdated Code\n- Legacy module syntax (`module x::y { }` → `module x::y;`)\n- Old function-style calls (`vector::push_back(&mut v, x)` → `v.push_back(x)`)\n- Missing Move 2024 macros (`do!`, `fold!`, `destroy!`)\n\n## After Implementation\n1. `move_diagnostics` MCP tool for compiler errors\n2. `/move-code-quality` for Move 2024 compliance\n3. `/move-code-review` for security issues (if substantial)' }
+          ]
+        },
+        {
+          title: 'User: "Add a Counter module with increment and value"',
+          actor: 'user',
+          blurb: 'The user describes the task in plain English. Their message lands in the conversation context — nothing special about it from Claude Code\'s perspective, but the agent rule from step 1 is already shaping how Claude will interpret it.',
+          deltas: [
+            { source: 'user', icon: 'i-user', label: 'User message', tokens: 32, from: 'User input',
+              content: 'Add a Counter module in this Move package. Public functions `increment(counter: &mut Counter)` and `value(counter: &Counter): u64`. Use Move 2024 edition. Make it a shared object so anyone can call it.' }
+          ]
+        },
+        {
+          title: 'Claude consults .move-book-docs for module syntax',
+          actor: 'claude',
+          blurb: 'Per the doc-first rule, Claude greps .move-book-docs/ for the modern module-label syntax before writing a single line. Without this step, Claude\'s training-time memory would likely produce the older `module x::y { ... }` block syntax.',
+          deltas: [
+            { source: 'doc', icon: 'i-scroll', label: 'Grep result · .move-book-docs/intro/modules.md', tokens: 130, corpus: 'move-book',
+              from: 'Glob+Grep `${CLAUDE_PLUGIN_ROOT}/.move-book-docs/**` for "module label"',
+              content: '## Module label (Move 2024)\n\nA module is declared with a label-style header:\n\n```move\nmodule pkg::my_module;\n\npublic struct Foo has key, store { id: UID }\n```\n\nThe legacy block syntax `module pkg::my_module { ... }` is still accepted but discouraged — the label form keeps modules flat and avoids extra indentation. All examples in this book use the label form unless explicitly demonstrating the legacy syntax.' }
+          ]
+        },
+        {
+          title: 'Claude consults .sui-docs for shared-object semantics',
+          actor: 'claude',
+          blurb: 'The user asked for a shared object. Claude pulls the relevant chapter of .sui-docs/ for the exact ownership transfer rule and the `share_object` call — what abilities Counter needs, when to call `share_object`, and the consequences of using `&Counter` vs `&mut Counter`.',
+          deltas: [
+            { source: 'doc', icon: 'i-scroll', label: 'Read · .sui-docs/concepts/object-ownership/shared.mdx', tokens: 215, corpus: 'sui',
+              from: 'Read `${CLAUDE_PLUGIN_ROOT}/.sui-docs/concepts/object-ownership/shared.mdx`',
+              content: '# Shared objects\n\nAn object is *shared* — meaning anyone can use it as input to a transaction — once `transfer::share_object(obj)` is called. Shared objects must have the `key` ability.\n\n```move\npublic fun init(ctx: &mut TxContext) {\n    let counter = Counter { id: object::new(ctx), value: 0 };\n    transfer::share_object(counter);\n}\n```\n\nOnce shared, a Sui validator schedules the transaction by acquiring a lock on the shared object\'s version, which can cause contention under high concurrency.' }
+          ]
+        },
+        {
+          title: 'Claude writes sources/counter.move',
+          actor: 'claude',
+          blurb: 'With the docs in context, Claude writes the module using module-label syntax, idiomatic Move 2024, and the shared-object pattern. No legacy syntax, no hallucinated framework calls.',
+          deltas: [
+            { source: 'claude', icon: 'i-bot', label: 'Claude writes sources/counter.move (29 lines)', tokens: 95,
+              from: 'Write tool invocation by Claude',
+              content: 'module my_pkg::counter;\n\nuse sui::transfer;\nuse sui::object::{Self, UID};\nuse sui::tx_context::{Self, TxContext};\n\npublic struct Counter has key {\n    id: UID,\n    value: u64,\n}\n\nfun init(ctx: &mut TxContext) {\n    let counter = Counter { id: object::new(ctx), value: 0 };\n    transfer::share_object(counter);\n}\n\npublic fun increment(counter: &mut Counter) {\n    counter.value = counter.value + 1;\n}\n\npublic fun value(counter: &Counter): u64 {\n    counter.value\n}' }
+          ]
+        },
+        {
+          title: 'Claude calls move_diagnostics — clean compile',
+          actor: 'tool',
+          blurb: 'Per the agent rule\'s post-implementation checklist, Claude calls the LSP to confirm the file compiles before declaring done. This is runtime context — the result is whatever move-analyzer reports right now, not anything from the bundled docs.',
+          deltas: [
+            { source: 'tool', icon: 'i-zap', label: 'mcp__move-lsp__move_diagnostics · sources/counter.move', tokens: 22,
+              tool: 'move_diagnostics',
+              from: 'MCP tool result (move-analyzer)',
+              content: '{\n  "uri":      "file:///pkg/sources/counter.move",\n  "errors":   [],\n  "warnings": []\n}' }
+          ]
+        },
+        {
+          title: 'Claude invokes /move-code-quality',
+          actor: 'skill',
+          blurb: 'Step 2 of the post-implementation checklist: run /move-code-quality. The skill\'s SKILL.md body is loaded into context — finding registry, workflow, severity table, all of it.',
+          deltas: [
+            { source: 'skill', icon: 'i-brain', label: 'Slash command body · skills/move-code-quality/SKILL.md', tokens: 540,
+              from: 'User-invoked: /move-code-quality (or auto-invoked by Claude per checklist)',
+              content: '# Move Code Quality Checker\n\n> Doc-First Requirement: Before generating recommendations or code fixes, verify current patterns against the sui-pilot documentation (.move-book-docs/, .sui-docs/, .walrus-docs/, .seal-docs/, .ts-sdk-docs/). Use Glob/Grep against ${CLAUDE_PLUGIN_ROOT}/.<source>-docs/.\n\nYou are an expert Move language code reviewer with deep knowledge of the Move Book Code Quality Checklist.\n\n## Analysis Workflow\n\n### Phase 1: Discovery\n1. Detect Move project structure (Move.toml, *.move files)\n2. Read Move.toml — check edition, dependencies\n3. Understand scope (full package vs file)\n\n### Phase 2: Systematic Analysis\nAnalyze code across these 11 categories with 45+ specific rules:\n- Manifest · Imports · Structs · Functions\n- Body syntax · Options · Loops · Ignores\n- Testing · Comments · Macros\n\n### Phase 3: Report\nEmit a structured report with critical / important / enhancement tiers.' }
+          ]
+        },
+        {
+          title: 'Quality report — Move 2024 idioms throughout, clean pass',
+          actor: 'claude',
+          blurb: 'The skill walks the checklist against counter.move. Every check passes: module-label syntax, method-style calls where applicable, named struct fields, no legacy patterns. Total review time: a few hundred ms of Claude time.',
+          deltas: [
+            { source: 'output', icon: 'i-spark', label: 'Quality report (Markdown) emitted by Claude', tokens: 220,
+              from: 'Claude\'s final output for this skill invocation',
+              content: '# Move Code Quality Report · sources/counter.move\n\n**Status:** ✅ Clean pass — no findings\n\n## Checklist results\n\n| Category | Result |\n|---|---|\n| Manifest (Move.toml edition = "2024") | ✓ |\n| Module label syntax (no legacy block form) | ✓ |\n| Named struct fields, `has key` for shared object | ✓ |\n| Method-style calls where applicable | ✓ |\n| No deprecated framework imports | ✓ |\n\n## Notes\n\n- `transfer::share_object` is the correct entry point for a shared singleton.\n- The Counter struct has `key` but not `store`, which is appropriate — shared objects don\'t need `store`.\n- No tests yet — consider running `/move-tests` next if you want unit coverage.' }
+          ]
+        },
+        {
+          title: 'Done — three layers stayed in context the whole time',
+          actor: 'system',
+          blurb: 'Total context consumed: ~2.1K tokens. The @-import (650 tok) was always-on and never went away — it shaped every Claude response. The two doc snippets (345 tok combined) were on-demand pulls. The MCP result (22 tok) was runtime context. The skill body (540 tok) entered late and could be dropped if the conversation continues with unrelated work.',
+          deltas: []
+        }
+      ]
+    },
+
+    review: {
+      title: 'Review AMM pool',
+      summary: 'A 200-line pool.move with two real bugs: unchecked multiply-then-divide and a hard-coded admin address. The user runs /move-code-review.',
+      steps: [
+        {
+          title: 'Session starts — @-import already loaded',
+          actor: 'system',
+          blurb: 'Same as scenario 1: the always-on @-import inlines the doc-first agent rule into the system prompt before the conversation begins.',
+          deltas: [
+            { source: 'import', icon: 'i-at', label: '@-import: agents/sui-pilot-agent.md (71 lines)', tokens: 650,
+              from: '@~/.claude/sui-pilot/agents/sui-pilot-agent.md',
+              content: 'You are a Sui Move specialist working through the sui-pilot Claude Code plugin.\n\n## Doc-First Rule\nSTOP. What you remember about Sui, Move, Walrus, Seal, and the `@mysten/*` TypeScript SDK is likely stale or wrong. Read the bundled docs before writing or reviewing code.\n\n[+ routing table, Move 2024 upgrades, SDK 2.0 watch, post-impl checklist]' }
+          ]
+        },
+        {
+          title: 'User: "/move-code-review pool.move"',
+          actor: 'user',
+          blurb: 'User invokes the security review skill on the target file. Two things land in context: the slash-command body (the SKILL.md preamble) and the user message itself.',
+          deltas: [
+            { source: 'user', icon: 'i-user', label: 'User message', tokens: 14, from: 'User input',
+              content: '/move-code-review on sources/pool.move' },
+            { source: 'skill', icon: 'i-brain', label: 'Slash command body · skills/move-code-review/SKILL.md', tokens: 690,
+              from: 'Loaded by Claude Code when /move-code-review is invoked',
+              content: '# Move Code Review\n\n> Doc-First Requirement: Before flagging security issues or recommending patterns, verify current best practices against the sui-pilot documentation (.move-book-docs/, .sui-docs/, .walrus-docs/, .seal-docs/, .ts-sdk-docs/).\n\nYou are an expert Sui Move security and architecture reviewer. Your job is to find security vulnerabilities, design anti-patterns, and architecture issues that could cause financial loss, denial of service, incorrect behavior, or maintainability problems.\n\n## Severity Classification\n| S1 Critical | 10 | Direct financial loss, unauthorized access |\n| S2 High     |  7 | Incorrect behavior, DoS, data integrity loss |\n| S3 Medium   |  4 | Maintainability, scalability, composability |\n| S4 Low      |  2 | Style, docs, minor maintenance |\n\n## Finding Registry\n### SEC — Security\nSEC-AC-1 — Capability without access enforcement (S1)\nSEC-AC-2 — Hard-coded admin address (S1)\nSEC-AR-1 — Multiply-then-divide overflow (S2)\nSEC-AR-2 — Unchecked shift / cast (S2)\n[... ~30 more checks across SEC, DES, PAT, TST ...]' }
+          ]
+        },
+        {
+          title: 'Claude reads sources/pool.move',
+          actor: 'claude',
+          blurb: 'Claude pulls the target file into context. 200 lines, two suspicious patterns: a hard-coded admin address constant and a `(amount * price) / 1_000_000` expression that can overflow on u64.',
+          deltas: [
+            { source: 'claude', icon: 'i-file', label: 'Read · sources/pool.move (200 lines, abridged)', tokens: 540,
+              from: 'Read tool invocation by Claude',
+              content: 'module my_pkg::pool;\n\nconst ADMIN: address = @0xCAFE; // ⚠️ hard-coded\n\npublic struct Pool<phantom Asset> has key {\n    id: UID,\n    reserves: u64,\n    fee_bps: u64,\n}\n\npublic fun deposit<Asset>(\n    pool: &mut Pool<Asset>,\n    amount: u64,\n    price: u64,\n): u64 {\n    // ⚠️ amount * price can overflow u64\n    let lp_minted = (amount * price) / 1_000_000;\n    pool.reserves = pool.reserves + amount;\n    lp_minted\n}\n\npublic fun set_fee<Asset>(\n    pool: &mut Pool<Asset>,\n    new_fee_bps: u64,\n    ctx: &TxContext,\n) {\n    assert!(tx_context::sender(ctx) == ADMIN, 0); // ⚠️ no Capability pattern\n    pool.fee_bps = new_fee_bps;\n}\n\n[... 170 more lines ...]' }
+          ]
+        },
+        {
+          title: 'Claude greps .move-book-docs for arithmetic safety idioms',
+          actor: 'claude',
+          blurb: 'Before flagging the multiply-then-divide, Claude verifies the current Move idiom. The Move Book recommends `mul_div` or u128 intermediate widening.',
+          deltas: [
+            { source: 'doc', icon: 'i-scroll', label: 'Grep · .move-book-docs/typing/integers.md', tokens: 145, corpus: 'move-book',
+              from: 'Grep `mul_div` and `overflow` in `.move-book-docs/`',
+              content: '## Arithmetic and overflow\n\nMove integer types (`u8`, `u16`, `u32`, `u64`, `u128`, `u256`) abort the transaction on overflow rather than wrapping. The classic foot-gun is `a * b / c` where `a * b` overflows even when the final result would fit. Two idioms:\n\n1. Cast to a wider type for the intermediate:\n   `((a as u128) * (b as u128) / (c as u128)) as u64`\n2. Use the `mul_div` helper from `openzeppelin_math` if you have it as a dep.' }
+          ]
+        },
+        {
+          title: 'Claude greps .sui-docs for the Capability pattern',
+          actor: 'claude',
+          blurb: 'For the access-control finding, Claude verifies that Capability objects are still the idiomatic pattern (they are; hard-coded addresses make upgrades impossible).',
+          deltas: [
+            { source: 'doc', icon: 'i-scroll', label: 'Grep · .sui-docs/concepts/sui-move-concepts/patterns/capability.mdx', tokens: 170, corpus: 'sui',
+              from: 'Grep `Capability` in `.sui-docs/`',
+              content: '## Capability pattern\n\nA capability is an object the holder of which is authorized to perform a privileged action. The publisher mints the capability once at module init, transfers it to the deployer, and the privileged function takes `_cap: &AdminCap` as a parameter. Compared to checking a hard-coded address, this lets the holder rotate, delegate, or burn authority without an upgrade.' }
+          ]
+        },
+        {
+          title: 'Claude calls move_hover on the suspicious multiply',
+          actor: 'tool',
+          blurb: 'Runtime confirmation: move-analyzer reports both operands are u64, so `amount * price` is u64 × u64 → u64, which is exactly the overflow path the Move Book just described.',
+          deltas: [
+            { source: 'tool', icon: 'i-zap', label: 'mcp__move-lsp__move_hover · pool.move:18:24', tokens: 38,
+              tool: 'move_hover',
+              from: 'MCP tool result (move-analyzer)',
+              content: '```move\namount: u64\nprice:  u64\n```\n\nIntermediate `amount * price` has type `u64`. Multiplication of large operands may overflow before the division reduces magnitude.' }
+          ]
+        },
+        {
+          title: 'Claude calls move_find_references on ADMIN',
+          actor: 'tool',
+          blurb: 'Runtime confirmation that the hard-coded ADMIN address is the *only* gate on a privileged setter — no capability check anywhere in the package.',
+          deltas: [
+            { source: 'tool', icon: 'i-zap', label: 'mcp__move-lsp__move_find_references · ADMIN', tokens: 30,
+              tool: 'move_find_references',
+              from: 'MCP tool result (move-analyzer)',
+              content: '[\n  { "uri": "file:///pkg/sources/pool.move", "line": 3,  "kind": "definition" },\n  { "uri": "file:///pkg/sources/pool.move", "line": 28, "kind": "read" }\n]' }
+          ]
+        },
+        {
+          title: 'Claude calls move_document_symbols for the package map',
+          actor: 'tool',
+          blurb: 'Confirms the package surface: one Pool struct, one privileged setter, no AdminCap struct anywhere. Two findings now have evidence from three sources (file read + docs + LSP).',
+          deltas: [
+            { source: 'tool', icon: 'i-zap', label: 'mcp__move-lsp__move_document_symbols · pool.move', tokens: 65,
+              tool: 'move_document_symbols',
+              from: 'MCP tool result (move-analyzer)',
+              content: 'module my_pkg::pool\n  const   ADMIN: address           (line 3)\n  struct  Pool<Asset>              (line 5)\n  public fun deposit               (line 10)\n  public fun set_fee               (line 24)\n  public fun withdraw              (line 47)\n  public fun price                 (line 71)' }
+          ]
+        },
+        {
+          title: 'Claude emits the review report — 1 critical, 1 high, severity score 17',
+          actor: 'claude',
+          blurb: 'Two real findings, both backed by file evidence, doc citations, and LSP confirmation. The hard-coded ADMIN gets SEC-AC-2 (S1, weight 10); the unchecked multiply gets SEC-AR-1 (S2, weight 7).',
+          deltas: [
+            { source: 'output', icon: 'i-spark', label: 'Review report (Markdown) emitted by Claude', tokens: 380,
+              from: 'Claude\'s final output for this skill invocation',
+              content: '# Move Code Review · sources/pool.move\n\n**Severity score:** 17 / 100  ·  **Findings:** 1 critical, 1 high\n\n---\n\n## SEC-AC-2 · Hard-coded admin address (S1 — Critical, weight 10)\n\n**Location:** `sources/pool.move:3, 28`  \n**Pattern:**\n```move\nconst ADMIN: address = @0xCAFE;\n// ...\nassert!(tx_context::sender(ctx) == ADMIN, 0);\n```\n**Issue:** Authority cannot be rotated, delegated, or revoked without redeploying. A compromised key locks the privileged surface permanently.  \n**Fix:** Mint an `AdminCap` at module init and require `_cap: &AdminCap` on `set_fee`. See `.sui-docs/concepts/sui-move-concepts/patterns/capability.mdx`.\n\n---\n\n## SEC-AR-1 · Multiply-then-divide overflow (S2 — High, weight 7)\n\n**Location:** `sources/pool.move:18`  \n**Pattern:** `(amount * price) / 1_000_000` on `u64 × u64`.  \n**Issue:** Move aborts the transaction on integer overflow. With `amount = 10^10` and `price = 10^10`, the intermediate `amount * price = 10^20` exceeds `u64::MAX (~1.8 × 10^19)` and the call aborts before the divide.  \n**Fix:** Widen to u128 for the intermediate: `(((amount as u128) * (price as u128)) / 1_000_000) as u64`.  See `.move-book-docs/typing/integers.md`.' }
+          ]
+        }
+      ]
+    },
+
+    prreview: {
+      title: 'PR fan-out',
+      summary: 'A PR adds a vault module and integrates it with the existing pool. The user runs /move-pr-review — 10 reviewer subagents in parallel, then 1 consolidator. Each subagent has its OWN context window.',
+      steps: [
+        {
+          title: 'Session starts — @-import in main session',
+          actor: 'system',
+          blurb: 'Same baseline: the global @-import puts the agent rule into the main session\'s system prompt. The fan-out below uses *fresh* subagent contexts — each subagent will independently inherit this same agent file as its system prompt.',
+          deltas: [
+            { source: 'import', icon: 'i-at', label: '@-import: agents/sui-pilot-agent.md (main session)', tokens: 650,
+              from: '@~/.claude/sui-pilot/agents/sui-pilot-agent.md',
+              content: 'You are a Sui Move specialist working through the sui-pilot Claude Code plugin.\n\n## Doc-First Rule [+ routing table, upgrades, post-impl checklist]' }
+          ]
+        },
+        {
+          title: 'User: "/move-pr-review #42"',
+          actor: 'user',
+          blurb: 'User invokes the multi-agent skill on PR #42 (vault module + pool integration). The full SKILL.md body — orchestration spec, subagent dispatch rules, schema requirements, output format — lands in the main session.',
+          deltas: [
+            { source: 'user', icon: 'i-user', label: 'User message', tokens: 12, content: '/move-pr-review #42' },
+            { source: 'skill', icon: 'i-brain', label: 'Slash command body · skills/move-pr-review/SKILL.md', tokens: 780,
+              from: 'Loaded by Claude Code when /move-pr-review is invoked',
+              content: '# Move PR Review (multi-agent)\n\nOrchestrate a 1-consolidator + 10-parallel-reviewer team of sui-pilot-agent subagents to deep-review a Move pull request. Output: a single self-contained HTML file consolidating evidence-backed findings.\n\n## CRITICAL — Where this skill must run\n\nRun this skill from the main Claude Code session. Do NOT run it from within a spawned subagent — spawned subagents lack the Task tool.\n\n## Agent type — sui-pilot:sui-pilot-agent is load-bearing\n\nAll 11 dispatched subagents (10 reviewers + 1 consolidator) MUST use subagent_type: sui-pilot:sui-pilot-agent.\n\n## Phases\n\nPhase 0 — Orchestrator: capture PR scope, write _context.md, prepare reviewer/consolidator prompts.\nPhase 1 — Dispatch 10 reviewer subagents in parallel. Each: read PR diff + relevant upstream files; consult docs; emit strict-schema JSON findings.\nPhase 2 — Cluster findings by (file, line ±6, category) via consolidate.js.\nPhase 3 — Dispatch consolidator subagent. Re-verify every critical/high against source. Drop or downgrade unverified.\nPhase 4 — Write final self-contained HTML report.' }
+          ]
+        },
+        {
+          title: 'Orchestrator captures PR scope (Phase 0)',
+          actor: 'claude',
+          blurb: 'Main session runs `git diff main…<branch>`, identifies changed files, builds a context bundle that every reviewer will receive. This is the only context all reviewers will share — beyond that they each get a fresh window.',
+          deltas: [
+            { source: 'claude', icon: 'i-file', label: '_context.md (PR scope bundle)', tokens: 260,
+              from: 'Written by orchestrator to skills/move-pr-review/reviews/.raw/_context.md',
+              content: '# PR #42 — Vault module + pool integration\n\n## Changed files\n- sources/vault.move (NEW, 180 lines)\n- sources/pool.move (modified, +18 / -2)\n- tests/vault_tests.move (NEW, 60 lines)\n\n## Upstream dependencies touched\n- my_pkg::pool::Pool<Asset>  (consumed by vault::deposit_to_pool)\n- my_pkg::token::Token<phantom T>  (read-only)\n\n## PR description (from gh pr view)\nAdds a vault module that locks user deposits and forwards them to the existing pool. Vault keeps a share-receipt struct for accounting.\n\n## Finding schema\nSee references/finding_schema.md. Reviewers MUST emit valid JSON conforming to it.' }
+          ]
+        },
+        {
+          title: 'Orchestrator dispatches 10 reviewer subagents in parallel (Phase 1)',
+          actor: 'subagent',
+          blurb: 'Single Agent call with 10 parallel invocations of sui-pilot:sui-pilot-agent. Each gets a fresh context — NOT a copy of this main-session window. The Inspector now shows only the *main session*; below the fold (or in the next steps) we drill into one reviewer to show its independent context.',
+          deltas: [
+            { source: 'subagent', icon: 'i-fork', label: 'Dispatch: 10 × sui-pilot:sui-pilot-agent subagents', tokens: 18,
+              from: 'Task tool invocation by orchestrator (Claude Code Agent API)',
+              content: 'Task({\n  description: "/move-pr-review — reviewer fan-out",\n  subagent_type: "sui-pilot:sui-pilot-agent",\n  prompt: <reviewer_prompt.md, with _context.md interpolated>,\n  count: 10,\n  run_in_background: true\n})' }
+          ]
+        },
+        {
+          title: 'Reviewer 3 (sample) — fresh context, blank slate',
+          actor: 'subagent',
+          blurb: 'Inside reviewer subagent 3: empty conversation, agent file as system prompt, reviewer task prompt as the first message. NO awareness of the main session, NO awareness of reviewers 1-2, 4-10. The inspector now reflects *reviewer 3\'s* context, not the main session.',
+          deltas: [
+            { source: 'import', icon: 'i-at', label: 'Subagent system prompt · agents/sui-pilot-agent.md', tokens: 650,
+              from: 'Selected by subagent_type "sui-pilot:sui-pilot-agent"',
+              content: '[Full agent file body — same content as in the main session, but in a fresh context. The doc-first rule applies here too.]' },
+            { source: 'skill', icon: 'i-brain', label: 'Reviewer task prompt · skills/move-pr-review/references/reviewer_prompt.md', tokens: 380,
+              from: 'Passed to subagent as initial user message by orchestrator',
+              content: '## Your role: independent reviewer (#3 of 10)\n\n1. Read every file in the PR scope (see _context.md).\n2. Cross-check upstream dependencies against the bundled .sui-docs/.\n3. For each finding, emit JSON conforming to finding_schema.md:\n   { id, file, line, severity, category, evidence, recommendation }\n4. Do NOT discuss findings with other reviewers — you have no way to.\n5. Output only the JSON array. No prose.' },
+            { source: 'claude', icon: 'i-file', label: 'PR scope bundle (_context.md) — pasted into prompt', tokens: 260,
+              content: '[Same _context.md the orchestrator wrote. Each reviewer gets it.]' }
+          ]
+        },
+        {
+          title: 'Reviewer 3 reads vault.move, greps docs, calls LSP, emits findings',
+          actor: 'subagent',
+          blurb: 'Reviewer 3 does the same kind of work as a single /move-code-review pass: read files, consult corpora, call LSP, emit JSON. The other 9 reviewers run in parallel doing the same — independently. Some converge on the same findings; some catch singletons.',
+          deltas: [
+            { source: 'doc', icon: 'i-scroll', label: 'Grep · .sui-docs/concepts/sui-move-concepts/patterns/witness.mdx', tokens: 140, corpus: 'sui',
+              from: 'Reviewer 3 looking up the witness pattern (vault uses one-time-witness)',
+              content: '## One-time witness (OTW)\n\nA one-time witness is a struct with `drop` only, whose name matches the module name in ALL-CAPS. It is consumed by `init` to mint a single capability or coin type at publish time. The compiler enforces uniqueness.' },
+            { source: 'tool', icon: 'i-zap', label: 'mcp__move-lsp__move_diagnostics · vault.move', tokens: 24,
+              tool: 'move_diagnostics',
+              from: 'MCP tool result inside reviewer 3\'s context',
+              content: '{ "errors": [], "warnings": [\n  { "line": 47, "message": "function `vault::burn_share` is never called" }\n]}' },
+            { source: 'output', icon: 'i-spark', label: 'Reviewer 3 JSON findings (3 entries)', tokens: 240,
+              from: 'Final output of reviewer 3 subagent, returned to orchestrator',
+              content: '[\n  { "id": "PAT-DC-1",\n    "file": "sources/vault.move", "line": 47,\n    "severity": "S3",\n    "category": "PAT",\n    "evidence": "function vault::burn_share is unreferenced (move-analyzer warning)",\n    "recommendation": "Remove or expose as public." },\n  { "id": "DES-OM-2",\n    "file": "sources/vault.move", "line": 28,\n    "severity": "S2",\n    "category": "DES",\n    "evidence": "Vault stores Pool by value rather than &mut, blocking concurrent deposits.",\n    "recommendation": "Hold a reference and pass by `&mut Pool<Asset>` through entry points." },\n  { "id": "SEC-AC-1",\n    "file": "sources/vault.move", "line": 71,\n    "severity": "S1",\n    "category": "SEC",\n    "evidence": "`set_admin` requires `_cap: AdminCap` by value, consuming it. The next caller has no capability to re-authorize with.",\n    "recommendation": "Take `_cap: &AdminCap` by reference." }\n]' }
+          ]
+        },
+        {
+          title: 'All 10 reviewers complete · orchestrator clusters findings (Phase 2)',
+          actor: 'claude',
+          blurb: 'Back in the main session — the inspector now shows the main session\'s context again. Orchestrator validates each reviewer\'s JSON against the strict schema, then runs consolidate.js to cluster findings by (file, line ±6, category). 10 reviewers × ~3 findings each = ~30 raw findings, clustering down to ~8 unique issues.',
+          deltas: [
+            { source: 'claude', icon: 'i-file', label: '_consolidated.json (clustered)', tokens: 320,
+              from: 'Written by `scripts/consolidate.js` (orchestrator runs it via Bash)',
+              content: '{\n  "clusters": [\n    { "id": "C1", "category": "SEC", "file": "sources/vault.move", "line_range": [69, 73],\n      "reviewers": [3, 5, 7, 8], "agreement": 4, "max_severity": "S1",\n      "raw_findings": ["AdminCap consumed by value", "AdminCap by value", "Capability burned on use", "set_admin takes cap by value"] },\n    { "id": "C2", "category": "DES", "file": "sources/vault.move", "line_range": [25, 32],\n      "reviewers": [1, 3, 6, 9], "agreement": 4, "max_severity": "S2",\n      "raw_findings": ["Pool stored by value", "Vault owns Pool", "Sharing precluded by ownership"] },\n    { "id": "C3", "category": "PAT", "file": "sources/vault.move", "line_range": [44, 50],\n      "reviewers": [2, 3, 4, 8], "agreement": 4, "max_severity": "S3",\n      "raw_findings": ["burn_share unused", "dead code: burn_share", ...] },\n    { "id": "C4", "category": "SEC", "file": "sources/pool.move", "line_range": [88, 90],\n      "reviewers": [7], "agreement": 1, "max_severity": "S1",\n      "raw_findings": ["Vault bypasses fee accrual via direct reserves write"] }\n  ]\n}' }
+          ]
+        },
+        {
+          title: 'Orchestrator dispatches consolidator subagent (Phase 3)',
+          actor: 'subagent',
+          blurb: 'A *single* subagent — also typed sui-pilot:sui-pilot-agent — gets a fresh context. Its job: for every cluster marked critical/high, re-derive the threat path against the actual source code and either confirm, downgrade, or drop the finding.',
+          deltas: [
+            { source: 'subagent', icon: 'i-fork', label: 'Dispatch: 1 × consolidator (sui-pilot:sui-pilot-agent)', tokens: 14,
+              from: 'Task tool invocation',
+              content: 'Task({\n  subagent_type: "sui-pilot:sui-pilot-agent",\n  prompt: <consolidator_prompt.md + _consolidated.json>\n})' }
+          ]
+        },
+        {
+          title: 'Consolidator verifies C4 — Reviewer 7\'s singleton',
+          actor: 'subagent',
+          blurb: 'Cluster C4 is a critical finding raised by only ONE reviewer. The consolidator reads pool.move:88-90, finds that yes, vault::deposit_to_pool writes pool.reserves directly without going through the fee-accruing path. Confirmed. Singleton survives.',
+          deltas: [
+            { source: 'claude', icon: 'i-file', label: 'Consolidator reads pool.move:80-100', tokens: 180,
+              content: '// pool.move\n\npublic(package) fun add_reserves<Asset>(\n    pool: &mut Pool<Asset>,\n    amount: u64,\n) {\n    // ⚠️ Called by vault, bypasses fee_bps accrual\n    pool.reserves = pool.reserves + amount;\n}' },
+            { source: 'output', icon: 'i-spark', label: 'Consolidator verdict on C4', tokens: 110,
+              content: '✓ CONFIRMED. vault::deposit_to_pool reaches pool::add_reserves which bypasses fee accrual. Severity stays S1 (critical). Singleton finding by Reviewer 7 is real — the other 9 missed it because the cross-module path requires reading both files in tandem.' }
+          ]
+        },
+        {
+          title: 'Consolidator writes final HTML report (Phase 4)',
+          actor: 'output',
+          blurb: 'Single self-contained HTML file with severity-tagged findings, agreement counts, evidence quotes, and a methodology section. Three S1, one S2, one S3. Total tokens used across orchestrator + 10 reviewers + consolidator: ~22K — but spread across 12 fresh contexts, not stacked in one.',
+          deltas: [
+            { source: 'output', icon: 'i-spark', label: 'reviews/pr-42-review.html (final report)', tokens: 0,
+              from: 'Written by consolidator subagent · returned to orchestrator · surfaced to user',
+              content: '<!DOCTYPE html>\n<html><head><title>PR #42 — Move Review</title>...</head>\n<body>\n  <h1>PR #42 review</h1>\n  <p>3 critical · 1 high · 1 medium · methodology: 10 independent reviewers + verified consolidation</p>\n\n  <article class="finding critical">\n    <h2>C4 · vault bypasses pool fee accrual <span class="agreement">caught by 1 / 10 reviewers</span></h2>\n    ...\n  </article>\n  ...\n</body></html>' }
+          ]
+        }
+      ]
+    }
+  };
+
+  // ────────── STATE ──────────
+  var state = {
+    scenarioId: 'counter',
+    stepIdx: -1,   // -1 = before-start
+    auto: false,
+    autoTimer: null,
+    speed: 1700,
+    expandedEntries: {}
+  };
+
+  // ────────── DOM REFS ──────────
+  var scenarioTitle = document.getElementById('scenario-title');
+  var scenarioSummary = document.getElementById('scenario-summary');
+  var stepCardTitle = document.getElementById('step-card-title');
+  var stepCardBlurb = document.getElementById('step-card-blurb');
+  var stepList = document.getElementById('step-list');
+  var streamInner = document.getElementById('stream-inner');
+  var streamEmpty = document.getElementById('stream-empty');
+  var tokenVal = document.getElementById('token-val');
+  var meterFill = document.getElementById('meter-fill');
+  var progress = document.getElementById('progress');
+  var btnReset = document.getElementById('btn-reset');
+  var btnPrev = document.getElementById('btn-prev');
+  var btnNext = document.getElementById('btn-next');
+  var btnPlay = document.getElementById('btn-play');
+  var playIcon = document.getElementById('play-icon');
+  var playLabel = document.getElementById('play-label');
+  var speedSelect = document.getElementById('speed');
+  var indCorpora = document.getElementById('ind-corpora');
+  var indTools = document.getElementById('ind-tools');
+  var scenarioChips = document.querySelectorAll('.scenario-chip');
+
+  // Token-meter ceiling for visual scaling — tuned slightly above the longest scenario
+  var TOKEN_CEILING = 4500;
+
+  function currentScenario(){ return SCENARIOS[state.scenarioId]; }
+  function currentSteps(){ return currentScenario().steps; }
+
+  // ────────── RENDER: STEP LIST ──────────
+  function renderStepList(){
+    clear(stepList);
+    var steps = currentSteps();
+    for (var i = 0; i < steps.length; i++) {
+      (function(i){
+        var s = steps[i];
+        var li = el('li', {
+          class: 'step-item',
+          'data-state': i < state.stepIdx ? 'done' : (i === state.stepIdx ? 'active' : 'pending'),
+          tabindex: '0',
+          role: 'button',
+          'aria-label': 'Jump to step ' + (i + 1) + ': ' + s.title
+        }, [
+          el('div', { class: 'step-title' }, [
+            el('span', { class: 'step-actor', 'data-actor': s.actor }, [s.actor]),
+            ' ' + s.title
+          ])
+        ]);
+        li.addEventListener('click', function(){ jumpTo(i); });
+        li.addEventListener('keydown', function(e){
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); jumpTo(i); }
+        });
+        stepList.appendChild(li);
+      })(i);
+    }
+  }
+
+  function updateStepListStates(){
+    var items = stepList.children;
+    for (var i = 0; i < items.length; i++) {
+      items[i].setAttribute('data-state',
+        i < state.stepIdx ? 'done' : (i === state.stepIdx ? 'active' : 'pending')
+      );
+    }
+  }
+
+  // ────────── RENDER: STEP CARD ──────────
+  function renderStepCard(){
+    if (state.stepIdx < 0) {
+      stepCardTitle.textContent = 'Click Play, Next, or any step';
+      clear(stepCardBlurb);
+      stepCardBlurb.className = 'placeholder';
+      stepCardBlurb.appendChild(document.createTextNode('Hit '));
+      stepCardBlurb.appendChild(el('strong', null, ['Play']));
+      stepCardBlurb.appendChild(document.createTextNode(' to auto-step through the scenario, or click any step in the list below.'));
+      return;
+    }
+    var step = currentSteps()[state.stepIdx];
+    stepCardTitle.textContent = 'Step ' + (state.stepIdx + 1) + ' · ' + step.title;
+    stepCardBlurb.className = '';
+    stepCardBlurb.textContent = step.blurb;
+  }
+
+  // ────────── RENDER: STREAM ──────────
+  // Cumulative: we re-render from scratch based on stepIdx so jumping backward works.
+  // Newest-on-top, with a fresh-flash on the latest step's deltas.
+  function renderStream(){
+    clear(streamInner);
+    var steps = currentSteps();
+    var entries = []; // flat list, oldest first
+    for (var i = 0; i <= state.stepIdx; i++) {
+      for (var j = 0; j < steps[i].deltas.length; j++) {
+        entries.push({ delta: steps[i].deltas[j], stepIdx: i, key: i + ':' + j });
+      }
+    }
+    if (entries.length === 0) {
+      streamInner.appendChild(streamEmpty);
+      streamEmpty.hidden = false;
+      return;
+    }
+    streamEmpty.hidden = true;
+    // Build newest-first
+    for (var k = entries.length - 1; k >= 0; k--) {
+      streamInner.appendChild(buildEntry(entries[k]));
+    }
+  }
+
+  function buildEntry(entryData){
+    var d = entryData.delta;
+    var fresh = entryData.stepIdx === state.stepIdx;
+    var expanded = state.expandedEntries[entryData.key] === true;
+
+    var entry = el('div', {
+      class: 'entry' + (fresh ? ' fresh' : ''),
+      'data-source': d.source
+    });
+
+    var head = el('button', {
+      class: 'entry-head',
+      type: 'button',
+      'aria-expanded': String(expanded),
+      'aria-controls': 'entry-body-' + entryData.key.replace(':', '-')
+    });
+
+    var iconBox = el('span', { class: 'src-icon' });
+    iconBox.appendChild(svgEl(d.icon || 'i-file'));
+    head.appendChild(iconBox);
+    head.appendChild(el('span', { class: 'entry-label' }, [d.label]));
+
+    var meta = el('span', { class: 'entry-meta' });
+    if (d.tokens != null) meta.appendChild(el('span', { class: 'tok' }, ['+' + d.tokens + ' tok']));
+    head.appendChild(meta);
+
+    entry.appendChild(head);
+
+    var body = el('div', {
+      class: 'entry-body',
+      id: 'entry-body-' + entryData.key.replace(':', '-')
+    });
+    if (!expanded) body.setAttribute('hidden', '');
+    if (d.from) body.appendChild(el('p', { class: 'from' }, ['from: ' + d.from]));
+    if (d.content) {
+      var pre = el('pre', null);
+      pre.appendChild(el('code', null, [d.content]));
+      body.appendChild(pre);
+    }
+    entry.appendChild(body);
+
+    head.addEventListener('click', function(){
+      var nowExpanded = head.getAttribute('aria-expanded') !== 'true';
+      head.setAttribute('aria-expanded', String(nowExpanded));
+      if (nowExpanded) body.removeAttribute('hidden');
+      else body.setAttribute('hidden', '');
+      state.expandedEntries[entryData.key] = nowExpanded;
+    });
+
+    return entry;
+  }
+
+  // ────────── RENDER: METER & INDICATORS ──────────
+  function recomputeMeter(){
+    var steps = currentSteps();
+    var total = 0;
+    var touchedCorpora = {};
+    var touchedTools = {};
+    for (var i = 0; i <= state.stepIdx; i++) {
+      for (var j = 0; j < steps[i].deltas.length; j++) {
+        var d = steps[i].deltas[j];
+        total += d.tokens || 0;
+        if (d.corpus) touchedCorpora[d.corpus] = true;
+        if (d.tool) touchedTools[d.tool] = true;
+      }
+    }
+    tokenVal.textContent = total.toLocaleString() + ' tok';
+    var pct = Math.min(100, (total / TOKEN_CEILING) * 100);
+    meterFill.style.width = pct.toFixed(1) + '%';
+
+    var corpusPills = indCorpora.querySelectorAll('.indicator');
+    for (var c = 0; c < corpusPills.length; c++) {
+      corpusPills[c].classList.toggle('lit', !!touchedCorpora[corpusPills[c].getAttribute('data-key')]);
+    }
+    var toolPills = indTools.querySelectorAll('.indicator');
+    for (var t = 0; t < toolPills.length; t++) {
+      toolPills[t].classList.toggle('lit', !!touchedTools[toolPills[t].getAttribute('data-key')]);
+    }
+  }
+
+  // ────────── RENDER: PROGRESS ──────────
+  function renderProgress(){
+    var n = currentSteps().length;
+    if (state.stepIdx < 0) progress.textContent = '0 / ' + n;
+    else progress.textContent = (state.stepIdx + 1) + ' / ' + n;
+    btnPrev.disabled = state.stepIdx <= 0;
+    btnNext.disabled = state.stepIdx >= n - 1;
+  }
+
+  // ────────── RENDER: SCENARIO META ──────────
+  function renderScenarioMeta(){
+    var sc = currentScenario();
+    scenarioTitle.textContent = sc.title;
+    scenarioSummary.textContent = sc.summary;
+    for (var i = 0; i < scenarioChips.length; i++) {
+      scenarioChips[i].setAttribute('aria-pressed', String(scenarioChips[i].getAttribute('data-scenario') === state.scenarioId));
+    }
+  }
+
+  // ────────── FULL RENDER ──────────
+  function fullRender(){
+    renderScenarioMeta();
+    renderStepList();
+    renderStepCard();
+    renderStream();
+    recomputeMeter();
+    renderProgress();
+  }
+
+  function lightRender(){
+    updateStepListStates();
+    renderStepCard();
+    renderStream();
+    recomputeMeter();
+    renderProgress();
+  }
+
+  // ────────── STATE TRANSITIONS ──────────
+  function jumpTo(i){
+    state.stepIdx = i;
+    state.expandedEntries = {};
+    lightRender();
+  }
+  function next(){
+    var n = currentSteps().length;
+    if (state.stepIdx < n - 1) jumpTo(state.stepIdx + 1);
+    else stopAuto();
+  }
+  function prev(){
+    if (state.stepIdx > 0) jumpTo(state.stepIdx - 1);
+    else jumpTo(-1);
+  }
+  function reset(){
+    stopAuto();
+    state.stepIdx = -1;
+    state.expandedEntries = {};
+    lightRender();
+  }
+  function startAuto(){
+    state.auto = true;
+    btnPlay.setAttribute('aria-pressed', 'true');
+    clear(playIcon); playIcon.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'use'));
+    playIcon.firstChild.setAttribute('href', '#i-pause');
+    playLabel.textContent = 'Pause';
+    tickAuto();
+  }
+  function stopAuto(){
+    state.auto = false;
+    btnPlay.setAttribute('aria-pressed', 'false');
+    clear(playIcon); playIcon.appendChild(document.createElementNS('http://www.w3.org/2000/svg', 'use'));
+    playIcon.firstChild.setAttribute('href', '#i-play');
+    playLabel.textContent = state.stepIdx >= currentSteps().length - 1 ? 'Replay' : 'Play';
+    if (state.autoTimer) { clearTimeout(state.autoTimer); state.autoTimer = null; }
+  }
+  function tickAuto(){
+    if (!state.auto) return;
+    if (state.stepIdx >= currentSteps().length - 1) {
+      stopAuto();
+      return;
+    }
+    next();
+    state.autoTimer = setTimeout(tickAuto, state.speed);
+  }
+  function togglePlay(){
+    if (state.auto) { stopAuto(); return; }
+    // If we're at the end, reset first
+    if (state.stepIdx >= currentSteps().length - 1) {
+      state.stepIdx = -1;
+      state.expandedEntries = {};
+      lightRender();
+    }
+    startAuto();
+  }
+  function switchScenario(id){
+    stopAuto();
+    state.scenarioId = id;
+    state.stepIdx = -1;
+    state.expandedEntries = {};
+    fullRender();
+  }
+
+  // ────────── WIRING ──────────
+  btnNext.addEventListener('click', next);
+  btnPrev.addEventListener('click', prev);
+  btnReset.addEventListener('click', reset);
+  btnPlay.addEventListener('click', togglePlay);
+  speedSelect.addEventListener('change', function(){
+    state.speed = parseInt(speedSelect.value, 10);
+    if (state.auto && state.autoTimer) {
+      clearTimeout(state.autoTimer);
+      state.autoTimer = setTimeout(tickAuto, state.speed);
+    }
+  });
+  for (var i = 0; i < scenarioChips.length; i++) {
+    (function(chip){
+      chip.addEventListener('click', function(){ switchScenario(chip.getAttribute('data-scenario')); });
+    })(scenarioChips[i]);
+  }
+
+  // Keyboard: ← → for prev/next, space for play/pause, R for reset
+  document.addEventListener('keydown', function(e){
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable)) return;
+    if (e.key === 'ArrowRight') { e.preventDefault(); next(); }
+    else if (e.key === 'ArrowLeft') { e.preventDefault(); prev(); }
+    else if (e.key === ' ' && !e.target.closest('button')) { e.preventDefault(); togglePlay(); }
+    else if (e.key === 'r' || e.key === 'R') { reset(); }
+  });
+
+  // Initial render
+  fullRender();
+})();
+</script>
+</body>
+</html>
