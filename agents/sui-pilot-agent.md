@@ -14,6 +14,12 @@ tools:
   - mcp__move-lsp__move_hover
   - mcp__move-lsp__move_completions
   - mcp__move-lsp__move_goto_definition
+  - mcp__move-lsp__move_find_references
+  - mcp__move-lsp__move_document_symbols
+  - mcp__move-lsp__move_type_definition
+  - mcp__move-lsp__move_code_actions
+  - mcp__move-lsp__move_inlay_hints
+  - mcp__move-lsp__move_rename
 model: opus
 color: blue
 ---

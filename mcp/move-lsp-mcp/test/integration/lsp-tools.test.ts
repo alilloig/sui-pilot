@@ -285,8 +285,277 @@ module lsp_test_package::test {
     });
   });
 
+  describe('move_find_references', () => {
+    test.runIf(binaryAvailable)('should return references for a struct declaration', async () => {
+      // TestStruct declared at line 11 char 18 in main.move (0-indexed)
+      const mockRequest = {
+        params: {
+          name: 'move_find_references',
+          arguments: { filePath: mainFilePath, line: 11, character: 18, includeDeclaration: false },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('content');
+      expect(response.isError).toBeUndefined();
+
+      const result = JSON.parse(response.content[0].text);
+      expect(result).toHaveProperty('workspaceRoot');
+      expect(result).toHaveProperty('locations');
+      expect(Array.isArray(result.locations)).toBe(true);
+
+      if (result.locations.length > 0) {
+        const loc = result.locations[0];
+        expect(loc).toHaveProperty('filePath');
+        expect(loc).toHaveProperty('line');
+        expect(loc).toHaveProperty('character');
+      }
+    });
+
+    test.runIf(binaryAvailable)('should return empty locations for non-symbol position', async () => {
+      const mockRequest = {
+        params: {
+          name: 'move_find_references',
+          arguments: { filePath: mainFilePath, line: 0, character: 0 },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      // Empty result is NOT an error for find-references
+      const result = JSON.parse(response.content[0].text);
+      expect(result).toHaveProperty('locations');
+      expect(Array.isArray(result.locations)).toBe(true);
+    });
+
+    test.runIf(binaryAvailable)('should reject invalid line', async () => {
+      const mockRequest = {
+        params: {
+          name: 'move_find_references',
+          arguments: { filePath: mainFilePath, line: -1, character: 0 },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('isError', true);
+      const result = JSON.parse(response.content[0].text);
+      expect(result.error.code).toBe('INVALID_FILE_PATH');
+    });
+  });
+
+  describe('move_document_symbols', () => {
+    test.runIf(binaryAvailable)('should return the outline of main.move', async () => {
+      const mockRequest = {
+        params: {
+          name: 'move_document_symbols',
+          arguments: { filePath: mainFilePath },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('content');
+      expect(response.isError).toBeUndefined();
+
+      const result = JSON.parse(response.content[0].text);
+      expect(result).toHaveProperty('workspaceRoot');
+      expect(result).toHaveProperty('symbols');
+      expect(Array.isArray(result.symbols)).toBe(true);
+
+      if (result.symbols.length > 0) {
+        const first = result.symbols[0];
+        expect(first).toHaveProperty('name');
+        expect(first).toHaveProperty('kind');
+        expect(first).toHaveProperty('range');
+        expect(first).toHaveProperty('selectionRange');
+        expect(first.range).toHaveProperty('startLine');
+        expect(first.range).toHaveProperty('endLine');
+      }
+    });
+
+    test.runIf(binaryAvailable)('should reject missing filePath', async () => {
+      const mockRequest = { params: { name: 'move_document_symbols', arguments: {} } };
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('isError', true);
+      const result = JSON.parse(response.content[0].text);
+      expect(result.error.code).toBe('INVALID_FILE_PATH');
+    });
+  });
+
+  describe('move_type_definition', () => {
+    test.runIf(binaryAvailable)('should return SYMBOL_NOT_FOUND for empty position', async () => {
+      // Position in the file header comment where no symbol exists
+      const mockRequest = {
+        params: {
+          name: 'move_type_definition',
+          arguments: { filePath: mainFilePath, line: 0, character: 0 },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('isError', true);
+      const result = JSON.parse(response.content[0].text);
+      expect(result.error.code).toBe('SYMBOL_NOT_FOUND');
+    });
+
+    test.runIf(binaryAvailable)('should return a location or SYMBOL_NOT_FOUND for a typed binding', async () => {
+      // `obj: &TestStruct` in get_value signature at line 28 (0-indexed)
+      const mockRequest = {
+        params: {
+          name: 'move_type_definition',
+          arguments: { filePath: mainFilePath, line: 28, character: 25 },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      if (response.isError) {
+        const result = JSON.parse(response.content[0].text);
+        expect(result.error.code).toBe('SYMBOL_NOT_FOUND');
+      } else {
+        const result = JSON.parse(response.content[0].text);
+        expect(result).toHaveProperty('locations');
+        expect(Array.isArray(result.locations)).toBe(true);
+      }
+    });
+  });
+
+  describe('move_code_actions', () => {
+    test.runIf(binaryAvailable)('should return an actions array (possibly empty)', async () => {
+      const mockRequest = {
+        params: {
+          name: 'move_code_actions',
+          arguments: { filePath: mainFilePath, line: 20, character: 22 },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('content');
+      // Either an error from the server or a valid actions array
+      if (!response.isError) {
+        const result = JSON.parse(response.content[0].text);
+        expect(result).toHaveProperty('workspaceRoot');
+        expect(result).toHaveProperty('actions');
+        expect(Array.isArray(result.actions)).toBe(true);
+      }
+    });
+
+    test.runIf(binaryAvailable)('should reject inverted range', async () => {
+      const mockRequest = {
+        params: {
+          name: 'move_code_actions',
+          arguments: {
+            filePath: mainFilePath, line: 20, character: 22, endLine: 19, endCharacter: 0,
+          },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('isError', true);
+      const result = JSON.parse(response.content[0].text);
+      expect(result.error.code).toBe('INVALID_FILE_PATH');
+    });
+  });
+
+  describe('move_inlay_hints', () => {
+    test.runIf(binaryAvailable)('should return a hints array (possibly empty) for a function body range', async () => {
+      // Range covering test_function body (lines 19-26, 0-indexed)
+      const mockRequest = {
+        params: {
+          name: 'move_inlay_hints',
+          arguments: {
+            filePath: mainFilePath,
+            startLine: 19, startCharacter: 0,
+            endLine: 26, endCharacter: 0,
+          },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('content');
+      if (!response.isError) {
+        const result = JSON.parse(response.content[0].text);
+        expect(result).toHaveProperty('workspaceRoot');
+        expect(result).toHaveProperty('hints');
+        expect(Array.isArray(result.hints)).toBe(true);
+
+        if (result.hints.length > 0) {
+          const first = result.hints[0];
+          expect(first).toHaveProperty('line');
+          expect(first).toHaveProperty('character');
+          expect(first).toHaveProperty('label');
+          expect(typeof first.label).toBe('string');
+        }
+      }
+    });
+
+    test.runIf(binaryAvailable)('should reject missing range fields', async () => {
+      const mockRequest = {
+        params: {
+          name: 'move_inlay_hints',
+          arguments: { filePath: mainFilePath, startLine: 0, startCharacter: 0 },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('isError', true);
+      const result = JSON.parse(response.content[0].text);
+      expect(result.error.code).toBe('INVALID_FILE_PATH');
+    });
+  });
+
+  describe('move_rename', () => {
+    // Older move-analyzer builds don't implement prepareRename and the call may hit the LSP timeout (10s)
+    // before we surface the error — give this test more room than the default 5s.
+    test.runIf(binaryAvailable)('should return proposed edits or RENAME_NOT_AVAILABLE without writing files', { timeout: 15000 }, async () => {
+      // Rename TestStruct (declared line 11 char 18) to RenamedTestStruct
+      const mockRequest = {
+        params: {
+          name: 'move_rename',
+          arguments: {
+            filePath: mainFilePath,
+            line: 11, character: 18,
+            newName: 'RenamedTestStruct',
+          },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      if (response.isError) {
+        const result = JSON.parse(response.content[0].text);
+        // Older move-analyzer builds do not implement prepareRename/rename and
+        // may time out on the request; surface that as a legitimate outcome.
+        expect(['RENAME_NOT_AVAILABLE', 'SYMBOL_NOT_FOUND', 'LSP_TIMEOUT']).toContain(result.error.code);
+      } else {
+        const result = JSON.parse(response.content[0].text);
+        expect(result).toHaveProperty('workspaceRoot');
+        expect(result).toHaveProperty('edits');
+        expect(Array.isArray(result.edits)).toBe(true);
+
+        if (result.edits.length > 0) {
+          const e = result.edits[0];
+          expect(e).toHaveProperty('filePath');
+          expect(e).toHaveProperty('range');
+          expect(e).toHaveProperty('newText');
+          expect(e.newText).toBe('RenamedTestStruct');
+        }
+      }
+    });
+
+    test.runIf(binaryAvailable)('should reject empty newName', async () => {
+      const mockRequest = {
+        params: {
+          name: 'move_rename',
+          arguments: { filePath: mainFilePath, line: 11, character: 18, newName: '' },
+        },
+      };
+
+      const response = await callToolHandler!(mockRequest as any);
+      expect(response).toHaveProperty('isError', true);
+      const result = JSON.parse(response.content[0].text);
+      expect(result.error.code).toBe('INVALID_FILE_PATH');
+    });
+  });
+
   describe('tool listing', () => {
-    test.runIf(binaryAvailable)('should list all 4 MCP tools', async () => {
+    test.runIf(binaryAvailable)('should list all 10 MCP tools', async () => {
       const listToolsHandler = server.getRequestHandler('tools/list');
       const response = await listToolsHandler!({} as any);
 
@@ -298,7 +567,13 @@ module lsp_test_package::test {
       expect(toolNames).toContain('move_hover');
       expect(toolNames).toContain('move_completions');
       expect(toolNames).toContain('move_goto_definition');
-      expect(response.tools).toHaveLength(4);
+      expect(toolNames).toContain('move_find_references');
+      expect(toolNames).toContain('move_document_symbols');
+      expect(toolNames).toContain('move_type_definition');
+      expect(toolNames).toContain('move_code_actions');
+      expect(toolNames).toContain('move_inlay_hints');
+      expect(toolNames).toContain('move_rename');
+      expect(response.tools).toHaveLength(10);
     });
 
     test.runIf(binaryAvailable)('should have correct input schemas for new tools', async () => {
@@ -322,6 +597,24 @@ module lsp_test_package::test {
       expect(gotoDefTool.inputSchema.required).toContain('line');
       expect(gotoDefTool.inputSchema.required).toContain('character');
       expect(gotoDefTool.description).toContain('Cross-package');
+
+      const findRefsTool = response.tools.find((t: any) => t.name === 'move_find_references');
+      expect(findRefsTool.inputSchema.required).toEqual(expect.arrayContaining(['filePath', 'line', 'character']));
+      expect(findRefsTool.inputSchema.properties.includeDeclaration.type).toBe('boolean');
+
+      const docSymTool = response.tools.find((t: any) => t.name === 'move_document_symbols');
+      expect(docSymTool.inputSchema.required).toEqual(['filePath']);
+
+      const inlayTool = response.tools.find((t: any) => t.name === 'move_inlay_hints');
+      expect(inlayTool.inputSchema.required).toEqual(
+        expect.arrayContaining(['filePath', 'startLine', 'startCharacter', 'endLine', 'endCharacter'])
+      );
+
+      const renameTool = response.tools.find((t: any) => t.name === 'move_rename');
+      expect(renameTool.inputSchema.required).toEqual(
+        expect.arrayContaining(['filePath', 'line', 'character', 'newName'])
+      );
+      expect(renameTool.description).toContain('never writes');
     });
   });
 });

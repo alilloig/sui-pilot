@@ -18,6 +18,12 @@ The sui-pilot-agent provides:
 - Hover information for types and functions (mcp__move-lsp__move_hover)
 - Code completions (mcp__move-lsp__move_completions)
 - Go to definition navigation (mcp__move-lsp__move_goto_definition)
+- Find every call site / usage of a symbol (mcp__move-lsp__move_find_references)
+- Document outline — modules, structs, functions, constants (mcp__move-lsp__move_document_symbols)
+- Jump to a value's type declaration (mcp__move-lsp__move_type_definition)
+- Compiler-offered quick fixes and refactorings (mcp__move-lsp__move_code_actions)
+- Inlay hints for inferred types and parameter names (mcp__move-lsp__move_inlay_hints)
+- Refactor-safe rename returning proposed edits without writing them (mcp__move-lsp__move_rename)
 - Comprehensive documentation search across Sui, Walrus, Seal, and TypeScript SDK ecosystems
 
 ## Workflow
