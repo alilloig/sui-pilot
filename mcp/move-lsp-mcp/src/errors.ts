@@ -15,6 +15,8 @@ export const FILE_NOT_FOUND = 'FILE_NOT_FOUND';
 export const WORKSPACE_INIT_FAILED = 'WORKSPACE_INIT_FAILED';
 export const SYMBOL_NOT_FOUND = 'SYMBOL_NOT_FOUND';
 export const SCOPE_NOT_IMPLEMENTED = 'SCOPE_NOT_IMPLEMENTED';
+export const RENAME_NOT_AVAILABLE = 'RENAME_NOT_AVAILABLE';
+export const INVALID_ARGUMENT = 'INVALID_ARGUMENT';
 
 /**
  * Base error class for Move LSP operations

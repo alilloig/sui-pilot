@@ -3,6 +3,7 @@
  */
 
 import { spawn, ChildProcess } from 'child_process';
+import { fileURLToPath } from 'url';
 import {
   InitializeParams,
   InitializeResult,
@@ -14,6 +15,17 @@ import {
   CompletionItemKind,
   Location,
   LocationLink,
+  DocumentSymbol,
+  SymbolInformation,
+  SymbolKind,
+  WorkspaceEdit,
+  TextEdit,
+  Range,
+  Command,
+  CodeAction,
+  InlayHint,
+  InlayHintLabelPart,
+  InlayHintKind,
 } from 'vscode-languageserver-protocol';
 import { LspStartFailedError, LspTimeoutError, LspCrashedError, LspProtocolError } from './errors.js';
 import { log } from './logger.js';
@@ -73,6 +85,70 @@ export interface LocationResult {
 }
 
 /**
+ * Normalized range used by symbol/edit/code-action results
+ */
+export interface RangeResult {
+  startLine: number;
+  startCharacter: number;
+  endLine: number;
+  endCharacter: number;
+}
+
+/**
+ * Document symbol result (hierarchical when move-analyzer returns DocumentSymbol[])
+ */
+export type DocumentSymbolKind =
+  | 'module'
+  | 'struct'
+  | 'function'
+  | 'constant'
+  | 'enum'
+  | 'variant'
+  | 'field'
+  | 'other';
+
+export interface DocumentSymbolResult {
+  name: string;
+  kind: DocumentSymbolKind;
+  range: RangeResult;
+  selectionRange: RangeResult;
+  children?: DocumentSymbolResult[];
+}
+
+/**
+ * Single text edit produced by rename or code-action resolution
+ */
+export interface WorkspaceEditEntry {
+  filePath: string;
+  range: RangeResult;
+  newText: string;
+}
+
+/**
+ * Code action result (resolved when possible — see codeAction() below)
+ */
+export interface CodeActionResult {
+  title: string;
+  kind?: string;
+  edits?: WorkspaceEditEntry[];
+  command?: {
+    title: string;
+    command: string;
+    arguments?: unknown[];
+  };
+}
+
+/**
+ * Inlay hint result with label normalized to a string
+ */
+export interface InlayHintResult {
+  line: number;
+  character: number;
+  label: string;
+  kind?: 'type' | 'parameter';
+}
+
+/**
  * Map LSP CompletionItemKind to normalized string
  * Cross-package goto-definition may not resolve due to move-analyzer limitations on multi-package workspaces
  */
@@ -98,6 +174,141 @@ function completionKindToString(kind?: CompletionItemKind): string {
     default:
       return 'unknown';
   }
+}
+
+/**
+ * Map LSP SymbolKind to our normalized DocumentSymbolKind strings
+ */
+function symbolKindToString(kind: SymbolKind): DocumentSymbolKind {
+  switch (kind) {
+    case SymbolKind.Module:
+    case SymbolKind.Namespace:
+    case SymbolKind.Package:
+      return 'module';
+    case SymbolKind.Struct:
+    case SymbolKind.Class:
+    case SymbolKind.Object:
+    case SymbolKind.Interface:
+      return 'struct';
+    case SymbolKind.Function:
+    case SymbolKind.Method:
+    case SymbolKind.Constructor:
+      return 'function';
+    case SymbolKind.Constant:
+      return 'constant';
+    case SymbolKind.Enum:
+      return 'enum';
+    case SymbolKind.EnumMember:
+      return 'variant';
+    case SymbolKind.Field:
+    case SymbolKind.Property:
+      return 'field';
+    default:
+      return 'other';
+  }
+}
+
+/**
+ * Map LSP InlayHintKind to our normalized strings
+ */
+function inlayHintKindToString(kind?: InlayHintKind): 'type' | 'parameter' | undefined {
+  switch (kind) {
+    case InlayHintKind.Type:
+      return 'type';
+    case InlayHintKind.Parameter:
+      return 'parameter';
+    default:
+      return undefined;
+  }
+}
+
+/**
+ * Convert an LSP Range to our normalized RangeResult shape
+ */
+function rangeToResult(range: Range): RangeResult {
+  return {
+    startLine: range.start.line,
+    startCharacter: range.start.character,
+    endLine: range.end.line,
+    endCharacter: range.end.character,
+  };
+}
+
+/**
+ * Convert a file:// URI to a plain filesystem path. Uses Node's `fileURLToPath`
+ * so paths containing spaces or non-ASCII characters are properly percent-decoded
+ * (e.g. `file:///%20a%20b/main.move` → `/ a b/main.move`).
+ */
+function uriToPath(uri: string): string {
+  if (!uri.startsWith('file://')) return uri;
+  try {
+    return fileURLToPath(uri);
+  } catch {
+    // Fall back to a naive strip if Node can't parse the URI for any reason.
+    return uri.replace(/^file:\/\//, '');
+  }
+}
+
+/**
+ * Convert an LSP Command literal to our CodeActionResult['command'] shape,
+ * omitting `arguments` when absent to satisfy exactOptionalPropertyTypes.
+ */
+function commandToResult(cmd: Command): NonNullable<CodeActionResult['command']> {
+  const out: NonNullable<CodeActionResult['command']> = { title: cmd.title, command: cmd.command };
+  if (cmd.arguments) out.arguments = cmd.arguments;
+  return out;
+}
+
+/**
+ * Recursively normalize a hierarchical DocumentSymbol tree into our shape
+ */
+function normalizeDocumentSymbol(sym: DocumentSymbol): DocumentSymbolResult {
+  const result: DocumentSymbolResult = {
+    name: sym.name,
+    kind: symbolKindToString(sym.kind),
+    range: rangeToResult(sym.range),
+    selectionRange: rangeToResult(sym.selectionRange),
+  };
+  if (sym.children && sym.children.length > 0) {
+    result.children = sym.children.map(normalizeDocumentSymbol);
+  }
+  return result;
+}
+
+/**
+ * Flatten a WorkspaceEdit into a flat list of typed edits.
+ *
+ * Per LSP spec, when both `documentChanges` and `changes` are populated the
+ * client MUST prefer `documentChanges` and ignore `changes` — emitting both
+ * would duplicate every edit. Skips entries that are not `TextDocumentEdit`
+ * (e.g. CreateFile / RenameFile / DeleteFile resource-ops).
+ */
+function flattenWorkspaceEdit(edit: WorkspaceEdit): WorkspaceEditEntry[] {
+  const out: WorkspaceEditEntry[] = [];
+
+  if (edit.documentChanges) {
+    for (const change of edit.documentChanges) {
+      // Skip resource-ops (CreateFile / RenameFile / DeleteFile) — only
+      // TextDocumentEdit carries a `textDocument` field with `edits`.
+      if (!('textDocument' in change) || !Array.isArray(change.edits)) continue;
+      const uri = uriToPath(change.textDocument.uri);
+      for (const e of change.edits as TextEdit[]) {
+        out.push({ filePath: uri, range: rangeToResult(e.range), newText: e.newText });
+      }
+    }
+    return out;
+  }
+
+  if (edit.changes) {
+    for (const [uri, edits] of Object.entries(edit.changes)) {
+      const filePath = uriToPath(uri);
+      for (const e of edits as TextEdit[]) {
+        out.push({ filePath, range: rangeToResult(e.range), newText: e.newText });
+      }
+    }
+  }
+
+  return out;
 }
 
 /**
@@ -268,6 +479,25 @@ export class MoveLspClient {
             willSave: false,
             willSaveWaitUntil: false,
             didSave: false,
+          },
+          documentSymbol: {
+            hierarchicalDocumentSymbolSupport: true,
+          },
+          references: {},
+          typeDefinition: {},
+          codeAction: {
+            resolveSupport: { properties: ['edit'] },
+            codeActionLiteralSupport: {
+              codeActionKind: {
+                valueSet: ['quickfix', 'refactor', 'refactor.extract', 'refactor.inline', 'refactor.rewrite', 'source'],
+              },
+            },
+          },
+          rename: {
+            prepareSupport: true,
+          },
+          inlayHint: {
+            resolveSupport: { properties: ['label'] },
           },
         },
       },
@@ -659,6 +889,251 @@ export class MoveLspClient {
         };
       }
     });
+  }
+
+  /**
+   * Request type-definition for a position
+   * Returns the location(s) where the type of the symbol at the position is declared.
+   */
+  async typeDefinition(uri: string, line: number, character: number): Promise<LocationResult[]> {
+    if (!this.isInitialized) {
+      throw new Error('LSP client not initialized');
+    }
+
+    const params = {
+      textDocument: { uri },
+      position: { line, character },
+    };
+
+    const result = await this.sendRequest<Location | Location[] | LocationLink[] | null>(
+      'textDocument/typeDefinition',
+      params
+    );
+
+    if (!result) {
+      return [];
+    }
+
+    const locations = Array.isArray(result) ? result : [result];
+    return locations.map(loc => {
+      if ('targetUri' in loc) {
+        return {
+          filePath: uriToPath(loc.targetUri),
+          line: loc.targetSelectionRange.start.line,
+          character: loc.targetSelectionRange.start.character,
+        };
+      }
+      return {
+        filePath: uriToPath(loc.uri),
+        line: loc.range.start.line,
+        character: loc.range.start.character,
+      };
+    });
+  }
+
+  /**
+   * Find every reference (call site / usage) of the symbol at a position
+   * Cross-file within the workspace; honours `includeDeclaration`.
+   */
+  async findReferences(
+    uri: string,
+    line: number,
+    character: number,
+    includeDeclaration = false
+  ): Promise<LocationResult[]> {
+    if (!this.isInitialized) {
+      throw new Error('LSP client not initialized');
+    }
+
+    const params = {
+      textDocument: { uri },
+      position: { line, character },
+      context: { includeDeclaration },
+    };
+
+    const result = await this.sendRequest<Location[] | null>('textDocument/references', params);
+    if (!result) return [];
+
+    return result.map(loc => ({
+      filePath: uriToPath(loc.uri),
+      line: loc.range.start.line,
+      character: loc.range.start.character,
+    }));
+  }
+
+  /**
+   * Request the full outline (modules, structs, functions, constants) of a document
+   * Returns hierarchical DocumentSymbol[] when the server honours
+   * `hierarchicalDocumentSymbolSupport`; falls back to a flat list otherwise.
+   */
+  async documentSymbols(uri: string): Promise<DocumentSymbolResult[]> {
+    if (!this.isInitialized) {
+      throw new Error('LSP client not initialized');
+    }
+
+    const params = { textDocument: { uri } };
+    const result = await this.sendRequest<DocumentSymbol[] | SymbolInformation[] | null>(
+      'textDocument/documentSymbol',
+      params
+    );
+    const first = result?.[0];
+    if (!first) return [];
+
+    // Detect hierarchical DocumentSymbol vs deprecated SymbolInformation by shape:
+    // only DocumentSymbol carries `selectionRange`.
+    if ('selectionRange' in first) {
+      return (result as DocumentSymbol[]).map(normalizeDocumentSymbol);
+    }
+    return (result as SymbolInformation[]).map(info => ({
+      name: info.name,
+      kind: symbolKindToString(info.kind),
+      range: rangeToResult(info.location.range),
+      selectionRange: rangeToResult(info.location.range),
+    }));
+  }
+
+  /**
+   * Request code actions (quick fixes, refactorings) for a position or range
+   * If the server returns unresolved actions (no `edit` and no `command`), the
+   * bridge eagerly calls `codeAction/resolve` so callers see fully-populated edits.
+   */
+  async codeActions(
+    uri: string,
+    range: { startLine: number; startCharacter: number; endLine: number; endCharacter: number }
+  ): Promise<CodeActionResult[]> {
+    if (!this.isInitialized) {
+      throw new Error('LSP client not initialized');
+    }
+
+    const params = {
+      textDocument: { uri },
+      range: {
+        start: { line: range.startLine, character: range.startCharacter },
+        end: { line: range.endLine, character: range.endCharacter },
+      },
+      context: { diagnostics: this.getDiagnostics(uri) },
+    };
+
+    const result = await this.sendRequest<(Command | CodeAction)[] | null>(
+      'textDocument/codeAction',
+      params
+    );
+    if (!result || result.length === 0) return [];
+
+    const out: CodeActionResult[] = [];
+    for (const raw of result) {
+      // Command literal: { title, command, arguments? }
+      if (!('kind' in raw) && !('edit' in raw) && 'command' in raw && typeof raw.command === 'string') {
+        const cmd = raw as Command;
+        out.push({ title: cmd.title, command: commandToResult(cmd) });
+        continue;
+      }
+
+      let action = raw as CodeAction;
+      // Eagerly resolve if the action has neither edit nor command attached
+      if (!action.edit && !action.command) {
+        try {
+          const resolved = await this.sendRequest<CodeAction | null>('codeAction/resolve', action);
+          if (resolved) action = resolved;
+        } catch (err) {
+          log('warn', 'codeAction/resolve failed; returning unresolved action', {
+            title: action.title,
+            error: err,
+          });
+        }
+      }
+
+      const entry: CodeActionResult = { title: action.title };
+      if (action.kind) entry.kind = action.kind;
+      if (action.edit) {
+        const flat = flattenWorkspaceEdit(action.edit);
+        if (flat.length > 0) entry.edits = flat;
+      }
+      if (action.command) entry.command = commandToResult(action.command);
+      out.push(entry);
+    }
+    return out;
+  }
+
+  /**
+   * Request inlay hints for a range
+   * Labels are normalized to a single string when the server returns
+   * `InlayHintLabelPart[]`. Kind is mapped to 'type' | 'parameter' | undefined.
+   */
+  async inlayHints(
+    uri: string,
+    range: { startLine: number; startCharacter: number; endLine: number; endCharacter: number }
+  ): Promise<InlayHintResult[]> {
+    if (!this.isInitialized) {
+      throw new Error('LSP client not initialized');
+    }
+
+    const params = {
+      textDocument: { uri },
+      range: {
+        start: { line: range.startLine, character: range.startCharacter },
+        end: { line: range.endLine, character: range.endCharacter },
+      },
+    };
+
+    const result = await this.sendRequest<InlayHint[] | null>('textDocument/inlayHint', params);
+    if (!result) return [];
+
+    return result.map(hint => {
+      const label = typeof hint.label === 'string'
+        ? hint.label
+        : hint.label.map((p: InlayHintLabelPart) => p.value).join('');
+      const entry: InlayHintResult = {
+        line: hint.position.line,
+        character: hint.position.character,
+        label,
+      };
+      const kind = inlayHintKindToString(hint.kind);
+      if (kind) entry.kind = kind;
+      return entry;
+    });
+  }
+
+  /**
+   * Run prepareRename then rename in one go, returning the proposed edits.
+   * Returns `null` if prepareRename indicates the position is not renameable.
+   * The caller is responsible for applying or rejecting the edits — this method
+   * never writes to disk.
+   */
+  async rename(
+    uri: string,
+    line: number,
+    character: number,
+    newName: string
+  ): Promise<WorkspaceEditEntry[] | null> {
+    if (!this.isInitialized) {
+      throw new Error('LSP client not initialized');
+    }
+
+    const prepareParams = {
+      textDocument: { uri },
+      position: { line, character },
+    };
+    const prepared = await this.sendRequest<
+      Range | { range: Range; placeholder: string } | { defaultBehavior: boolean } | null
+    >('textDocument/prepareRename', prepareParams);
+
+    if (prepared === null) return null;
+    // `{ defaultBehavior: false }` means the server explicitly refused — bail.
+    if ('defaultBehavior' in prepared && !prepared.defaultBehavior) return null;
+
+    const renameParams = {
+      textDocument: { uri },
+      position: { line, character },
+      newName,
+    };
+    const edit = await this.sendRequest<WorkspaceEdit | null>('textDocument/rename', renameParams);
+    // Distinct from `[]`: `null` here means the server declined the rename
+    // outright, which should surface as RENAME_NOT_AVAILABLE rather than a
+    // successful no-op.
+    if (edit === null) return null;
+
+    return flattenWorkspaceEdit(edit);
   }
 
   /**

@@ -23,10 +23,19 @@ import {
   SymbolNotFoundError,
   LspStartFailedError,
   INVALID_FILE_PATH,
+  INVALID_ARGUMENT,
   FILE_NOT_FOUND,
   NO_WORKSPACE,
   SCOPE_NOT_IMPLEMENTED,
+  RENAME_NOT_AVAILABLE,
 } from './errors.js';
+import type {
+  LocationResult,
+  DocumentSymbolResult,
+  WorkspaceEditEntry,
+  CodeActionResult,
+  InlayHintResult,
+} from './lsp-client.js';
 
 /**
  * Diagnostic result from move-analyzer (matches spec output schema)
@@ -79,6 +88,36 @@ interface GotoDefinitionResponse {
     line: number;
     character: number;
   }>;
+}
+
+interface FindReferencesResponse {
+  workspaceRoot: string;
+  locations: LocationResult[];
+}
+
+interface DocumentSymbolsResponse {
+  workspaceRoot: string;
+  symbols: DocumentSymbolResult[];
+}
+
+interface TypeDefinitionResponse {
+  workspaceRoot: string;
+  locations: LocationResult[];
+}
+
+interface CodeActionsResponse {
+  workspaceRoot: string;
+  actions: CodeActionResult[];
+}
+
+interface InlayHintsResponse {
+  workspaceRoot: string;
+  hints: InlayHintResult[];
+}
+
+interface RenameResponse {
+  workspaceRoot: string;
+  edits: WorkspaceEditEntry[];
 }
 
 // LSP diagnostic severity to string mapping
@@ -198,6 +237,122 @@ const TOOL_DEFINITIONS = [
       required: ['filePath', 'line', 'character'],
     },
   },
+  {
+    name: 'move_find_references',
+    description: 'Find every call site / usage of the symbol at the given position. Returns one entry per usage across the workspace, including in other modules and files. Use this (not move_goto_definition) when you need to discover callers of a function, every reader of a constant, or every site that names a struct.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Path to the Move source file' },
+        line: { type: 'number', description: 'Line number (0-based)' },
+        character: { type: 'number', description: 'Character offset (0-based)' },
+        includeDeclaration: {
+          type: 'boolean',
+          description: 'If true, include the declaration site itself in the returned locations. Defaults to false.',
+          default: false,
+        },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath', 'line', 'character'],
+    },
+  },
+  {
+    name: 'move_document_symbols',
+    description: 'Return the outline of a Move source file: every module, struct, public/public(package)/private/entry function, and constant, with positions. Prefer this over regex-based extraction when enumerating the API surface of a file.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Path to the Move source file' },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath'],
+    },
+  },
+  {
+    name: 'move_type_definition',
+    description: 'Jump to the type declaration of the value at a position. Distinct from move_goto_definition: for a binding like `let x: Foo`, goto-definition jumps to where `x` is bound, type-definition jumps to where `Foo` is declared.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Path to the Move source file' },
+        line: { type: 'number', description: 'Line number (0-based)' },
+        character: { type: 'number', description: 'Character offset (0-based)' },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath', 'line', 'character'],
+    },
+  },
+  {
+    name: 'move_code_actions',
+    description: 'Return the compiler-offered quick fixes and refactorings at a position or range (auto-import, derive ability, etc.) — the same list an IDE\'s lightbulb shows. Actions are eagerly resolved when possible, so the returned edits are ready to apply.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Path to the Move source file' },
+        line: { type: 'number', description: 'Start line number (0-based)' },
+        character: { type: 'number', description: 'Start character offset (0-based)' },
+        endLine: {
+          type: 'number',
+          description: 'Optional end line for range-based actions. Defaults to `line` (zero-width range).',
+        },
+        endCharacter: {
+          type: 'number',
+          description: 'Optional end character. Defaults to `character` (zero-width range).',
+        },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath', 'line', 'character'],
+    },
+  },
+  {
+    name: 'move_inlay_hints',
+    description: 'Return inlay hints (inferred types on let-bindings, parameter-name hints, etc.) for a range of a Move file. Use this when reading code with elided types to see what the compiler infers.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Path to the Move source file' },
+        startLine: { type: 'number', description: 'Range start line (0-based)' },
+        startCharacter: { type: 'number', description: 'Range start character (0-based)' },
+        endLine: { type: 'number', description: 'Range end line (0-based)' },
+        endCharacter: { type: 'number', description: 'Range end character (0-based)' },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath', 'startLine', 'startCharacter', 'endLine', 'endCharacter'],
+    },
+  },
+  {
+    name: 'move_rename',
+    description: 'Run prepareRename then rename for the symbol at a position. Returns the proposed edits — the bridge never writes them. The agent (or user) decides whether to apply them. Older move-analyzer builds may not implement rename and the request can time out; cross-package rename behaviour depends on move-analyzer.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        filePath: { type: 'string', description: 'Path to the Move source file' },
+        line: { type: 'number', description: 'Line number (0-based)' },
+        character: { type: 'number', description: 'Character offset (0-based)' },
+        newName: { type: 'string', description: 'The new identifier to rename the symbol to' },
+        content: {
+          type: 'string',
+          description: 'Optional file content (if not provided, reads from filePath)',
+        },
+      },
+      required: ['filePath', 'line', 'character', 'newName'],
+    },
+  },
 ] as const;
 
 /** Tool names derived from TOOL_DEFINITIONS for compile-time safety */
@@ -250,7 +405,7 @@ export function createServer(): Server {
   const server = new Server(
     {
       name: 'move-lsp-mcp',
-      version: '0.1.0',
+      version: '0.2.0',
     },
     {
       capabilities: {
@@ -488,14 +643,46 @@ export function createServer(): Server {
     if (!filePath || typeof filePath !== 'string') {
       throw new MoveLspError('filePath is required and must be a string', INVALID_FILE_PATH);
     }
-    if (typeof line !== 'number' || line < 0) {
-      throw new MoveLspError('line is required and must be a non-negative number', INVALID_FILE_PATH);
+    if (typeof line !== 'number' || !Number.isFinite(line) || line < 0) {
+      throw new MoveLspError('line is required and must be a non-negative finite number', INVALID_ARGUMENT);
     }
-    if (typeof character !== 'number' || character < 0) {
-      throw new MoveLspError('character is required and must be a non-negative number', INVALID_FILE_PATH);
+    if (typeof character !== 'number' || !Number.isFinite(character) || character < 0) {
+      throw new MoveLspError('character is required and must be a non-negative finite number', INVALID_ARGUMENT);
     }
 
     return { filePath, line, character, content };
+  }
+
+  /**
+   * Validate full-range arguments (filePath, startLine, startCharacter, endLine, endCharacter)
+   * Used by range-scoped tools like move_inlay_hints.
+   */
+  function validateRangeArgs(args: any): {
+    filePath: string;
+    startLine: number;
+    startCharacter: number;
+    endLine: number;
+    endCharacter: number;
+    content?: string;
+  } {
+    const { filePath, startLine, startCharacter, endLine, endCharacter, content } = args;
+
+    if (!filePath || typeof filePath !== 'string') {
+      throw new MoveLspError('filePath is required and must be a string', INVALID_FILE_PATH);
+    }
+    for (const [name, val] of [
+      ['startLine', startLine], ['startCharacter', startCharacter],
+      ['endLine', endLine], ['endCharacter', endCharacter],
+    ] as const) {
+      if (typeof val !== 'number' || !Number.isFinite(val) || val < 0) {
+        throw new MoveLspError(`${name} is required and must be a non-negative finite number`, INVALID_ARGUMENT);
+      }
+    }
+    if (endLine < startLine || (endLine === startLine && endCharacter < startCharacter)) {
+      throw new MoveLspError('range end must not precede range start', INVALID_ARGUMENT);
+    }
+
+    return { filePath, startLine, startCharacter, endLine, endCharacter, content };
   }
 
   // Handle move_hover tool
@@ -569,12 +756,155 @@ export function createServer(): Server {
     };
   }
 
+  // Handle move_find_references tool
+  async function handleMoveFindReferences(args: any): Promise<FindReferencesResponse> {
+    const { filePath, line, character, content } = validatePositionArgs(args);
+    const includeDeclaration = args?.includeDeclaration === true;
+
+    const resolvedPath = resolve(filePath);
+    const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content);
+
+    const locations = await lspClient!.findReferences(fileUri, line, character, includeDeclaration);
+
+    log('info', 'Find-references request completed', {
+      filePath: resolvedPath, line, character,
+      includeDeclaration, locationCount: locations.length,
+    });
+
+    return { workspaceRoot, locations };
+  }
+
+  // Handle move_document_symbols tool
+  async function handleMoveDocumentSymbols(args: any): Promise<DocumentSymbolsResponse> {
+    const { filePath, content } = args;
+    if (!filePath || typeof filePath !== 'string') {
+      throw new MoveLspError('filePath is required and must be a string', INVALID_FILE_PATH);
+    }
+
+    const resolvedPath = resolve(filePath);
+    const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content);
+
+    const symbols = await lspClient!.documentSymbols(fileUri);
+
+    log('info', 'Document-symbols request completed', {
+      filePath: resolvedPath, workspaceRoot, symbolCount: symbols.length,
+    });
+
+    return { workspaceRoot, symbols };
+  }
+
+  // Handle move_type_definition tool
+  async function handleMoveTypeDefinition(args: any): Promise<TypeDefinitionResponse> {
+    const { filePath, line, character, content } = validatePositionArgs(args);
+
+    const resolvedPath = resolve(filePath);
+    const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content);
+
+    const locations = await lspClient!.typeDefinition(fileUri, line, character);
+
+    if (locations.length === 0) {
+      throw new SymbolNotFoundError('type', `${filePath}:${line}:${character}`);
+    }
+
+    log('info', 'Type-definition request completed', {
+      filePath: resolvedPath, line, character, locationCount: locations.length,
+    });
+
+    return { workspaceRoot, locations };
+  }
+
+  // Handle move_code_actions tool
+  async function handleMoveCodeActions(args: any): Promise<CodeActionsResponse> {
+    const { filePath, line, character, content } = validatePositionArgs(args);
+    const endLine = typeof args?.endLine === 'number' ? args.endLine : line;
+    const endCharacter = typeof args?.endCharacter === 'number' ? args.endCharacter : character;
+
+    if (!Number.isFinite(endLine) || endLine < 0) {
+      throw new MoveLspError('endLine must be a non-negative finite number', INVALID_ARGUMENT);
+    }
+    if (!Number.isFinite(endCharacter) || endCharacter < 0) {
+      throw new MoveLspError('endCharacter must be a non-negative finite number', INVALID_ARGUMENT);
+    }
+    if (endLine < line || (endLine === line && endCharacter < character)) {
+      throw new MoveLspError('range end must not precede range start', INVALID_ARGUMENT);
+    }
+
+    const resolvedPath = resolve(filePath);
+    // Diagnostics needs 500ms for publishDiagnostics to arrive; codeAction's
+    // server-side context depends on those cached diagnostics, so use the same delay.
+    const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content, 500);
+
+    const actions = await lspClient!.codeActions(fileUri, {
+      startLine: line, startCharacter: character,
+      endLine, endCharacter,
+    });
+
+    log('info', 'Code-actions request completed', {
+      filePath: resolvedPath, line, character, actionCount: actions.length,
+    });
+
+    return { workspaceRoot, actions };
+  }
+
+  // Handle move_inlay_hints tool
+  async function handleMoveInlayHints(args: any): Promise<InlayHintsResponse> {
+    const { filePath, startLine, startCharacter, endLine, endCharacter, content } = validateRangeArgs(args);
+
+    const resolvedPath = resolve(filePath);
+    const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content);
+
+    const hints = await lspClient!.inlayHints(fileUri, {
+      startLine, startCharacter, endLine, endCharacter,
+    });
+
+    log('info', 'Inlay-hints request completed', {
+      filePath: resolvedPath, startLine, endLine, hintCount: hints.length,
+    });
+
+    return { workspaceRoot, hints };
+  }
+
+  // Handle move_rename tool
+  // Runs prepareRename then rename; the bridge MUST NOT write the edits — the
+  // caller (agent or user) decides whether to apply them.
+  async function handleMoveRename(args: any): Promise<RenameResponse> {
+    const { filePath, line, character, content } = validatePositionArgs(args);
+    const newName = args?.newName;
+    if (typeof newName !== 'string' || newName.trim().length === 0) {
+      throw new MoveLspError('newName is required and must be a non-empty string', INVALID_ARGUMENT);
+    }
+
+    const resolvedPath = resolve(filePath);
+    const { workspaceRoot, fileUri } = await prepareDocument(resolvedPath, content);
+
+    const edits = await lspClient!.rename(fileUri, line, character, newName);
+    if (edits === null) {
+      throw new MoveLspError(
+        `Rename not available at ${filePath}:${line}:${character}`,
+        RENAME_NOT_AVAILABLE,
+        { filePath, line, character }
+      );
+    }
+
+    log('info', 'Rename request completed', {
+      filePath: resolvedPath, line, character, newName, editCount: edits.length,
+    });
+
+    return { workspaceRoot, edits };
+  }
+
   // Tool handler dispatch map
   const toolHandlers: Record<ToolName, (args: any) => Promise<any>> = {
     move_diagnostics: handleMoveDiagnostics,
     move_hover: handleMoveHover,
     move_completions: handleMoveCompletions,
     move_goto_definition: handleMoveGotoDefinition,
+    move_find_references: handleMoveFindReferences,
+    move_document_symbols: handleMoveDocumentSymbols,
+    move_type_definition: handleMoveTypeDefinition,
+    move_code_actions: handleMoveCodeActions,
+    move_inlay_hints: handleMoveInlayHints,
+    move_rename: handleMoveRename,
   };
 
   /** Type guard for valid tool names */

@@ -36,12 +36,18 @@ All docs are local and searchable. Claude reads them before generating code — 
 
 Real-time feedback from `move-analyzer`:
 
-| Tool                   | Description                                       |
-| ---------------------- | ------------------------------------------------- |
-| `move_diagnostics`     | Get compiler warnings and errors for a Move file |
-| `move_hover`           | Get type information at a position                |
-| `move_completions`     | Get completion suggestions                        |
-| `move_goto_definition` | Navigate to symbol definitions                    |
+| Tool                     | Description                                                                |
+| ------------------------ | -------------------------------------------------------------------------- |
+| `move_diagnostics`       | Get compiler warnings and errors for a Move file                           |
+| `move_hover`             | Get type information at a position                                         |
+| `move_completions`       | Get completion suggestions                                                 |
+| `move_goto_definition`   | Navigate to symbol definitions                                             |
+| `move_find_references`   | Find every call site / usage of a symbol across the workspace              |
+| `move_document_symbols`  | Return a file's full outline (modules, structs, functions, constants)      |
+| `move_type_definition`   | Jump to where a value's type is declared (distinct from goto-definition)   |
+| `move_code_actions`      | Compiler-offered quick fixes and refactorings (auto-resolved when needed)  |
+| `move_inlay_hints`       | Inferred types and parameter-name hints across a range                     |
+| `move_rename`            | Refactor-safe rename — returns proposed edits without writing them to disk |
 
 ### Slash commands
 
