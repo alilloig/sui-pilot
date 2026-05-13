@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>sui-pilot — learning artifacts</title>
+<meta name="description" content="Self-contained explainers from the sui-pilot Claude Code plugin: an evaluation framework writeup and a step-by-step tour of what enters Claude's context window during a Sui workflow." />
+<style>
+  :root {
+    --ink: #0f1115;
+    --muted: #555;
+    --faint: #7a7a7a;
+    --line: #d6d6d6;
+    --line-soft: #ececec;
+    --bg: #ffffff;
+    --bg-elev: #fafafa;
+    --accent: #0a4a8a;
+    --accent-soft: #eaf2fb;
+    --code-bg: #f4f4f4;
+    --max: 880px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 1.5rem 4rem;
+  }
+  main { max-width: var(--max); margin: 0 auto; padding-top: 3.5rem; }
+  header.page { margin-bottom: 2.5rem; padding-bottom: 1.25rem; border-bottom: 1px solid var(--line); }
+  .eyebrow {
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 0.5rem;
+  }
+  h1 {
+    font-size: 1.85rem;
+    line-height: 1.25;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .lede {
+    font-size: 1.05rem;
+    color: var(--muted);
+    margin: 0.5rem 0 0;
+    max-width: 64ch;
+  }
+  section { margin: 2rem 0; }
+  section > h2 {
+    font-size: 0.78rem;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin: 0 0 0.85rem;
+  }
+  .cards { display: grid; gap: 1rem; }
+  .card {
+    background: var(--bg-elev);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 1.1rem 1.25rem 1.2rem;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .card:hover { border-color: var(--accent); }
+  .card h3 {
+    margin: 0 0 0.25rem;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+  }
+  .card h3 a {
+    color: var(--ink);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .card:hover h3 a { color: var(--accent); border-bottom-color: var(--accent); }
+  .card .kind {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px 8px;
+    border-radius: 999px;
+    margin-bottom: 0.6rem;
+  }
+  .card p {
+    margin: 0.35rem 0 0.75rem;
+    color: var(--muted);
+    font-size: 0.95rem;
+  }
+  .card .meta {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--faint);
+  }
+  .card .meta code {
+    background: var(--code-bg);
+    border: 1px solid var(--line-soft);
+    border-radius: 3px;
+    padding: 0.05em 0.35em;
+    font-size: 0.85em;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    color: var(--ink);
+  }
+  .card .meta a { color: var(--faint); border-bottom: 1px dotted var(--faint); text-decoration: none; }
+  .card .meta a:hover { color: var(--accent); border-bottom-color: var(--accent); }
+  .card .read {
+    display: inline-block;
+    margin-top: 0.3rem;
+    font-size: 0.92rem;
+    font-weight: 500;
+    color: var(--accent);
+    text-decoration: none;
+    border-bottom: 1px solid transparent;
+  }
+  .card .read:hover { border-bottom-color: var(--accent); }
+  footer.page {
+    margin-top: 3rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid var(--line);
+    font-size: 0.85rem;
+    color: var(--faint);
+  }
+  footer.page a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; }
+  footer.page a:hover { border-bottom-color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+
+  <header class="page">
+    <div class="eyebrow">sui-pilot · learning artifacts</div>
+    <h1>Self-contained explainers from the sui-pilot plugin</h1>
+    <p class="lede">
+      Long-form HTML artifacts that travel well on their own — for sharing in chat, posting on Slack, or
+      handing to a teammate without an accompanying README. Both are static, single-file, no external requests.
+    </p>
+  </header>
+
+  <section>
+    <h2>Artifacts</h2>
+    <div class="cards">
+
+      <article class="card">
+        <span class="kind">Methodology</span>
+        <h3><a href="EVAL_FRAMEWORK.html">Evaluating Claude Code context for Sui Move development</a></h3>
+        <p>
+          The eval suite that shaped sui-pilot v2: 27 A/B tasks across Move 2024 syntax, OTW, SDK 2.0,
+          stale-training traps, multi-file refactors, and ambiguous specs — scored with literal pass/fail,
+          an LLM rubric, token economics, and an optional compile gate. Three committed baselines, with the
+          honest framing axis spelled out.
+        </p>
+        <p class="meta">
+          Source: <code>EVAL_FRAMEWORK.html</code> ·
+          <a href="https://github.com/alilloig/sui-pilot/blob/main/evals/BASELINE.md">deep numbers in evals/BASELINE.md</a>
+        </p>
+        <a class="read" href="EVAL_FRAMEWORK.html">Read the writeup →</a>
+      </article>
+
+      <article class="card">
+        <span class="kind">Interactive tour</span>
+        <h3><a href="SUI_PILOT_TOUR.html">sui-pilot lab — what's in Claude's context, step by step</a></h3>
+        <p>
+          An interactive dashboard that walks through a real Sui workflow and shows exactly what enters
+          Claude's context window at every step — bundled docs, MCP tool calls, skill payloads, agent
+          file. Useful for explaining why a doc-first plugin behaves differently from a vanilla model.
+        </p>
+        <p class="meta">
+          Source: <code>SUI_PILOT_TOUR.html</code>
+        </p>
+        <a class="read" href="SUI_PILOT_TOUR.html">Open the lab →</a>
+      </article>
+
+    </div>
+  </section>
+
+  <footer class="page">
+    Plugin repo: <a href="https://github.com/alilloig/sui-pilot">github.com/alilloig/sui-pilot</a> ·
+    Published via GitHub Pages from the <code>main</code> branch.
+  </footer>
+
+</main>
+</body>
+</html>
