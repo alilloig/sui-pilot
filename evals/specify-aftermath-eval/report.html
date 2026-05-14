@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>/specify — Live-Run Evaluation against Aftermath AMM</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root {
+    --bg:#0b0d10; --panel:#14171c; --panel-2:#1a1e25; --line:#232a33;
+    --text:#e5e7eb; --muted:#9aa3ad; --accent:#6ea8ff;
+    --warn:#f4b740; --crit:#ef6e6e; --ok:#5dd39e; --info:#8b8de0;
+    --mono: ui-monospace, SFMono-Regular, "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  html,body{background:var(--bg);color:var(--text);}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    max-width:1080px;margin:0 auto;padding:32px 24px 64px;line-height:1.55;
+  }
+  h1{font-size:26px;margin:0 0 6px;letter-spacing:-0.01em;}
+  h2{font-size:18px;margin:36px 0 12px;padding-bottom:6px;border-bottom:1px solid var(--line);}
+  h3{font-size:13px;margin:16px 0 6px;color:var(--accent);text-transform:uppercase;letter-spacing:0.05em;}
+  p{margin:0 0 12px;}
+  code,pre,.mono{font-family:var(--mono);font-size:12.5px;}
+  pre{background:var(--panel);border:1px solid var(--line);padding:12px 14px;border-radius:6px;overflow-x:auto;color:#cbd2da;}
+  .meta{color:var(--muted);font-size:12.5px;margin-bottom:24px;}
+  .meta code{color:#cbd2da;}
+
+  .badge{display:inline-block;padding:2px 8px;border-radius:999px;font-size:11px;font-family:var(--mono);letter-spacing:0.05em;text-transform:uppercase;vertical-align:middle;}
+  .badge.pass{background:rgba(93,211,158,0.12);color:var(--ok);border:1px solid rgba(93,211,158,0.3);}
+  .badge.partial{background:rgba(244,183,64,0.13);color:var(--warn);border:1px solid rgba(244,183,64,0.3);}
+  .badge.fail{background:rgba(239,110,110,0.13);color:var(--crit);border:1px solid rgba(239,110,110,0.3);}
+  .badge.nrun{background:rgba(155,163,173,0.13);color:var(--muted);border:1px solid rgba(155,163,173,0.3);}
+  .badge.bug{background:rgba(239,110,110,0.13);color:var(--crit);border:1px solid rgba(239,110,110,0.3);}
+  .badge.gap{background:rgba(244,183,64,0.13);color:var(--warn);border:1px solid rgba(244,183,64,0.3);}
+  .badge.ux {background:rgba(139,141,224,0.16);color:var(--info);border:1px solid rgba(139,141,224,0.35);}
+  .badge.win{background:rgba(93,211,158,0.12);color:var(--ok);border:1px solid rgba(93,211,158,0.3);}
+
+  .panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:14px 18px;margin:12px 0;}
+  .panel.warn{border-color:rgba(244,183,64,0.4);}
+  .panel.crit{border-color:rgba(239,110,110,0.4);}
+  .panel.ok  {border-color:rgba(93,211,158,0.35);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;margin:8px 0 16px;}
+  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top;}
+  th{color:var(--muted);font-weight:500;font-size:11.5px;text-transform:uppercase;letter-spacing:0.05em;}
+  td.num{text-align:right;font-variant-numeric:tabular-nums;}
+  td.tight{white-space:nowrap;}
+
+  dl.kv{display:grid;grid-template-columns:200px 1fr;gap:6px 12px;font-size:13px;margin:8px 0 16px;}
+  dl.kv dt{color:var(--muted);font-family:var(--mono);}
+  dl.kv dd{margin:0;}
+
+  ul{padding-left:20px;margin:4px 0 12px;}
+  li{margin:3px 0;}
+
+  .finding-id{display:inline-block;font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-right:6px;}
+  .quote{border-left:3px solid var(--accent);padding:4px 12px;color:#cbd2da;background:var(--panel-2);margin:8px 0;border-radius:3px;font-size:13px;}
+
+  footer{color:var(--muted);font-size:11.5px;margin-top:40px;text-align:center;}
+</style>
+</head>
+<body>
+
+<h1>/specify — Live-Run Evaluation against Aftermath AMM <span class="badge partial">Conditional Pass</span></h1>
+<div class="meta">
+  Target session: <code>~/workspace/move-amm-public</code> · Skill: <code>sui-pilot:specify</code> ·
+  Observer worktree: <code>specify-aftermath-eval</code> ·
+  Observed: 2026-05-14 15:09 – 15:16 PT · sui-prover 1.5.3 · sui 1.69.2
+</div>
+
+<div class="panel ok">
+  <strong>Headline.</strong> Under a "no-pause" user directive, <code>/specify</code> ran a clean Phase 0 probe,
+  reached the dep-resolution wall on a real private-repo blocker, and exited cleanly with both required
+  artifacts (<code>.specify-progress.json</code> + <code>.specify-report.html</code>) — including a structured
+  "options to unblock" section. <strong>Three documented phases were skipped or deferred</strong> (move-lsp
+  compile gate, per-function <code>AskUserQuestion</code> batches, the prove loop itself) — two of those skips
+  are forced by the blocker and one is the unspecced no-pause heuristic.
+</div>
+
+<h2>Methodology</h2>
+<p>
+  Observation was non-intrusive. A second Claude Code session (this one) was opened in a sibling worktree of
+  the <code>sui-pilot</code> repo. Two persistent monitors were armed against the live
+  <code>move-amm-public</code> session: a <code>tail -F</code> on its JSONL transcript at
+  <code>~/.claude/projects/-Users-alilloig-workspace-move-amm-public/d97b0e27-…jsonl</code> (filtered to
+  prover / spec / AskUser / write / error events), and a 5-second mtime poll on
+  <code>packages/**/*.move</code>, <code>Move.toml</code>, and the two
+  <code>.specify-*</code> artifact paths. No edits were made to the target repo.
+</p>
+<p>Evaluation framing follows the contract documented in <code>skills/specify/SKILL.md</code> (phases 0–5,
+  non-interactive mode contract, and resumability requirements).</p>
+
+<h2>Phase Scoreboard</h2>
+<table>
+  <thead><tr><th>Phase</th><th class="tight">Status</th><th>Evidence / Notes</th></tr></thead>
+  <tbody>
+    <tr>
+      <td><strong>Phase 0a</strong><br/><code>prover_capabilities</code> probe</td>
+      <td class="tight"><span class="badge pass">Pass</span></td>
+      <td>Called twice — once against <code>packages/amm/Move.toml</code> (initial scope guess) then against <code>packages/amm-math/Move.toml</code> after the agent narrowed scope. Both returned <code>setup_warnings: []</code>, <code>binary.found: true</code>, sui-prover 1.5.3, sui 1.69.2. Cloud config absent (local-only mode). The probe ran exactly as the skill prescribes.</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 0b</strong><br/><code>move_diagnostics</code> compile gate</td>
+      <td class="tight"><span class="badge fail">Skipped</span></td>
+      <td><strong>0 calls to <code>mcp__plugin_sui-pilot_move-lsp__move_diagnostics</code>.</strong> The skill explicitly mandates step 2 of Phase 0: <em>"Call <code>move_diagnostics</code> with <code>scope: 'file'</code> on any one <code>.move</code> file under <code>sources/</code> to confirm the package compiles before we start writing into it."</em> Had this fired, the missing-dep failure would have surfaced 5–10 tool calls earlier, before the agent spent its budget on a full function inventory. See <a href="#F-GAP-01">GAP-01</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 1</strong><br/>Discover externally-reachable fns</td>
+      <td class="tight"><span class="badge pass">Pass</span></td>
+      <td>Inventoried <strong>130 + 47 + 51 + 1 = 229</strong> public/entry functions across the four packages. Used regex on raw <code>.move</code> text (correct — matches skill spec: "Use the regex contract in <code>references/spec-patterns.md</code> §1 — <strong>not</strong> <code>move_document_symbols</code>"). <code>list_specs</code> confirmed zero pre-existing <code>#[spec(...)]</code> annotations → greenfield.</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 1b</strong><br/>Scope narrowing</td>
+      <td class="tight"><span class="badge partial">Improvised</span></td>
+      <td>Agent autonomously cut scope from 4 packages (~229 fns) → <code>amm-math</code> only (47 fns) → "calc_invariant + calc_out_given_in" pair (2 fns). The skill spec doesn't document a scope-narrowing gate at all — it implies all externally-reachable fns are in-scope. Under a "no-pause" verbal directive (not <code>SPECIFY_AUTO_DEFAULTS=1</code>), the agent chose well, but this prioritization heuristic is undocumented. See <a href="#F-GAP-02">GAP-02</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 2</strong><br/>Per-function <code>AskUserQuestion</code></td>
+      <td class="tight"><span class="badge nrun">N/R</span></td>
+      <td>Not reachable — blocked by deps. Notably, even before the blocker was discovered, <strong>0 AskUserQuestion calls were issued</strong>, on the agent's reading of the user's verbal "no-pause" directive. The skill's non-interactive contract is keyed on <code>SPECIFY_AUTO_DEFAULTS=1</code>, not on a chat directive. See <a href="#F-GAP-03">GAP-03</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 3</strong><br/>Draft <code>#[spec(prove)]</code> twins</td>
+      <td class="tight"><span class="badge pass">Pass (with new pattern)</span></td>
+      <td>After Option B unblock, agent authored: (1) <code>specify_axioms.move</code> as a sidecar file with five <code>#[spec(skip, target=fixed::*)]</code> axiomatizing functions (<code>mul_down</code>, <code>mul_up</code>, <code>ln</code>, <code>exp</code>, <code>exp_up</code>), and (2) the actual <code>#[spec(prove, ignore_abort)] fun calc_invariant_full_spec(...)</code> inline at line 2435 of <code>geometric_mean_calculations.move</code>. Notable departures from the skill's prose: (a) sidecar file pattern instead of inline-only, (b) cross-module <code>#[spec(target = ...)]</code> usage even though the skill says cross-package is deferred. See <a href="#F-WIN-03">WIN-03</a>, <a href="#F-GAP-06">GAP-06</a>.</td>
+    </tr>
+    <tr>
+      <td><strong>Phase 4</strong><br/><code>prove_package</code> + failure-taxonomy loop</td>
+      <td class="tight"><span class="badge pass">Pass (after 3 iterations)</span></td>
+      <td>
+        <strong>Iteration 1:</strong> empirical probe with no specs → address conflict (<a href="#F-GAP-04">GAP-04</a>, <a href="#F-GAP-05">GAP-05</a>).<br/>
+        <strong>Iteration 2:</strong> first <code>#[spec(target = ...)]</code> axioms with <code>fresh()</code> bodies → <em>"Spec function should call target function"</em> (<a href="#F-GAP-06">GAP-06</a>).<br/>
+        <strong>Iteration 3:</strong> switched to <code>#[spec(skip, target = ...)]</code> per <code>pure-reachable.move</code> example → <code>raw_stdout: "✅ calc_invariant_full_spec_Check … Verification successful"</code> — but MCP summary still reported <code>verified: 0, findings: []</code> (<a href="#F-BUG-03">BUG-03</a>). End-to-end Phase 4 success on the weighted geometric-mean invariant despite stub-callee deps. See <a href="#F-WIN-03">WIN-03</a>.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Phase 5</strong><br/>Persist progress + emit report</td>
+      <td class="tight"><span class="badge pass">Pass</span></td>
+      <td>Both artifacts landed at the spec'd paths: <code>.specify-progress.json</code> (5.3 KB, <code>status: "blocked"</code>, structured <code>blocker.kind: "private_dependencies_unreachable"</code>, <code>unreachable_deps[]</code>, <code>options_for_user[]</code>) and <code>.specify-report.html</code> (self-contained, dark theme, A/B/C/D unblock options, package inventory table). Schema-version stamped. See <a href="#F-WIN-01">WIN-01</a>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Findings</h2>
+
+<h3 id="F-GAP-01"><span class="finding-id">GAP-01</span><span class="badge gap">Gap</span> Phase 0b compile-gate skipped — discovered the blocker the hard way</h3>
+<div class="panel warn">
+  <p>The skill's Phase 0 has two steps. Step 1 (<code>prover_capabilities</code>) ran twice; step 2 (<code>move_diagnostics scope: 'file'</code>) ran zero times. As a result, the agent only learned the package can't compile after running the full Phase 1 inventory and trying <code>sui move build</code> manually via Bash.</p>
+  <p><strong>Impact.</strong> 7+ extra Bash calls, ~3 minutes of wasted budget, and a wasted full-package <code>find</code>/<code>grep</code> sweep. On a 229-function repo, deferring the compile-health gate is the difference between a 2-minute "blocked" report and a 15-minute one.</p>
+  <p><strong>Recommendation.</strong> In <code>skills/specify/SKILL.md</code> §"Phase 0", elevate the <code>move_diagnostics</code> call from a step in prose to a hard gate: if it returns any <code>severity: 'error'</code> diagnostic mentioning <code>unresolved external module</code> or git fetch failures, surface them verbatim in <code>.specify-progress.json</code> as <code>blocker.kind: "compile_unresolvable"</code> and exit before Phase 1. Optionally add a sentence: <em>"do not begin function inventory until the diagnostics pass returns ≥ one resolvable file"</em>.</p>
+</div>
+
+<h3 id="F-GAP-02"><span class="finding-id">GAP-02</span><span class="badge gap">Gap</span> Scope-narrowing is an undocumented heuristic</h3>
+<div class="panel warn">
+  <p>The skill spec treats "every externally-reachable function" as the target set and says Phase 2 asks the user per-function. The agent here improvised a three-level scope cut (package → file → 2 functions) entirely on its own. This is reasonable for an AMM with 229 surface functions and a "no-pause" caller, but it isn't in the skill.</p>
+  <p><strong>Impact.</strong> Behavior is implementation-defined when scope is large. Different model checkpoints will narrow differently.</p>
+  <p><strong>Recommendation.</strong> Add an explicit "Phase 1.5 — Scope" section to the skill: if external-fn count exceeds N (suggest 25), prompt the user with three choices (whole package, prioritized subset, single function); under non-interactive mode, pick "prioritized subset" using a documented ranking (e.g., invariant > swap > deposit/withdraw > getters > admin caps). Codifying it makes evals reproducible.</p>
+</div>
+
+<h3 id="F-GAP-03"><span class="finding-id">GAP-03</span><span class="badge gap">Gap</span> Verbal "no-pause" silently activates non-interactive contract</h3>
+<div class="panel warn">
+  <p>The skill's "Non-interactive (eval) mode" contract activates only when <code>SPECIFY_AUTO_DEFAULTS=1</code> is in the environment. In this session the user said in chat <em>"work without stopping for clarifying questions"</em> and the agent applied the non-interactive contract anyway — skipping every <code>AskUserQuestion</code> gate, picking the first-option default, etc.</p>
+  <p><strong>Impact.</strong> The right thing happened by accident: skipping AskUser was the only sensible response. But the contract is now bypassed via two unrelated channels (env var + verbal directive), with no recorded signal in the transcript that the agent took the non-interactive branch.</p>
+  <p><strong>Recommendation.</strong> Either (a) extend the skill's non-interactive section to recognize a verbal directive ("if the user has explicitly said don't pause / proceed autonomously / no questions, behave as if <code>SPECIFY_AUTO_DEFAULTS=1</code>"), or (b) require the agent to surface a one-line acknowledgement in chat — <em>"entering non-interactive mode: picking defaults at every gate"</em> — so the elision is auditable.</p>
+</div>
+
+<h3 id="F-BUG-01"><span class="finding-id">BUG-01</span><span class="badge bug">Bug</span> Cross-tool flag confusion: <code>--skip-fetch-latest-git-deps</code></h3>
+<div class="panel crit">
+  <p>The <code>prover_capabilities</code> response advertises <code>--skip-fetch-latest-git-deps</code> as a supported sui-prover 1.5.3 flag. The agent then attempted <code>sui move build --skip-fetch-latest-git-deps</code> — which fails on sui 1.69.2:</p>
+  <pre>error: unexpected argument '--skip-fetch-latest-git-deps' found
+Usage: sui move build [OPTIONS]</pre>
+  <p>The flag exists on <strong><code>sui-prover</code></strong> the binary, but not on the <strong><code>sui move build</code></strong> subcommand of the Sui CLI. This is a category error: <code>prover_capabilities</code> exposes a flag list whose audience is <em>the prover</em>, not <em>the Sui CLI</em>, but a downstream agent reading the JSON cannot tell.</p>
+  <p><strong>Impact.</strong> Low — one wasted Bash call. But the wrong inference is easy to make and survives many model refreshes.</p>
+  <p><strong>Recommendation.</strong> In <code>sui-prover-mcp</code>'s <code>prover_capabilities</code> response, label the <code>supported_flags</code> field explicitly as <code>"sui_prover_flags"</code> rather than the ambiguous <code>"supported_flags"</code>. Optionally include a separate <code>"sui_cli_flags"</code> field probing <code>sui move build --help</code>. Alternatively, the skill text can pre-empt this by saying "<code>supported_flags</code> describes <code>sui-prover</code>'s CLI, not <code>sui move build</code>'s — never pass these to <code>sui move build</code>".</p>
+</div>
+
+<h3 id="F-UX-01"><span class="finding-id">UX-01</span><span class="badge ux">UX</span> Probe greens-up on a fundamentally un-buildable package</h3>
+<div class="panel warn">
+  <p>Every <code>Move.toml</code> in this repo passed <code>prover_capabilities</code>'s <code>setup_warnings</code> check (which inspects edition + explicit Sui/MoveStdlib deps). But the packages are <em>not actually buildable</em> on this machine. The probe's success/failure signal misled the agent into starting Phase 1 before any compile attempt.</p>
+  <p><strong>Recommendation (server-side).</strong> Add a lightweight dep-reachability check to <code>prover_capabilities</code>: parse <code>[dependencies]</code> from the supplied <code>Move.toml</code>, for each git URL run <code>git ls-remote --exit-code</code> with a 3s timeout, and surface unreachable ones as <code>setup_warnings: [{ kind: "private_dependency", url: "…" }]</code>. Cheaper than a full <code>sui move build --fetch-deps-only</code> and catches the most common real-world blocker.</p>
+  <p><strong>Recommendation (skill-side).</strong> Even without the server change, the skill's Phase 0b move_diagnostics step (see GAP-01) would catch this — so they reinforce each other.</p>
+</div>
+
+<h3 id="F-WIN-01"><span class="finding-id">WIN-01</span><span class="badge win">Win</span> Blocked-state artifact quality exceeds the documented contract</h3>
+<div class="panel ok">
+  <p>The skill spec asks for "a self-contained HTML audit at <code>.specify-report.html</code> on completion" and a resumable <code>.specify-progress.json</code>. What landed:</p>
+  <ul>
+    <li><strong><code>.specify-progress.json</code></strong> — schema-versioned, with structured <code>blocker.kind</code>, an <code>unreachable_deps[]</code> array carrying URL+subdir+rev+purpose for each, environment block, full package inventory, <code>completed_work[]</code>, <code>next_actions_if_unblocked[]</code>, and <code>options_for_user[]</code>. A future <code>/specify</code> resume has everything it needs without re-running discovery.</li>
+    <li><strong><code>.specify-report.html</code></strong> — self-contained, dark-themed, semantic markup, four severity-coded sections (Environment ✓, Unreachable Deps ✗, Package Inventory ✓, What Got Done ✓), and four recommended unblock paths each with a concrete action. Marked "(Recommended)" on option A.</li>
+  </ul>
+  <p><strong>Recommendation.</strong> Promote the structured blocker shape to a documented schema in <code>skills/specify/references/</code> so future runs (and external eval harnesses) can rely on it.</p>
+</div>
+
+<h3 id="F-GAP-04"><span class="finding-id">GAP-04</span><span class="badge gap">Gap</span> <code>prove_package</code> dumps 105 KB of raw stdout on trivial build failures</h3>
+<div class="panel warn">
+  <p>The agent invoked <code>prove_package</code> on <code>amm-math</code> with no specs authored, partly as an empirical probe. The Move build failed before any spec evaluation could happen (named-address conflict, see GAP-05), yet the MCP tool returned the full sui-prover JSON envelope plus the entire prover <code>raw_stdout</code> — 107,265 characters / 105 KB — which exceeded the tool result token cap and got spilled to a sidecar file.</p>
+  <p><strong>Impact.</strong> Forces a sidecar file read and Bash/jq parsing on what should be a one-line "build failed before specs" outcome. Costs an extra round-trip for every routine compile failure during /specify iteration.</p>
+  <p><strong>Recommendation.</strong> In <code>sui-prover-mcp</code>'s <code>prove_package</code> handler, detect the (exit_code ≠ 0 AND no spec evaluated AND raw_stdout contains compile-error patterns) shape and short-circuit: return a compact <code>{kind: "compile_failure", reason: "<first-line-of-stderr>", raw_stdout_path: "<sidecar>"}</code> envelope under, say, 1 KB. Leave the sidecar for diagnostics but don't put it in the primary tool result. The same rule applies to dep-fetch failures and address-resolution failures.</p>
+</div>
+
+<h3 id="F-GAP-05"><span class="finding-id">GAP-05</span><span class="badge gap">Gap</span> Dep-substitution address conflicts surface as <code>kind: "unknown"</code></h3>
+<div class="panel warn">
+  <p>When the agent applied Option B (local <code>utilities</code> clone), the patched <code>Move.toml</code> introduced a named-address conflict (<code>utilities = 0x73baa782c5…</code> from the local copy vs <code>0x10</code> from somewhere else in the dep graph). The MCP wrapper categorized this as <code>kind: "unknown"</code>:</p>
+  <pre>"findings": [{
+  "kind": "unknown",
+  "severity": "error",
+  "message": "sui-prover exited with code 1 but produced no parseable findings"
+}]</pre>
+  <p><strong>Impact.</strong> Without a structured kind, the skill's failure-taxonomy (<code>references/failure-taxonomy.md</code>) has no entry to match against. The agent must parse raw_stdout to discover what went wrong — exactly the pattern the taxonomy exists to prevent.</p>
+  <p><strong>Recommendation.</strong> Extend the prover-output parser with finding kinds for the most common pre-spec failure modes:</p>
+  <ul>
+    <li><code>kind: "dep_address_conflict"</code> — when <code>raw_stdout</code> contains <em>"Conflicting assignments for address"</em></li>
+    <li><code>kind: "unresolved_named_address"</code> — when it contains <em>"Unable to resolve named address"</em></li>
+    <li><code>kind: "unresolved_module"</code> — <em>"Unbound module"</em></li>
+    <li><code>kind: "dep_fetch_failure"</code> — <em>"Repository not found"</em> or git-clone errors</li>
+    <li><code>kind: "no_specs_to_prove"</code> — exit_code 0, zero specs found (currently silently invisible)</li>
+  </ul>
+  <p>Then update <code>references/failure-taxonomy.md</code> with one row per kind, including the recommended fix (e.g., "address conflict → check duplicate <code>[addresses]</code> blocks in Move.toml, or run with <code>--default-move-edition 2024</code>").</p>
+</div>
+
+<h3 id="F-BUG-02"><span class="finding-id">BUG-02</span><span class="badge bug">Bug</span> <code>summary</code> reports 0/0/0/0 while a separate <code>findings[]</code> says "error"</h3>
+<div class="panel crit">
+  <p>The <code>prove_package</code> response on the address-conflict failure:</p>
+  <pre>"summary": { "verified": 0, "failed": 0, "skipped": 0, "timeouts": 0 },
+"findings": [{ "kind": "unknown", "severity": "error",
+                "message": "sui-prover exited with code 1 but produced no parseable findings" }]</pre>
+  <p>An agent (or a downstream eval rig) consuming only <code>summary</code> would conclude "nothing happened, all 0s" — which is true at the spec level but misleading: the run materially failed. The two fields disagree on whether anything went wrong.</p>
+  <p><strong>Recommendation.</strong> Make <code>summary</code> include a non-numeric overall status — e.g., <code>summary.overall: "compile_failure" | "no_specs" | "verified_all" | "failed_some" | "timeout"</code>. Numeric tallies stay for spec-level reporting, but the status field gives a single trustworthy answer to "did the run succeed?".</p>
+</div>
+
+<h3 id="F-WIN-02"><span class="finding-id">WIN-02</span><span class="badge win">Win</span> Agent caught the stub-callee trap before drafting specs</h3>
+<div class="panel ok">
+  <p>After Option B unblocked the build, the agent read <code>utilities::fixed</code> source and noticed every function body is <code>abort 0</code> (the public on-chain bytecode interface with private real source). It paused and said: <em>"Wait — the public utilities is stub-only (abort 0 bodies for every fn). Let me see what sui-prover does with this before committing to a strategy."</em> — then ran <code>prove_package</code> empirically rather than authoring specs that would silently verify against trivial abstractions.</p>
+  <p><strong>Significance.</strong> This is the kind of awareness the skill spec doesn't currently teach. With stub callees, every caller's verification is vacuous (every path aborts), so a "verified" spec means nothing. The agent caught it; the skill should codify the check.</p>
+  <p><strong>Recommendation.</strong> Add a Phase 1.5 callee-quality probe to the skill: for each callee inside an external function body, check the callee's module source — if every public function body is <code>abort 0</code> or <code>native</code>, flag the dep as a stub and either (a) require user-supplied abstractions (<code>#[spec_only] axiom</code>) before specs can be drafted, or (b) downgrade the verification claim to "spec drafted, not verified — callee module is stub-only".</p>
+</div>
+
+<h3 id="F-GAP-06"><span class="finding-id">GAP-06</span><span class="badge gap">Gap</span> <code>#[spec(target = ...)]</code> body-call requirement is undocumented</h3>
+<div class="panel warn">
+  <p>The sui-prover's bytecode-transformation phase rejects a <code>#[spec(target = fixed::mul_up)]</code> function whose body doesn't <em>call</em> <code>fixed::mul_up</code>. The agent's first axiom drafts used <code>fresh()</code> bodies (a common Move Prover idiom) and got:</p>
+  <pre>error: Spec function `specify_axioms::mul_up_spec` should call target function `fixed::mul_up`
+   ┌─ ./sources/specify_axioms.move:33:5</pre>
+  <p>The skill spec doesn't mention this constraint. Neither does <code>skills/specify/references/failure-taxonomy.md</code>. The agent recovered by reading <code>asymptotic-code/sui-prover</code>'s <code>pure-reachable.move</code> example and switching to <code>#[spec(skip, target = ...)]</code> — but the path from error → fix required two iterations and a doc dive.</p>
+  <p><strong>Recommendation.</strong> Add to <code>references/failure-taxonomy.md</code>:</p>
+  <pre>spec_target_body_no_call:
+  signal: "Spec function ... should call target function"
+  cause: "#[spec(target = X)] requires the body to call X, or use the skip attr."
+  fix:   "Add `skip` attribute: `#[spec(skip, target = X)]` — marks as opaque
+          axiom without verifying the body. Use this for stub callees."
+  example: pure-reachable.move</pre>
+  <p>Also document the <code>#[spec(skip, target = ...)]</code> idiom as the canonical way to axiomatize external/stubbed dependencies — the skill currently doesn't teach this pattern at all.</p>
+</div>
+
+<h3 id="F-UX-03"><span class="finding-id">UX-03</span><span class="badge ux">UX</span> <code>raw_stderr</code> ships full ANSI escape sequences</h3>
+<div class="panel warn">
+  <p>On a failed run, the MCP returned <code>raw_stderr</code> containing the prover's full colored Boogie error output — including ANSI escape sequences like <code>[0m[1m[38;5;9merror[0m</code> for every error line. A 5-error response was ~3 KB of escape codes wrapped around ~600 chars of actual content.</p>
+  <p><strong>Impact.</strong> Agents and downstream tooling must strip ANSI codes before regex-matching the structured error text inside. Visible in the transcript, the agent's grep patterns had to account for the embedded escape sequences.</p>
+  <p><strong>Recommendation.</strong> In <code>sui-prover-mcp</code>, strip ANSI escape codes from <code>raw_stdout</code> and <code>raw_stderr</code> before returning. Add a separate <code>raw_stderr_ansi</code> field if a UI ever wants the colored version, but the default should be machine-friendly plain text.</p>
+</div>
+
+<h3 id="F-BUG-03"><span class="finding-id">BUG-03</span><span class="badge bug">Bug</span> MCP fails to parse <em>successful</em> prover output — summary stays 0/0/0/0</h3>
+<div class="panel crit">
+  <p>The most critical finding from the full run. On Iteration 3 the prover succeeded:</p>
+  <pre>raw_stdout: "🔄 0x15::specify_axioms_SpecNoAbortCheck
+              ✅ 0x15::specify_axioms_SpecNoAbortCheck
+              🔄 geometric_mean_calculations::calc_invariant_full_spec_Check
+              ✅ geometric_mean_calculations::calc_invariant_full_spec_Check
+              ✅ geometric_mean_calculations::calc_invariant_full_spec_Assume
+              ✅ geometric_mean_calculations::calc_invariant_full_spec_SpecNoAbortCheck
+              ⏭️ specify_axioms::exp_spec at ./sources/specify_axioms.move:42
+              ⏭️ specify_axioms::exp_up_spec at ./sources/specify_axioms.move:47
+              ⏭️ specify_axioms::ln_spec at ./sources/specify_axioms.move:37
+              ⏭️ specify_axioms::mul_down_spec at ./sources/specify_axioms.move:27
+              ⏭️ specify_axioms::mul_up_spec at ./sources/specify_axioms.move:32
+              Verification successful"
+exit_code: 0</pre>
+  <p>The MCP envelope:</p>
+  <pre>"summary": { "verified": 0, "failed": 0, "skipped": 0, "timeouts": 0 }
+"findings": []</pre>
+  <p>Four ✅ verifications + five ⏭️ skips + a literal "Verification successful" line, and the structured fields report zero of everything. Any agent or eval rig that trusts the summary will conclude the run did nothing — the exact opposite of the truth.</p>
+  <p><strong>Impact (critical).</strong> The skill's automation, the eval harness, and any future CI integration all depend on <code>summary</code> and <code>findings</code> being authoritative. They're not. Right now, "did the prover succeed?" requires re-grepping <code>raw_stdout</code> — at which point the structured envelope is dead weight.</p>
+  <p><strong>Recommendation.</strong> In <code>sui-prover-mcp</code>'s <code>prove_package</code> handler, parse the prover's per-spec output lines:</p>
+  <ul>
+    <li><code>✅ &lt;qualified_name&gt;</code> → <code>summary.verified++</code> and append <code>{kind: "verified", function_under_test, location}</code> to <code>findings</code>.</li>
+    <li><code>❌ &lt;qualified_name&gt; at &lt;loc&gt;</code> → <code>summary.failed++</code> and append <code>{kind: "failed", function_under_test, location, counterexample}</code>.</li>
+    <li><code>⏭️ &lt;qualified_name&gt; at &lt;loc&gt;</code> → <code>summary.skipped++</code> and append <code>{kind: "skipped"}</code>.</li>
+    <li><code>⏱ &lt;qualified_name&gt;</code> (timeout marker if used) → <code>summary.timeouts++</code>.</li>
+  </ul>
+  <p>This is the single highest-leverage fix in the sui-prover-mcp surface — every other finding in this report becomes secondary if the structured output is wrong.</p>
+</div>
+
+<h3 id="F-WIN-03"><span class="finding-id">WIN-03</span><span class="badge win">Win</span> Full <code>amm-math</code> external surface verified — 47 specs end-to-end</h3>
+<div class="panel ok">
+  <p>Despite every friction in this report — private deps, stub callees, undocumented target-body constraint, MCP output-parser blindness — the agent reached <strong>100% spec coverage of the externally-reachable surface of <code>packages/amm-math</code></strong>. Counts at session end:</p>
+  <table>
+    <thead><tr><th>File</th><th class="num">Verified specs</th><th>Coverage</th></tr></thead>
+    <tbody>
+      <tr><td><code>geometric_mean_calculations.move</code></td><td class="num">20</td><td>Invariant family (4) + spot price (4) + swap math (4) + deposit/withdraw (5) + all_coin_(de|with)posit (2) + bonuses</td></tr>
+      <tr><td><code>stable_calculations.move</code></td><td class="num">27</td><td>Curve-style stable curve: invariant (Newton's-method), valid-swap checks, deposit/withdraw guards, all 27 public fns</td></tr>
+      <tr><td><code>interface.move</code></td><td class="num">0</td><td>Module body entirely commented out — agent correctly skipped (0 fns to spec)</td></tr>
+      <tr><th>Total</th><th class="num">47</th><th>matches the 47 externally-reachable functions originally inventoried</th></tr>
+    </tbody>
+  </table>
+  <p>For each spec the prover emitted three checks (<code>_Check</code> postcondition, <code>_Assume</code> modular soundness, <code>_SpecNoAbortCheck</code> spec doesn't abort) — <strong>141 verification subchecks total, 0 failures, 0 timeouts</strong>.</p>
+  <p><strong>Twenty-two callee axioms</strong> registered in <code>specify_axioms.move</code> via <code>#[spec(skip, target = fixed::*)]</code> — covering <code>mul_down/up</code>, <code>mul_down_128</code>, <code>div_down/up</code>, <code>div_down_128</code>, <code>mul_by_fraction</code> family, <code>ln</code>, <code>exp(_up)</code>, <code>pow_down/up</code>, <code>sqrt</code>, <code>complement(_64)</code>, conversion fns, and the <code>close_enough_*</code> / <code>very_close_int</code> comparison helpers. The full fixed-point math API surface that <code>amm-math</code> touches is now axiomatically modeled.</p>
+  <p><strong>Significance.</strong> Forty-seven real specs on a real, production AMM math kernel — covering both weighted geometric mean and Curve stable curve — verified against axiomatic callees in a single agentic /specify session. The feature is conclusively workable on hard real-world Move code. This report's GAP/BUG/UX items are friction in the surrounding tooling, not capability gaps. Caveat: every <code>#[spec(prove)]</code> uses <code>ignore_abort</code> — these are postcondition smoke tests, not full abort-safety proofs. A follow-up pass should remove <code>ignore_abort</code> and add precise <code>asserts(...)</code> for each abort condition.</p>
+  <p><strong>Recommendation.</strong> Promote both new patterns in the skill prose:</p>
+  <ul>
+    <li><strong>Sidecar axiom file</strong> (<code>specify_axioms.move</code>) — a dedicated source file inside the target package collecting <code>#[spec(skip, target = …)]</code> declarations for external/stubbed callees. Cleaner than inlining axioms next to every spec block.</li>
+    <li><strong><code>#[spec(skip, target = ...)]</code> idiom</strong> — the canonical way to give the prover an opaque summary of a callee without verifying the callee's body. Should be the headline pattern in <code>references/spec-patterns.md</code> for any package with private or non-source dependencies.</li>
+  </ul>
+  <p>The skill currently says cross-package <code>#[spec(target = ...)]</code> generation is "deferred." It works in practice and should be promoted from deferred to documented.</p>
+</div>
+
+<h3 id="F-UX-02"><span class="finding-id">UX-02</span><span class="badge ux">UX</span> Live session deleted in-progress tasks instead of marking them blocked</h3>
+<div class="panel warn">
+  <p>On exit, the session deleted tasks #3 ("Spec calc_invariant_full/up_full"), #4 ("Spec calc_out_given_in/_direct"), and #5 ("Run sui-prover + iterate"). These weren't wrong — they were the right next steps the user can come back to. Deletion erases the resumption breadcrumb that <code>.specify-progress.json</code> spent paragraphs building up elsewhere.</p>
+  <p><strong>Recommendation.</strong> When <code>/specify</code> hits a hard blocker, leave downstream tasks as <code>pending</code> (or move them to a "blocked" status) rather than deleting them. The session-local task list and the package-level progress JSON should agree on what's outstanding.</p>
+</div>
+
+<h2>Tool-Call Frequency <span class="badge nrun">Observed</span></h2>
+<table>
+  <thead><tr><th>Tool</th><th class="num">Calls</th><th>Skill-spec expectation</th></tr></thead>
+  <tbody>
+    <tr><td><code>Bash</code></td><td class="num">23</td><td>Inventory + dep diagnosis (heavy because LSP gate was skipped).</td></tr>
+    <tr><td><code>TaskUpdate</code></td><td class="num">9</td><td>Internal task lifecycle (not a skill-spec'd tool).</td></tr>
+    <tr><td><code>TaskCreate</code></td><td class="num">6</td><td>Plan scaffold for 6-step pipeline.</td></tr>
+    <tr><td><code>Skill</code></td><td class="num">2</td><td>One invocation; one re-entry after plugin reload.</td></tr>
+    <tr><td><code>Write</code></td><td class="num">2</td><td><code>.specify-progress.json</code> + <code>.specify-report.html</code> — exactly as spec'd.</td></tr>
+    <tr><td><code>Read</code></td><td class="num">2</td><td>One <code>.move</code> file, one <code>README.md</code> (very low — no spec drafting reached).</td></tr>
+    <tr><td><code>mcp__plugin_sui-pilot_sui-prover__prover_capabilities</code></td><td class="num">2</td><td>Spec calls for: yes. Called per-package after scope narrow.</td></tr>
+    <tr><td><code>mcp__plugin_sui-pilot_sui-prover__list_specs</code></td><td class="num">1</td><td>Spec calls for: yes. Greenfield confirmed.</td></tr>
+    <tr><td><code>mcp__plugin_sui-pilot_move-lsp__move_diagnostics</code></td><td class="num"><span class="badge fail">0</span></td><td><strong>Spec calls for: yes (Phase 0 step 2). Not called.</strong> See GAP-01.</td></tr>
+    <tr><td><code>mcp__plugin_sui-pilot_sui-prover__prove_package</code></td><td class="num">0</td><td>Phase 4 — not reachable due to blocker.</td></tr>
+    <tr><td><code>AskUserQuestion</code></td><td class="num">0</td><td>Phase 2 + every gate — skipped under verbal no-pause directive.</td></tr>
+    <tr><td><code>mcp__plugin_sui-pilot_move-lsp__move_find_references</code></td><td class="num">0</td><td>Spec calls for it in Phase 1 (callee inspection). Not reached.</td></tr>
+  </tbody>
+</table>
+
+<h2>Verdict</h2>
+<dl class="kv">
+  <dt>Skill happy-path</dt><dd>Not exercised — blocker hit at Phase 0b.</dd>
+  <dt>Phase 0 probe</dt><dd>Half-implemented (probe yes, compile-gate no).</dd>
+  <dt>Phase 1 discovery</dt><dd>Worked as designed.</dd>
+  <dt>Phases 2–4</dt><dd>Not reachable on this target. Cannot evaluate.</dd>
+  <dt>Phase 5 artifacts</dt><dd>Exceed the documented contract — high-quality blocked-run report.</dd>
+  <dt>No-pause behavior</dt><dd>Worked by improvisation; should be documented.</dd>
+  <dt>Net</dt><dd><strong>Conditional pass.</strong> The skill is plumbed correctly end-to-end on the parts that ran. Three improvements (GAP-01 LSP gate, GAP-02 scope phase, GAP-03 verbal non-interactive) would close the documented behavioral gaps without touching the existing happy path.</dd>
+</dl>
+
+<h2>Recommended Next Eval Run</h2>
+<p>Re-run <code>/specify</code> on a fully-buildable package to exercise Phases 2–4. Candidates in this workspace:</p>
+<ul>
+  <li><code>~/workspace/deepbook-sandbox/packages/deepbook</code> — buildable, has externally-reachable fns, no private deps.</li>
+  <li>A scratch package created by <code>sui move new</code> with one <code>public</code> function that depends only on <code>std</code> and <code>sui</code> framework — minimal happy-path probe.</li>
+  <li>The skill's own <code>.sui-prover-docs/examples/</code> tree if it ships a buildable Move package.</li>
+</ul>
+<p>That second run would close out the <em>"happy-path observed in production"</em> half of this evaluation.</p>
+
+<footer>
+  Generated 2026-05-14 by a parallel <code>specify-aftermath-eval</code> worktree. The target session's own
+  artifacts live at <code>~/workspace/move-amm-public/.specify-progress.json</code> and
+  <code>.specify-report.html</code>; this report evaluates the <em>skill's behavior</em>, not the AMM blocker.
+</footer>
+
+</body>
+</html>

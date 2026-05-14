@@ -216,6 +216,66 @@ fun withdraw_spec<A, B>(pool: &mut Pool<A, B>, lp_in: Balance<LP<A, B>>): (Balan
 
 **Never strip these tokens** during spec rewrites. They're load-bearing — without them the spec times out.
 
+### 4.10 Axiomatic modeling of stub callees
+
+Real-world Move packages often depend on libraries whose **source isn't shipped** — the dep's public-bytecode interface is exported but every function body is `abort 0` (the canonical stub shape used when a vendor publishes the ABI but keeps the implementation closed). A prover invoked on such a package concludes every caller path aborts (because every callee aborts), so any spec verifies *vacuously*: the `_Check` and `_Assume` subchecks pass but say nothing about the real math.
+
+The fix is **axiomatic modeling** of the stub callees via a dedicated sidecar file `sources/specify_axioms.move`:
+
+```move
+module <pkg>::specify_axioms;
+
+#[spec_only]
+use prover::prover::{fresh};
+use utilities::fixed;
+
+// Opaque summary: skip tells the prover not to verify the body; target =
+// registers this function as the abstract contract substituted at every
+// call site of the target. `fresh()` returns an unconstrained symbolic value
+// — the prover knows nothing more than the function's signature.
+#[spec(skip, target = fixed::mul_down)]
+fun mul_down_spec(_a: u256, _b: u256): u256 { fresh() }
+
+#[spec(skip, target = fixed::mul_up)]
+fun mul_up_spec(_a: u256, _b: u256): u256 { fresh() }
+
+#[spec(skip, target = fixed::ln)]
+fun ln_spec(_x: u256): u256 { fresh() }
+
+#[spec(skip, target = fixed::exp)]
+fun exp_spec(_x: u256): u256 { fresh() }
+```
+
+Then write the real spec normally in the target file:
+
+```move
+#[spec(prove, ignore_abort)]
+fun calc_invariant_full_spec(
+    balances: &vector<u128>,
+    weights: &vector<u64>,
+): u256 {
+    let r = calc_invariant_full(balances, weights);
+    // ensures(r matches the math you actually care about)
+    r
+}
+```
+
+The prover substitutes the axioms' `fresh()` results at every `fixed::mul_down` / `fixed::ln` / etc. call site inside `calc_invariant_full`, so verification reasons about *symbolic* fixed-point values — not about `abort 0`. The spec doesn't *prove* the real math, but it does prove the spec's structural claims (typing, modular composition, abort behavior) hold under any valid implementation of the stub interface. That's the strongest verification possible without the dep's source.
+
+**When to use:**
+
+- Any dep with `abort 0` bodies for every public function.
+- Closed-source math packages (fixed-point libs, oracle clients).
+- Performance-critical native functions where the Move impl is a `native fun` stub.
+
+**Caveats:**
+
+- The `skip` attribute prevents the axiom body from being verified — that's the point, since `fresh()` has no postcondition. Don't use `skip` for functions you *do* want verified.
+- The `#[spec(target = X)]` requires the spec function's body to actually call `X` *unless* `skip` is also set. The combined `#[spec(skip, target = X)]` form sidesteps that requirement (see failure-taxonomy entry for `spec_target_body_no_call`).
+- Add `ensures(...)` only if you can state a property the real implementation *must* satisfy regardless of internals (e.g., `mul_down(a, 0)` must equal `0`). Bare `fresh()` axioms are the safest starting point.
+
+This pattern was discovered during the `move-amm-public` evaluation when the agent observed the `utilities::fixed` source was a stub and the naïve approach (replacing stub bodies with placeholders) silently weakened the verification. The sidecar form makes the axiomatization explicit and reviewable.
+
 ## 5. Legacy MSL — DO NOT emit
 
 The Sui Prover does **not** use the legacy Move Prover MSL keywords. Common drift to avoid:

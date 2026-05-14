@@ -14,7 +14,7 @@ import { spawn } from 'child_process';
 import { info, warn } from './logger.js';
 import { requireBinary } from './binary.js';
 import { findPackageRoot, inspectPackage } from './move-toml.js';
-import { parseProverOutput, Finding } from './parse-output.js';
+import { parseProverOutput, stripAnsi, Finding, SummaryOverall } from './parse-output.js';
 import { SuiProverError, INVALID_ARGUMENT, PROVE_SPAWN_FAILED } from './errors.js';
 
 export interface ProveArgs {
@@ -30,13 +30,36 @@ export interface ProveResult {
   binary: { version: string | null; path: string };
   package: { path: string; name: string | null; edition: string | null };
   invocation: { args: string[]; duration_ms: number; exit_code: number | null; signal: string | null };
-  summary: { verified: number; failed: number; skipped: number; timeouts: number };
+  summary: {
+    overall: SummaryOverall;
+    verified: number;
+    failed: number;
+    skipped: number;
+    timeouts: number;
+  };
   findings: Finding[];
   raw_stdout: string;
   raw_stderr: string;
+  /**
+   * True when raw_stdout/raw_stderr were truncated to keep the tool result
+   * under the harness token cap (currently triggered on compile failures
+   * where the prover dumps full bytecode). Full text is still recoverable
+   * from the harness's tool-result sidecar.
+   */
+  raw_output_truncated: boolean;
 }
 
 const DEFAULT_TIMEOUT_SECONDS = 60;
+
+/**
+ * Maximum size of raw_stdout/raw_stderr to embed inline when the run is a
+ * compile failure. ~4 KB head + 1 KB tail keeps the most diagnostic content
+ * while protecting against the 100KB+ bytecode-error dumps the prover emits
+ * when its build phase fails. Successful runs keep full output (their stdout
+ * is normally small — one line per spec).
+ */
+const COMPILE_FAILURE_RAW_HEAD_BYTES = 4_096;
+const COMPILE_FAILURE_RAW_TAIL_BYTES = 1_024;
 
 /**
  * Run sui-prover and return a structured result. Throws SuiProverError
@@ -120,15 +143,39 @@ export async function prove(args: ProveArgs): Promise<ProveResult> {
   }
   findings.push(...parsed.findings);
 
+  // Strip ANSI from raw output before returning — agents and downstream
+  // tooling read these fields and would otherwise have to strip escape
+  // codes themselves before regex-matching.
+  const cleanStdout = stripAnsi(stdout);
+  const cleanStderr = stripAnsi(stderr);
+
+  // On compile failures the prover often dumps tens or hundreds of KB of
+  // bytecode-error noise; truncate so the tool result stays under the
+  // harness's token cap. Successful runs and per-spec failures keep their
+  // full output (always small relative to the cap).
+  const shouldTruncate = parsed.summary.overall === 'compile_failure';
+  const finalStdout = shouldTruncate ? truncateForCompile(cleanStdout) : cleanStdout;
+  const finalStderr = shouldTruncate ? truncateForCompile(cleanStderr) : cleanStderr;
+
   return {
     binary: { version: binary.version, path: binary.path },
     package: { path: pkg.path, name: pkg.name, edition: pkg.edition },
     invocation: { args: cliArgs, duration_ms: duration, exit_code: exitCode, signal },
     summary: parsed.summary,
     findings,
-    raw_stdout: stdout,
-    raw_stderr: stderr,
+    raw_stdout: finalStdout,
+    raw_stderr: finalStderr,
+    raw_output_truncated: shouldTruncate && (cleanStdout.length > finalStdout.length || cleanStderr.length > finalStderr.length),
   };
+}
+
+/** Truncate a string by keeping a head + tail snippet with an elision marker. */
+function truncateForCompile(s: string): string {
+  if (s.length <= COMPILE_FAILURE_RAW_HEAD_BYTES + COMPILE_FAILURE_RAW_TAIL_BYTES) return s;
+  const head = s.slice(0, COMPILE_FAILURE_RAW_HEAD_BYTES);
+  const tail = s.slice(s.length - COMPILE_FAILURE_RAW_TAIL_BYTES);
+  const omitted = s.length - COMPILE_FAILURE_RAW_HEAD_BYTES - COMPILE_FAILURE_RAW_TAIL_BYTES;
+  return `${head}\n\n[… ${omitted} bytes omitted to keep the tool result under the harness token cap …]\n\n${tail}`;
 }
 
 interface SpawnResult {

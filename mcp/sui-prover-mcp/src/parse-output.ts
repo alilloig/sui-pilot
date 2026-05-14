@@ -1,23 +1,49 @@
 /**
  * Parse sui-prover stdout/stderr into structured findings.
  *
- * The 1.5.3 binary emits free-form text with no `--output=json` flag.
- * This parser captures the load-bearing taxonomy from the plan
- * (drifting-rolling-pike.md §5.2):
+ * The 1.5.x binary emits free-form text. This parser covers two output
+ * shapes:
  *
- *   ensures_failed, asserts_failed, timeout, abort_unspecified,
- *   no_spec, parse_error, compile_error, setup_warning
+ *   (a) Per-spec emoji lines (1.5.3+):
+ *         🔄 <pkg>::<mod>::<spec_name>            // in-progress, ignored
+ *         ✅ <pkg>::<mod>::<spec_name>            // verified
+ *         ⏭️ <pkg>::<mod>::<spec_name> at <loc>   // skipped (#[spec(skip)])
+ *         ❌ <pkg>::<mod>::<spec_name> at <loc>   // failed
+ *       followed by "Verification successful" on a fully-green run.
  *
- * The parser is intentionally conservative: when in doubt we leave a
- * finding with kind="unknown" so downstream skills always have BOTH
- * structured findings AND raw_stdout/raw_stderr to fall back on. The
- * raw output is the escape hatch when binary releases drift.
+ *   (b) Legacy free-form output (older releases, kept for compatibility):
+ *         "Verifying foo_spec" / "3 specs verified" / "FAILED: bar_spec"
+ *
+ * Plus a dedicated pre-spec failure pass that recognizes the common
+ * compile-time blockers (dep fetch, address conflict, unresolved module,
+ * function-not-found, target-body-no-call, "nothing to verify") and
+ * returns them as structured kinds rather than as the catch-all
+ * kind="unknown".
  */
 
+/** Strip ANSI escape sequences (CSI: ESC[…<final-byte>). */
+export function stripAnsi(s: string): string {
+  // eslint-disable-next-line no-control-regex
+  return s.replace(/\x1B\[[0-9;?]*[A-Za-z]/g, '');
+}
+
 export type FindingKind =
+  // Per-spec verdicts
+  | 'verified'
+  | 'failed'
+  | 'skipped'
+  | 'timeout'
+  // Pre-spec compile-time failures (structured)
+  | 'dep_address_conflict'
+  | 'unresolved_named_address'
+  | 'unresolved_module'
+  | 'dep_fetch_failure'
+  | 'function_not_found'
+  | 'spec_target_body_no_call'
+  | 'no_specs_to_prove'
+  // Legacy / generic
   | 'ensures_failed'
   | 'asserts_failed'
-  | 'timeout'
   | 'abort_unspecified'
   | 'no_spec'
   | 'parse_error'
@@ -26,6 +52,14 @@ export type FindingKind =
   | 'unknown';
 
 export type FindingSeverity = 'error' | 'warning' | 'info';
+
+export type SummaryOverall =
+  | 'verified_all'
+  | 'failed_some'
+  | 'no_specs'
+  | 'compile_failure'
+  | 'timeout'
+  | 'error';
 
 export interface FindingLocation {
   file: string;
@@ -38,13 +72,14 @@ export interface Finding {
   severity: FindingSeverity;
   message: string;
   location: FindingLocation | null;
-  spec: string | null;                 // e.g. "amm::pool::withdraw_spec"
-  function_under_test: string | null;  // e.g. "amm::pool::withdraw"
+  spec: string | null;
+  function_under_test: string | null;
   counterexample: { raw: string; bindings: Record<string, string> } | null;
 }
 
 export interface ParsedOutput {
   summary: {
+    overall: SummaryOverall;
     verified: number;
     failed: number;
     skipped: number;
@@ -54,109 +89,31 @@ export interface ParsedOutput {
 }
 
 /**
- * Parse the prover's textual output. Designed to handle both happy-path
- * runs ("All N specs verified") and assorted failure shapes. The parser
- * walks the combined stdout+stderr lines and pulls out:
- *
- *   - explicit Boogie verification verdicts
- *   - parser/compile errors (the prover surfaces them with "error:")
- *   - timeout banners
- *   - abort-condition diagnostics ("function may abort, no asserts(...)")
- *
- * Anything that doesn't match a known pattern but smells like an error
- * (contains "error", "failed", "could not be proved") is captured as
- * kind="unknown" so the caller can still surface it.
+ * Parse the prover's textual output. Public entry point. Strips ANSI,
+ * runs the emoji pass, runs the legacy pass, runs pre-spec failure
+ * detection, then computes an overall status string.
  */
 export function parseProverOutput(stdout: string, stderr: string, exitCode: number): ParsedOutput {
-  const findings: Finding[] = [];
-  const combined = `${stdout}\n${stderr}`;
-  const lines = combined.split('\n');
+  const cleanStdout = stripAnsi(stdout);
+  const cleanStderr = stripAnsi(stderr);
 
-  let verified = 0;
-  let failed = 0;
-  let skipped = 0;
-  let timeouts = 0;
+  const emoji = parseEmojiLines(cleanStdout, cleanStderr);
+  const legacy = parseLegacyLines(cleanStdout, cleanStderr);
+  const preSpec = detectPreSpecFailure(cleanStdout, cleanStderr);
 
-  // "Verifying foo_spec" / "verified foo_spec" / "FAILED: bar_spec"
-  // (We accept several capitalisations because the binary's wording has
-  // drifted between rungs.)
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i]!;
-
-    // 1. Summary counters
-    const sumMatch = line.match(/(\d+)\s+specs?\s+verified/i);
-    if (sumMatch) verified += parseInt(sumMatch[1]!, 10);
-
-    if (/\bskipped\b/i.test(line)) {
-      const m = line.match(/(\d+)\s+(?:specs?\s+)?skipped/i);
-      if (m) skipped += parseInt(m[1]!, 10);
-    }
-
-    // 2. Explicit per-spec verdicts
-    const failedSpec = line.match(/(?:FAILED|verification failed)\s*[:\-]?\s*([\w:]+)/i);
-    if (failedSpec) {
-      const specName = failedSpec[1]!;
-      const surroundingContext = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 10)).join('\n');
-      findings.push({
-        kind: classifyFailureKind(surroundingContext),
-        severity: 'error',
-        message: line.trim(),
-        location: findLocationNear(lines, i),
-        spec: specName.includes('::') ? specName : null,
-        function_under_test: deriveFunctionUnderTest(specName),
-        counterexample: extractCounterexample(lines, i),
-      });
-      failed += 1;
-      continue;
-    }
-
-    // 3. Timeout banner
-    if (/timed out|timeout exceeded/i.test(line)) {
-      timeouts += 1;
-      findings.push({
-        kind: 'timeout',
-        severity: 'error',
-        message: line.trim(),
-        location: findLocationNear(lines, i),
-        spec: extractSpecFromLine(line),
-        function_under_test: null,
-        counterexample: null,
-      });
-      continue;
-    }
-
-    // 4. Compile errors / Move parser errors emitted upstream of the
-    //    verification stage.
-    if (/^error\b/i.test(line.trim())) {
-      findings.push({
-        kind: line.toLowerCase().includes('parse') ? 'parse_error' : 'compile_error',
-        severity: 'error',
-        message: line.trim(),
-        location: findLocationNear(lines, i),
-        spec: null,
-        function_under_test: null,
-        counterexample: null,
-      });
-    }
-
-    // 5. Abort-unspecified diagnostic (the prover hint when a function
-    //    can abort but no asserts() covers the path).
-    if (/may abort|abort condition (?:not|un)specified/i.test(line)) {
-      findings.push({
-        kind: 'abort_unspecified',
-        severity: 'warning',
-        message: line.trim(),
-        location: findLocationNear(lines, i),
-        spec: null,
-        function_under_test: extractFqnFromLine(line),
-        counterexample: null,
-      });
-    }
+  let findings: Finding[] = [...emoji.findings, ...legacy.findings];
+  // Pre-spec failures sort to the front and suppress generic compile_error /
+  // unknown findings that describe the same root cause.
+  if (preSpec) {
+    findings = [preSpec, ...findings.filter((f) => f.kind !== 'compile_error' && f.kind !== 'unknown')];
   }
 
-  // If the binary exited non-zero but we somehow have no findings, surface
-  // an "unknown" catch-all so the caller knows something went wrong without
-  // having to parse raw output themselves.
+  const verified = emoji.verified + legacy.verified;
+  const failed = emoji.failed + legacy.failed;
+  const skipped = emoji.skipped + legacy.skipped;
+  const timeouts = emoji.timeouts + legacy.timeouts;
+
+  // Catch-all: prover failed but we have no findings whatsoever.
   if (exitCode !== 0 && findings.length === 0) {
     findings.push({
       kind: 'unknown',
@@ -169,13 +126,334 @@ export function parseProverOutput(stdout: string, stderr: string, exitCode: numb
     });
   }
 
+  const overall = computeOverall({ verified, failed, skipped, timeouts }, findings, exitCode);
+
   return {
-    summary: { verified, failed, skipped, timeouts },
+    summary: { overall, verified, failed, skipped, timeouts },
     findings,
   };
 }
 
-/** Classify failure kind from a window of surrounding context. */
+// ─── Pre-spec failure detection ─────────────────────────────────────────────
+
+/**
+ * Look for compile-time error patterns that fire BEFORE any spec gets
+ * evaluated. These are the most common reasons a /specify run hits zero
+ * verification subchecks — surfacing them as structured kinds saves the
+ * calling skill from grepping `raw_stdout` itself.
+ *
+ * Returns the most informative single finding, or null if none match.
+ * Patterns ordered most-specific first; first match wins.
+ */
+function detectPreSpecFailure(stdout: string, stderr: string): Finding | null {
+  const combined = `${stdout}\n${stderr}`;
+
+  // dep_address_conflict — agent ran with two address assignments for one named address
+  const addrConflict = combined.match(/Conflicting assignments for address '([^']+)':\s*'([^']+)'\s*and\s*'([^']+)'/);
+  if (addrConflict) {
+    return makeFinding(
+      'dep_address_conflict',
+      `Conflicting address for '${addrConflict[1]}': ${addrConflict[2]} vs ${addrConflict[3]}`
+    );
+  }
+
+  // unresolved_named_address — typically a missing [addresses] entry
+  const unresolved = combined.match(/Unable to resolve named address '([^']+)'/);
+  if (unresolved) {
+    return makeFinding('unresolved_named_address', `Unable to resolve named address '${unresolved[1]}'`);
+  }
+
+  // unresolved_module — generic Move resolution failure
+  const unboundMod = combined.match(/Unbound module '([^']+)'/);
+  if (unboundMod) {
+    return makeFinding('unresolved_module', `Unbound module '${unboundMod[1]}'`);
+  }
+
+  // dep_fetch_failure — git clone failure (private repo, network)
+  if (/Repository not found|fatal: Could not read from remote repository/.test(combined)) {
+    const url = combined.match(/git@[^\s]+\.git|https:\/\/[^\s]+\.git/);
+    return makeFinding(
+      'dep_fetch_failure',
+      url ? `Repository not reachable: ${url[0]}` : 'A git dependency could not be fetched'
+    );
+  }
+
+  // function_not_found — invalid --functions target
+  const noFn = combined.match(/Function `([^`]+)` does not exist/);
+  if (noFn) {
+    return makeFinding('function_not_found', `Function '${noFn[1]}' does not exist in the package`, {
+      function_under_test: noFn[1] ?? null,
+    });
+  }
+
+  // spec_target_body_no_call — `#[spec(target = X)]` without calling X in the body
+  const targetNoCall = combined.match(/Spec function `([^`]+)` should call target function `([^`]+)`/);
+  if (targetNoCall) {
+    return makeFinding(
+      'spec_target_body_no_call',
+      `Spec '${targetNoCall[1]}' must call its target '${targetNoCall[2]}', or use #[spec(skip, target = ${targetNoCall[2]})]`,
+      { spec: targetNoCall[1] ?? null, function_under_test: targetNoCall[2] ?? null }
+    );
+  }
+
+  // no_specs_to_prove — prover succeeded but found nothing marked
+  if (/No specifications are marked for verification/.test(combined)) {
+    return makeFinding('no_specs_to_prove', 'No specifications are marked for verification', { severity: 'info' });
+  }
+
+  return null;
+}
+
+function makeFinding(
+  kind: FindingKind,
+  message: string,
+  overrides: Partial<Finding> = {}
+): Finding {
+  return {
+    kind,
+    severity: 'error',
+    message,
+    location: null,
+    spec: null,
+    function_under_test: null,
+    counterexample: null,
+    ...overrides,
+  };
+}
+
+// ─── Emoji pass (sui-prover 1.5.3+) ─────────────────────────────────────────
+
+interface SubResult {
+  verified: number;
+  failed: number;
+  skipped: number;
+  timeouts: number;
+  findings: Finding[];
+}
+
+function parseEmojiLines(stdout: string, stderr: string): SubResult {
+  const lines = `${stdout}\n${stderr}`.split('\n');
+  const out: SubResult = { verified: 0, failed: 0, skipped: 0, timeouts: 0, findings: [] };
+
+  // The skip arrow `⏭` may appear with or without its U+FE0F variation
+  // selector depending on whether the terminal applied emoji presentation;
+  // the trailing `️?` covers both forms. `✅` (U+2705) and `❌`
+  // (U+274C) are single code points and need no variant.
+  const VERIFIED = /✅\s+([\w:]+)/;
+  const FAILED = /❌\s+([\w:]+)(?:\s+at\s+(\S+))?/;
+  const SKIPPED = /⏭️?\s+([\w:]+)(?:\s+at\s+(\S+))?/;
+
+  // Dedup per-spec emoji verdicts. The 1.5.3 prover emits 3 sub-checks per
+  // spec (`<spec>_Check`, `<spec>_Assume`, `<spec>_SpecNoAbortCheck`) — each
+  // as its own ✅/❌/⏭️ line. The user-visible "spec count" is the number of
+  // unique base spec names, not the line count.
+  const verifiedSpecs = new Set<string>();
+  const failedSpecs = new Set<string>();
+  const skippedSpecs = new Set<string>();
+
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (trimmed.length === 0) continue;
+
+    let m: RegExpMatchArray | null;
+
+    // ✅ verified — count unique base spec names only
+    m = trimmed.match(VERIFIED);
+    if (m) {
+      verifiedSpecs.add(stripSubcheckSuffix(m[1]!));
+      // Don't emit a finding per verified spec — keeps the response compact
+      // on green runs. The deduped count in summary.verified is the signal.
+      continue;
+    }
+
+    // ❌ failed — first sub-check failure per spec wins (others are
+    // typically downstream of the same root cause)
+    m = trimmed.match(FAILED);
+    if (m) {
+      const subcheckName = m[1]!;
+      const baseName = stripSubcheckSuffix(subcheckName);
+      if (!failedSpecs.has(baseName)) {
+        failedSpecs.add(baseName);
+        out.findings.push({
+          kind: 'failed',
+          severity: 'error',
+          message: trimmed,
+          location: m[2] ? parseLocation(m[2]) : null,
+          spec: baseName.includes('::') ? baseName : null,
+          function_under_test: deriveFunctionUnderTest(baseName),
+          counterexample: null,
+        });
+      }
+      continue;
+    }
+
+    // ⏭️ skipped (info: tells the caller the spec exists but isn't proven)
+    m = trimmed.match(SKIPPED);
+    if (m) {
+      const subcheckName = m[1]!;
+      const baseName = stripSubcheckSuffix(subcheckName);
+      if (!skippedSpecs.has(baseName)) {
+        skippedSpecs.add(baseName);
+        out.findings.push({
+          kind: 'skipped',
+          severity: 'info',
+          message: trimmed,
+          location: m[2] ? parseLocation(m[2]) : null,
+          spec: baseName.includes('::') ? baseName : null,
+          function_under_test: deriveFunctionUnderTest(baseName),
+          counterexample: null,
+        });
+      }
+    }
+  }
+
+  out.verified = verifiedSpecs.size;
+  out.failed = failedSpecs.size;
+  out.skipped = skippedSpecs.size;
+  return out;
+}
+
+/**
+ * Strip the prover's per-spec sub-check suffix from a verdict line.
+ * The 1.5.3 binary appends `_Check` (postcondition), `_Assume` (modular
+ * soundness), or `_SpecNoAbortCheck` (or `_NoAbortCheck`) to each spec
+ * name. We collapse them to the base spec name so `summary.verified`
+ * reports the number of unique specs the user actually authored.
+ */
+function stripSubcheckSuffix(name: string): string {
+  return name.replace(/_(Check|Assume|SpecNoAbortCheck|NoAbortCheck)$/, '');
+}
+
+/** Parse a "path.move:line[:col]" location pointer. */
+function parseLocation(raw: string): FindingLocation | null {
+  const m = raw.match(/^(.+?\.move):(\d+)(?::(\d+))?$/);
+  if (!m) return null;
+  return { file: m[1]!, line: parseInt(m[2]!, 10), col: m[3] ? parseInt(m[3], 10) : 0 };
+}
+
+// ─── Legacy pass (free-form 1.4.x and earlier) ──────────────────────────────
+
+/**
+ * Original line-loop parser for older prover output forms. Kept so we
+ * don't lose support if the binary regresses or is pinned. New emoji
+ * format takes precedence — this pass is additive.
+ */
+function parseLegacyLines(stdout: string, stderr: string): SubResult {
+  const lines = `${stdout}\n${stderr}`.split('\n');
+  const out: SubResult = { verified: 0, failed: 0, skipped: 0, timeouts: 0, findings: [] };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+
+    // Summary counters: "3 specs verified" / "1 skipped"
+    const sumMatch = line.match(/(\d+)\s+specs?\s+verified/i);
+    if (sumMatch) out.verified += parseInt(sumMatch[1]!, 10);
+
+    if (/\bskipped\b/i.test(line)) {
+      const sm = line.match(/(\d+)\s+(?:specs?\s+)?skipped/i);
+      if (sm) out.skipped += parseInt(sm[1]!, 10);
+    }
+
+    // "FAILED: spec_name" / "verification failed: spec_name"
+    const failedSpec = line.match(/(?:FAILED|verification failed)\s*[:\-]?\s*([\w:]+)/i);
+    if (failedSpec) {
+      const specName = failedSpec[1]!;
+      const surroundingContext = lines.slice(Math.max(0, i - 3), Math.min(lines.length, i + 10)).join('\n');
+      out.findings.push({
+        kind: classifyFailureKind(surroundingContext),
+        severity: 'error',
+        message: line.trim(),
+        location: findLocationNear(lines, i),
+        spec: specName.includes('::') ? specName : null,
+        function_under_test: deriveFunctionUnderTest(specName),
+        counterexample: extractCounterexample(lines, i),
+      });
+      out.failed += 1;
+      continue;
+    }
+
+    // Timeout banner
+    if (/timed out|timeout exceeded/i.test(line)) {
+      out.timeouts += 1;
+      out.findings.push({
+        kind: 'timeout',
+        severity: 'error',
+        message: line.trim(),
+        location: findLocationNear(lines, i),
+        spec: extractSpecFromLine(line),
+        function_under_test: null,
+        counterexample: null,
+      });
+      continue;
+    }
+
+    // Generic "error: …" lines upstream of verification. Pre-spec detection
+    // upgrades these to structured kinds when they match known patterns;
+    // this catches anything left over.
+    if (/^error\b/i.test(line.trim())) {
+      out.findings.push({
+        kind: line.toLowerCase().includes('parse') ? 'parse_error' : 'compile_error',
+        severity: 'error',
+        message: line.trim(),
+        location: findLocationNear(lines, i),
+        spec: null,
+        function_under_test: null,
+        counterexample: null,
+      });
+    }
+
+    // Abort-unspecified hint
+    if (/may abort|abort condition (?:not|un)specified/i.test(line)) {
+      out.findings.push({
+        kind: 'abort_unspecified',
+        severity: 'warning',
+        message: line.trim(),
+        location: findLocationNear(lines, i),
+        spec: null,
+        function_under_test: extractFqnFromLine(line),
+        counterexample: null,
+      });
+    }
+  }
+
+  return out;
+}
+
+// ─── overall status computation ─────────────────────────────────────────────
+
+function computeOverall(
+  counts: { verified: number; failed: number; skipped: number; timeouts: number },
+  findings: Finding[],
+  exitCode: number
+): SummaryOverall {
+  if (counts.failed > 0) return 'failed_some';
+  if (counts.timeouts > 0) return 'timeout';
+
+  const COMPILE_FAILURE_KINDS = new Set<FindingKind>([
+    'dep_address_conflict',
+    'unresolved_named_address',
+    'unresolved_module',
+    'dep_fetch_failure',
+    'function_not_found',
+    'spec_target_body_no_call',
+    'compile_error',
+    'parse_error',
+  ]);
+  if (findings.some((f) => COMPILE_FAILURE_KINDS.has(f.kind))) return 'compile_failure';
+
+  if (findings.some((f) => f.kind === 'no_specs_to_prove')) return 'no_specs';
+
+  if (counts.verified > 0 && exitCode === 0) return 'verified_all';
+  if (exitCode !== 0) return 'error';
+
+  // exitCode === 0 and no specs counted — treat as no_specs (the prover
+  // returns 0 when there's literally nothing to verify and didn't print
+  // the recognized banner).
+  return 'no_specs';
+}
+
+// ─── shared helpers ─────────────────────────────────────────────────────────
+
 function classifyFailureKind(context: string): FindingKind {
   if (/ensures (?:may not hold|failed)/i.test(context)) return 'ensures_failed';
   if (/asserts (?:may not hold|failed)/i.test(context)) return 'asserts_failed';
@@ -184,15 +462,9 @@ function classifyFailureKind(context: string): FindingKind {
   return 'unknown';
 }
 
-/**
- * Scan a small window of lines around index `i` for a `file:line:col`
- * pointer. Conservative: returns null when no clear pointer is found
- * rather than guessing.
- */
 function findLocationNear(lines: string[], i: number): FindingLocation | null {
   for (let j = Math.max(0, i - 2); j <= Math.min(lines.length - 1, i + 5); j++) {
     const line = lines[j]!;
-    // Match: /abs/or/relative/path.move:LINE:COL or path.move:LINE
     const m = line.match(/([^\s:]+\.move):(\d+)(?::(\d+))?/);
     if (m) {
       return { file: m[1]!, line: parseInt(m[2]!, 10), col: m[3] ? parseInt(m[3], 10) : 0 };
@@ -201,13 +473,6 @@ function findLocationNear(lines: string[], i: number): FindingLocation | null {
   return null;
 }
 
-/**
- * Spec naming convention from asymptotic-code/sui-kit examples:
- *   foo_spec  -> target foo
- *   foo::bar::baz_spec -> target foo::bar::baz
- *
- * Returns null if the name doesn't look like a *_spec.
- */
 function deriveFunctionUnderTest(specName: string): string | null {
   const m = specName.match(/^(.+)_spec$/);
   return m ? m[1]! : null;
@@ -219,17 +484,10 @@ function extractSpecFromLine(line: string): string | null {
 }
 
 function extractFqnFromLine(line: string): string | null {
-  // Match a Move fully-qualified name (pkg::mod::fn) but tolerate
-  // shorter forms like mod::fn.
   const m = line.match(/\b([a-zA-Z_][\w]*(?:::[a-zA-Z_][\w]*)+)\b/);
   return m ? m[1]! : null;
 }
 
-/**
- * Extract a counterexample block, if present. The prover emits
- * "Counterexample:" followed by a sequence of `var = value` lines until
- * the next blank line or the next "Spec ..." header.
- */
 function extractCounterexample(
   lines: string[],
   startIdx: number

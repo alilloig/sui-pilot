@@ -4,6 +4,18 @@ Each `findings[].kind` returned by `mcp__sui-prover__prove_package` maps to a do
 
 Findings always carry `raw_stdout` / `raw_stderr` as the escape hatch — if a kind doesn't match the recipes below, fall back to surfacing the raw output and asking the user.
 
+## kind: `verified` / `skipped`
+
+**What they mean.** Information-severity per-spec verdicts from the prover (`✅` and `⏭️` lines). `verified` is the success path; `skipped` is a spec that exists but the prover treats as an opaque axiom (typically `#[spec(skip)]` or `#[spec(skip, target = ...)]`). Neither requires user action.
+
+**Remediation.** None. Surface counts in the Phase 5 report.
+
+## kind: `failed`
+
+**What it means.** A per-spec `❌` failure from the prover's emoji output (1.5.3+). Functionally equivalent to `ensures_failed` or `asserts_failed` from older releases — the more granular legacy kinds still fire when the prover emits the older free-form output.
+
+**Remediation.** Same as `ensures_failed` (see below): try strengthening preconditions first, then narrowing the postcondition, then `no_opaque` on a loose callee.
+
 ## kind: `setup_warning`
 
 **What it means.** The wrapper detected an issue before invoking the prover — typically an explicit `Sui` or `MoveStdlib` dep in the user's `Move.toml`, or a non-2024 edition.
@@ -79,6 +91,79 @@ Findings always carry `raw_stdout` / `raw_stderr` as the escape hatch — if a k
 2. **Add `--split-paths=N`** via `extra_args` (start at 4, try 8). The workshop example uses `--split-paths=4`.
 3. **Per-spec `boogie_opt` tuning.** See §4.9 of spec-patterns. Start with `vcsMaxKeepGoingSplits:2`. Keep tokens verbatim across retries.
 4. **Narrow the spec.** If three escalations don't help, the spec might be asking the prover to discharge too much in one go. Split into multiple smaller specs (e.g. one for the abort path, one for the functional postcondition).
+
+## kind: `dep_address_conflict`
+
+**What it means.** The package's address graph assigns the same named address to two different concrete values. The prover's stdout looks like:
+
+```
+Unable to resolve named address 'utilities' in package 'AftermathAmmMath' when resolving dependencies in dev mode
+
+Caused by:
+    Conflicting assignments for address 'utilities': '0x73baa782c5…' and '0x10'.
+```
+
+**Remediation.** Inspect `Move.toml` and dep `Move.toml`s for duplicate `[addresses]` entries with different values for the same name. Reconcile (usually by removing the override in the calling package, or by pinning the dep to the right rev). The prover can't build until exactly one concrete address per name is in scope.
+
+## kind: `unresolved_named_address` / `unresolved_module`
+
+**What they mean.** The Move compiler can't resolve a named address in `[addresses]` or an imported module path. The dep was either never declared in `[dependencies]` or the dep's `Move.toml` doesn't export the expected name.
+
+**Remediation.** Check `Move.toml`'s `[dependencies]` and `[addresses]` sections. For dep-supplied addresses, the dep's own `[addresses]` block declares them — verify the dep is reachable via Phase 0 step 3 and that the address name matches what the dep publishes.
+
+## kind: `dep_fetch_failure`
+
+**What it means.** A git dependency couldn't be cloned. Common causes: private repo + no local SSH access, network failure, typo in the git URL. Stdout typically contains `Repository not found` or `fatal: Could not read from remote repository`.
+
+**Remediation.**
+
+1. Re-run Phase 0 step 3 (dep-reachability gate) with the surfaced URL.
+2. Confirm the local SSH identity has read access (`ssh -T git@github.com` for GitHub).
+3. If the repo is private and access is unavailable, substitute a local clone via `[dependencies.NAME]` with `local = "<path>"`. **Watch for `dep_address_conflict`** afterward — a local clone with its own `[addresses]` can introduce conflicts with the calling package.
+4. As a last resort for stubbed/closed-source deps, use the **sidecar axiom file** pattern from §4 of `spec-patterns.md`.
+
+## kind: `function_not_found`
+
+**What it means.** The `target_function` passed to `prove_package` doesn't match any spec in the compiled package. Stdout: `Function \`pkg::mod::name\` does not exist`.
+
+**Remediation.**
+
+1. Confirm the source file actually contains a `#[spec(prove)] fun <name>_spec(...)` block — sui-prover targets the spec function, not the function under test. The naming convention is `<fn>_spec`; for `target_function: "pkg::mod::foo"`, the spec must be named `pkg::mod::foo_spec`.
+2. Confirm the package built successfully on the previous run (a stale build cache can leave the prover targeting an older symbol table).
+3. If the spec lives in a sidecar axiom file with `#[spec(target = pkg::mod::foo)]`, target the spec function's name (`<sidecar>::foo_spec`), not the original function.
+
+## kind: `spec_target_body_no_call`
+
+**What it means.** A spec function annotated `#[spec(target = X)]` must call `X` somewhere in its body — the prover's bytecode-transformation phase enforces this so the spec composes with the callee's actual semantics. The error:
+
+```
+error: Spec function `specify_axioms::mul_up_spec` should call target function `fixed::mul_up`
+```
+
+**Remediation.** Two choices:
+
+1. **Make the spec call the target.** Add a call to `X` in the body, using `fresh()` for inputs you don't care about (the prover treats unconstrained `fresh()` symbolically):
+   ```move
+   #[spec(prove, target = fixed::mul_up)]
+   fun mul_up_spec(a: u256, b: u256): u256 {
+       let r = fixed::mul_up(a, b);
+       // ensures(...)
+       r
+   }
+   ```
+2. **Use `skip` to mark as an opaque axiom** — preferred when the target is a stub or you don't want to verify its body, just use the spec as the contract substituted at call sites:
+   ```move
+   #[spec(skip, target = fixed::mul_up)]
+   fun mul_up_spec(_a: u256, _b: u256): u256 { fresh() }
+   ```
+
+The `#[spec(skip, target = ...)]` form is the canonical idiom for axiomatizing stub callees — see `spec-patterns.md` §4 for the full sidecar-axiom-file pattern.
+
+## kind: `no_specs_to_prove`
+
+**What it means.** Info-severity finding (not an error). The package built cleanly but no `#[spec(prove)]` block was found. The prover prints `🦀 No specifications are marked for verification. Nothing to verify.` and exits 0.
+
+**Remediation.** Expected on the very first run of `/specify` against a greenfield package — Phase 3+ will add specs and the next prove call will find them. If this fires *after* Phase 4 has emitted spec blocks, it usually means the build cache is stale; `sui move build` to refresh, then retry.
 
 ## kind: `unknown`
 
