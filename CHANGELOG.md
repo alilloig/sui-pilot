@@ -6,6 +6,10 @@ All notable changes to sui-pilot are documented in this file. The format is base
 
 ### Added
 
+- **`/specify` non-interactive mode for evaluation.** Setting `SPECIFY_AUTO_DEFAULTS=1` in the environment makes the skill skip every `AskUserQuestion` gate (picks the suggested default), abort hard on `setup_warning` instead of offering "proceed anyway", cap per-function iterations at 1, and skip the prioritization batch (default order). Progress and audit-trail artifacts still land at the package root so the eval scorer can read them. Interactive mode (unset or `=0`) remains the default.
+
+- **`evals/fixtures/specify-discovery/` + `task-28-specify-discovery` eval task.** A mixed-visibility Move fixture (bare `public`, `public(package)`, `public entry`, bare `entry`, private, `public macro`, `#[test_only] public`, and `#[test]`) exercises the visibility-classifier regex contract from `skills/specify/references/spec-patterns.md` §1. The eval asserts `.specify-progress.json` lists the three externally-reachable functions (`pub_fn`, `pub_entry_fn`, `entry_only_fn`) and excludes the four non-reachable ones. Category `specify`; lives at the end of `evals/tasks.json` (the 28th tier-2 task).
+
 - **User-facing surfaces updated for the prover feature.** `README.md` and `SUI_PILOT_FOR_DUMMIES.md` now enumerate `/specify` alongside the other slash commands; the README gains a new "MCP servers" subsection listing both `move-lsp` and `sui-prover`. The FOR_DUMMIES doc-sync section now mentions the `asymptotic-code/{sui-prover,sui-kit}` upstreams alongside the existing MystenLabs ones.
 
 - **`/specify` command + skill — formal specifications for externally-reachable Move functions.** A new sixth slash command (`commands/specify.md`) and a multi-phase skill (`skills/specify/SKILL.md`) that walks the user through writing `#[spec(prove)]` twin functions for every `public` (non-package) + `entry` function under `sources/`, persists them inline behind delimiter markers, drives verification via `mcp/sui-prover-mcp`, and iterates on failures using a documented taxonomy.

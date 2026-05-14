@@ -361,5 +361,25 @@
       "doesNotContainString": "ALL_CAPS_ERROR",
       "compileAfter": true
     }
+  },
+  {
+    "id": "task-28-specify-discovery",
+    "title": "/specify identifies the externally-reachable function set",
+    "fixturePath": "fixtures/specify-discovery",
+    "prompt": "Run /specify on the Move package in the current directory in non-interactive mode (SPECIFY_AUTO_DEFAULTS=1). Phase 0 may surface that sui-prover is not installed in this eval environment — in that case still run Phase 1 (discovery) and write .specify-progress.json with the externally-reachable function set, then exit. The goal of this task is to verify the discovery classifier, not the prover invocation.",
+    "category": "specify",
+    "passCriteria": {
+      "file": ".specify-progress.json",
+      "containsString": "pub_fn",
+      "doesNotContainString": "pub_pkg_fn",
+      "additionalFiles": [
+        {"file": ".specify-progress.json", "containsString": "pub_entry_fn"},
+        {"file": ".specify-progress.json", "containsString": "entry_only_fn"},
+        {"file": ".specify-progress.json", "doesNotContainString": "private_fn"},
+        {"file": ".specify-progress.json", "doesNotContainString": "pub_macro_fn"},
+        {"file": ".specify-progress.json", "doesNotContainString": "test_only_pub_fn"},
+        {"file": ".specify-progress.json", "doesNotContainString": "test_fn"}
+      ]
+    }
   }
 ]

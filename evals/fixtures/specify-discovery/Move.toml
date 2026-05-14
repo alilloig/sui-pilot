@@ -1,0 +1,6 @@
+[package]
+name = "discovery_test"
+edition = "2024"
+
+[addresses]
+discovery_test = "0x0"

@@ -7,6 +7,18 @@ description: "Walks the user through writing `#[spec(prove)]` formal specificati
 
 > **Doc-First Requirement.** Read `.sui-prover-docs/` before drafting any spec. The Sui Prover spec language is **not** the legacy Move Prover MSL — it uses `#[spec(prove)]`, `requires`, `ensures`, `asserts` (positive abort form), and the macros `clone!`, `forall!`, `exists!`, `invariant!`. It does NOT use `aborts_if`, `pragma`, `apply`, `assume`, or free `axiom`. Verify any construct against `.sui-prover-docs/guide/spec-reference.md` before emitting it.
 
+## Non-interactive (eval) mode
+
+Before doing anything else, run `echo "${SPECIFY_AUTO_DEFAULTS:-}"` via Bash. If the output is exactly `1`, this run is in **non-interactive mode** — the calling harness (typically `evals/run-comparison.sh` or a similar headless rig) cannot answer `AskUserQuestion` prompts. Honor this contract:
+
+- **Skip every `AskUserQuestion` gate.** Pick the first option (the suggested default) and announce the choice in plain text instead.
+- **Abort hard on any `setup_warning`.** Don't surface "proceed anyway" — write the warning to `.specify-report.html`, exit Phase 0, and return.
+- **Cap iterations at 1.** The Phase 4 loop tries once per function; failures get marked `needs_human` immediately instead of looping. Eval harnesses care about the discovery + draft signal, not multi-attempt convergence.
+- **Cap prioritization batch.** Process every pending function in default priority order — no user picks.
+- **Persist progress as usual.** `.specify-progress.json` and `.specify-report.html` must still land at the package root so the eval scorer can read them.
+
+Interactive mode (`SPECIFY_AUTO_DEFAULTS` unset or `=0`) is the default — every gate runs normally.
+
 ## Architecture
 
 This skill is a multi-phase, per-function orchestrator. It uses:
