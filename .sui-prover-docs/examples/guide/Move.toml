@@ -1,0 +1,6 @@
+[package]
+name = "sui-prover-guide"
+edition = "2024.beta"
+
+[addresses]
+amm = "0x0"

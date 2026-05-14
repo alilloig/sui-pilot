@@ -6,11 +6,14 @@
 # Requires: gh (GitHub CLI), tar, find
 #
 # Upstream sources:
-#   Sui       -> MystenLabs/sui        docs/content/                   -> .sui-docs/
-#   Walrus    -> MystenLabs/walrus     docs/content/                   -> .walrus-docs/
-#   Seal      -> MystenLabs/seal       docs/content/                   -> .seal-docs/
-#   TS SDK    -> MystenLabs/ts-sdks    packages/docs/content/          -> .ts-sdk-docs/
-#   Move Book -> MystenLabs/move-book  book/, reference/, packages/    -> .move-book-docs/
+#   Sui          -> MystenLabs/sui              docs/content/                    -> .sui-docs/
+#   Walrus       -> MystenLabs/walrus           docs/content/                    -> .walrus-docs/
+#   Seal         -> MystenLabs/seal             docs/content/                    -> .seal-docs/
+#   TS SDK       -> MystenLabs/ts-sdks          packages/docs/content/           -> .ts-sdk-docs/
+#   Move Book    -> MystenLabs/move-book        book/, reference/, packages/     -> .move-book-docs/
+#   Sui Prover   -> asymptotic-code/sui-prover  .claude/skills/sui-prover/       -> .sui-prover-docs/guide/
+#                -> asymptotic-code/sui-prover  packages/prover/sources/         -> .sui-prover-docs/sources/
+#                -> asymptotic-code/sui-kit     examples/                        -> .sui-prover-docs/examples/
 
 set -euo pipefail
 
@@ -59,10 +62,12 @@ sync_repo() {
     tar xzf "$tarball" -C "$extract_dir" --strip-components="$strip_count" \
         --include="*/${upstream_path}/*" 2>/dev/null || true
 
-    # Count extracted files
+    # Count extracted files. `.move` is accepted because the prover corpus
+    # syncs construct-source subtrees (packages/prover/sources/) that contain
+    # only .move files — the gate must not refuse them as "empty content".
     local count
-    count=$(find "$extract_dir" -type f \( -name '*.mdx' -o -name '*.md' \) | wc -l | tr -d ' ')
-    echo "[$label] Extracted $count MDX/MD files"
+    count=$(find "$extract_dir" -type f \( -name '*.mdx' -o -name '*.md' -o -name '*.move' \) | wc -l | tr -d ' ')
+    echo "[$label] Extracted $count MDX/MD/move files"
 
     if [[ "$count" -eq 0 ]]; then
         echo "[$label] WARNING: No files extracted! Skipping to avoid data loss."
@@ -78,10 +83,12 @@ sync_repo() {
     strip_binaries "$extract_dir"
 
     local md_count
-    md_count=$(find "$extract_dir" -type f \( -name '*.mdx' -o -name '*.md' -o -name '*.pdf' \) | wc -l | tr -d ' ')
+    md_count=$(find "$extract_dir" -type f \( -name '*.mdx' -o -name '*.md' -o -name '*.pdf' -o -name '*.move' \) | wc -l | tr -d ' ')
     echo "[$label] After stripping binaries: $md_count text files"
 
-    # Replace local directory
+    # Replace local directory (mkdir parent so nested layouts like
+    # `.sui-prover-docs/guide` work even when the parent doesn't exist yet)
+    mkdir -p "$(dirname "$local_dir")"
     rm -rf "$local_dir"
     mv "$extract_dir" "$local_dir"
     echo "[$label] Updated $local_dir/"
@@ -140,11 +147,11 @@ sync_repo_multi() {
     done < <(find "$extract_dir" -mindepth 1 -maxdepth 1)
 
     local md_count
-    md_count=$(find "$extract_dir" -type f \( -name '*.mdx' -o -name '*.md' \) | wc -l | tr -d ' ')
-    echo "[$label] Extracted $md_count MDX/MD files (plus any other content from the included paths)"
+    md_count=$(find "$extract_dir" -type f \( -name '*.mdx' -o -name '*.md' -o -name '*.move' \) | wc -l | tr -d ' ')
+    echo "[$label] Extracted $md_count MDX/MD/move files (plus any other content from the included paths)"
 
     if [[ "$md_count" -eq 0 ]]; then
-        echo "[$label] WARNING: No MDX/MD files extracted! Skipping to avoid data loss."
+        echo "[$label] WARNING: No MDX/MD/move files extracted! Skipping to avoid data loss."
         return 1
     fi
 
@@ -155,6 +162,7 @@ sync_repo_multi() {
 
     strip_binaries "$extract_dir"
 
+    mkdir -p "$(dirname "$local_dir")"
     rm -rf "$local_dir"
     mv "$extract_dir" "$local_dir"
     echo "[$label] Updated $local_dir/"
@@ -163,20 +171,23 @@ sync_repo_multi() {
 echo "=== sui-pilot doc sync ==="
 echo ""
 
-sync_repo       "MystenLabs" "sui"       "docs/content"            ".sui-docs"       "Sui"
-sync_repo       "MystenLabs" "walrus"    "docs/content"            ".walrus-docs"    "Walrus"
-sync_repo       "MystenLabs" "seal"      "docs/content"            ".seal-docs"      "Seal"
-sync_repo       "MystenLabs" "ts-sdks"   "packages/docs/content"   ".ts-sdk-docs"    "TS SDK"
-sync_repo_multi "MystenLabs" "move-book" "book,reference,packages" ".move-book-docs" "Move Book"
+sync_repo       "MystenLabs"      "sui"        "docs/content"             ".sui-docs"               "Sui"
+sync_repo       "MystenLabs"      "walrus"     "docs/content"             ".walrus-docs"            "Walrus"
+sync_repo       "MystenLabs"      "seal"       "docs/content"             ".seal-docs"              "Seal"
+sync_repo       "MystenLabs"      "ts-sdks"    "packages/docs/content"    ".ts-sdk-docs"            "TS SDK"
+sync_repo_multi "MystenLabs"      "move-book"  "book,reference,packages"  ".move-book-docs"         "Move Book"
+sync_repo       "asymptotic-code" "sui-prover" ".claude/skills/sui-prover" ".sui-prover-docs/guide"   "Sui Prover Guide"
+sync_repo       "asymptotic-code" "sui-prover" "packages/prover/sources"   ".sui-prover-docs/sources" "Sui Prover Sources"
+sync_repo       "asymptotic-code" "sui-kit"    "examples"                  ".sui-prover-docs/examples" "Sui Prover Examples"
 
 echo ""
 echo "=== Sync complete ==="
 echo ""
 echo "File counts:"
-for dir in .sui-docs .walrus-docs .seal-docs .ts-sdk-docs .move-book-docs; do
+for dir in .sui-docs .walrus-docs .seal-docs .ts-sdk-docs .move-book-docs .sui-prover-docs; do
     if [[ -d "$dir" ]]; then
-        count=$(find "$dir" -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' ')
-        echo "  $dir: $count MDX/MD files"
+        count=$(find "$dir" -type f \( -name '*.mdx' -o -name '*.md' -o -name '*.move' \) 2>/dev/null | wc -l | tr -d ' ')
+        echo "  $dir: $count MDX/MD/move files"
     else
         echo "  $dir: (not present — skipped)"
     fi
@@ -197,14 +208,18 @@ if ! $DRY_RUN; then
     "walrus": "MystenLabs/walrus@main",
     "seal": "MystenLabs/seal@main",
     "ts-sdks": "MystenLabs/ts-sdks@main",
-    "move-book": "MystenLabs/move-book@main"
+    "move-book": "MystenLabs/move-book@main",
+    "sui-prover-guide": "asymptotic-code/sui-prover@main:.claude/skills/sui-prover",
+    "sui-prover-sources": "asymptotic-code/sui-prover@main:packages/prover/sources",
+    "sui-prover-examples": "asymptotic-code/sui-kit@main:examples"
   },
   "fileCounts": {
     "sui": $(find .sui-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '),
     "walrus": $(find .walrus-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '),
     "seal": $(find .seal-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '),
     "ts-sdks": $(find .ts-sdk-docs -type f \( -name '*.mdx' -o -name '*.md' \) 2>/dev/null | wc -l | tr -d ' '),
-    "move-book": $(find .move-book-docs -type f \( -name '*.mdx' -o -name '*.md' \) -not -path '.move-book-docs/packages/*' 2>/dev/null | wc -l | tr -d ' ')
+    "move-book": $(find .move-book-docs -type f \( -name '*.mdx' -o -name '*.md' \) -not -path '.move-book-docs/packages/*' 2>/dev/null | wc -l | tr -d ' '),
+    "sui-prover": $(find .sui-prover-docs -type f \( -name '*.mdx' -o -name '*.md' -o -name '*.move' \) 2>/dev/null | wc -l | tr -d ' ')
   }
 }
 EOF

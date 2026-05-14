@@ -1,0 +1,6 @@
+[package]
+name = "AMM"
+edition = "2024.beta"
+
+[addresses]
+amm = "0x0"

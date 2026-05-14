@@ -1,0 +1,6 @@
+[package]
+name = "showcase"
+edition = "2024.beta"
+
+[addresses]
+showcase = "0x0"

@@ -1,0 +1,21 @@
+{
+  "syncTimestamp": "2026-05-14T08:05:34Z",
+  "sources": {
+    "sui": "MystenLabs/sui@main",
+    "walrus": "MystenLabs/walrus@main",
+    "seal": "MystenLabs/seal@main",
+    "ts-sdks": "MystenLabs/ts-sdks@main",
+    "move-book": "MystenLabs/move-book@main",
+    "sui-prover-guide": "asymptotic-code/sui-prover@main:.claude/skills/sui-prover",
+    "sui-prover-sources": "asymptotic-code/sui-prover@main:packages/prover/sources",
+    "sui-prover-examples": "asymptotic-code/sui-kit@main:examples"
+  },
+  "fileCounts": {
+    "sui": 369,
+    "walrus": 86,
+    "seal": 14,
+    "ts-sdks": 115,
+    "move-book": 143,
+    "sui-prover": 20
+  }
+}

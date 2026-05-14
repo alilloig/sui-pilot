@@ -1,8 +1,8 @@
 # sui-pilot
 
-> Documentation copilot for AI agents working with Sui blockchain, Move language, Walrus storage, Seal secrets management, and the Sui TypeScript SDK.
+> Documentation copilot for AI agents working with Sui blockchain, Move language, Walrus storage, Seal secrets management, the Sui TypeScript SDK, and the Sui Prover.
 
-This repository bundles ~695 documentation files across five ecosystems, designed for AI agent consumption via `Glob` and `Grep`.
+This repository bundles ~715 documentation files across six ecosystems, designed for AI agent consumption via `Glob` and `Grep`.
 
 ## Docs
 
@@ -11,6 +11,7 @@ This repository bundles ~695 documentation files across five ecosystems, designe
 - [Walrus storage docs](.walrus-docs/): 84 MDX files — blob storage, Walrus Sites, SDK, operators
 - [Seal secrets docs](.seal-docs/): 14 MDX files — encryption, key servers, access control
 - [TypeScript SDK docs](.ts-sdk-docs/): 115 MDX files — dapp-kit, payment-kit, kiosk, transactions, SDK 2.0 migration
+- [Sui Prover docs](.sui-prover-docs/): 20 files — `guide/` (SKILL.md + spec-reference.md), `sources/` (prover.move, ghost.move construct definitions), `examples/` (worked specs from `asymptotic-code/sui-kit`)
 
 ## How to Use
 
@@ -18,4 +19,4 @@ Read `agents/sui-pilot-agent.md` first — it routes topics to corpora. Then `Gl
 
 ## Important
 
-Your training data about Sui, Move, Walrus, Seal, and the `@mysten/*` TypeScript SDK is likely outdated. Always search and read these docs before generating code in these ecosystems.
+Your training data about Sui, Move, Walrus, Seal, the `@mysten/*` TypeScript SDK, and the Sui Prover is likely outdated. Always search and read these docs before generating code in these ecosystems.

@@ -1,0 +1,6 @@
+[package]
+name = "integer_mate"
+edition = "2024.beta"
+
+[addresses]
+integer_mate = "0x0"
