@@ -36,10 +36,13 @@ This skill is a multi-phase, per-function orchestrator. It uses:
 
 1. Call `mcp__sui-prover__prover_capabilities` with `move_toml_path` set to the user's package root.
 2. Call `mcp__move-lsp__move_diagnostics` with `scope: 'file'` on any one `.move` file under `sources/` to confirm the package compiles before we start writing into it.
-3. If `binary.found === false` → STOP, ask the user to `brew install asymptotic-code/sui-prover/sui-prover`.
+3. If `binary.found === false`:
+   - **Interactive mode** (`SPECIFY_AUTO_DEFAULTS` unset or `=0`): STOP, ask the user to `brew install asymptotic-code/sui-prover/sui-prover`.
+   - **Non-interactive mode** (`SPECIFY_AUTO_DEFAULTS=1`): enter **discovery-only** mode -- Phase 1 still runs and writes `.specify-progress.json` (so eval rigs like `task-28-specify-discovery` get the function set on a runner that lacks the binary); skip the per-function prove loop (Phase 4.6) entirely; mark every discovered function with `status: "discovery_only"` in the progress file; emit a `.specify-report.html` noting the binary was absent; exit cleanly.
 4. If `setup_warnings` is non-empty (explicit `Sui`/`MoveStdlib` deps, non-2024 edition):
    - Surface every warning verbatim.
    - **AskUserQuestion (single batch)**: "fix Move.toml myself first / proceed anyway (specs may not compile) / abort". Default suggestion: "fix first".
+   - **Non-interactive mode**: abort hard (per the contract at the top of this file); the eval harness needs a deterministic exit.
    - **Never auto-edit the user's Move.toml.** Surface the line to change and let them do it.
 
 ## Phase 1 — Discover externally reachable functions

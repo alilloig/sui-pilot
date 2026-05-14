@@ -113,7 +113,15 @@ function lineNumberAt(text: string, offset: number): number {
 }
 
 function extractTarget(argList: string): string | null {
-  const match = argList.match(/target\s*=\s*([A-Za-z_][\w:]*)/);
+  // Cross-module target paths take two shapes per .sui-prover-docs:
+  //   `target = pkg_name::mod::fn`              (identifier-prefixed)
+  //   `target = 0x2::transfer::public_transfer` (hex-address-prefixed)
+  // The identifier form starts with a letter or underscore; the address
+  // form is `0x` followed by hex digits. Both forms then require at
+  // least one `::segment` to count as a Move path.
+  const match = argList.match(
+    /target\s*=\s*((?:0x[0-9a-fA-F]+|[A-Za-z_]\w*)(?:::[A-Za-z_]\w*)+)/
+  );
   return match ? match[1]! : null;
 }
 

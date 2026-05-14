@@ -75,8 +75,13 @@ export function inspectPackage(packagePath: string): PackageInfo {
  */
 function extractField(toml: string, field: string): string | null {
   // Only scan the [package] block to avoid matching identically-named keys
-  // in [addresses] or other sections.
-  const pkgMatch = toml.match(/\[package\][\s\S]*?(?=^\[|\Z)/m);
+  // in [addresses] or other sections. JavaScript regex has no \Z anchor;
+  // an end-of-input lookahead `$(?![\s\S])` is the correct form (also used
+  // by detectExplicitFrameworkDeps below). The earlier `\Z` literal-Z
+  // truncated the scope at any `Z` character inside the [package] block,
+  // breaking `name`/`edition` extraction for any package whose values
+  // contained an uppercase Z.
+  const pkgMatch = toml.match(/\[package\][\s\S]*?(?=^\[[\w-]+\]|$(?![\s\S]))/m);
   const scope = pkgMatch ? pkgMatch[0] : toml;
   const re = new RegExp(`^\\s*${field}\\s*=\\s*"([^"]+)"`, 'm');
   const m = scope.match(re);

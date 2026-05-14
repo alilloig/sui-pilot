@@ -171,10 +171,9 @@ fun sum_spec(v: &vector<u64>): u64 {
 
 ### 4.7 Ghost state for events
 
-If the function under spec emits an event and the spec needs to reason about it:
+If the function under spec emits an event and the spec needs to reason about it. The helper that mirrors the emit stays a plain `fun` -- do NOT add `#[ext(pure)]`, the body has the `event::emit` side effect that `pure` forbids:
 
 ```move
-#[ext(pure)]
 fun emit_large_withdraw_event() {
     event::emit(LargeWithdrawEvent {});
     requires(*global<LargeWithdrawEvent, bool>());

@@ -56,6 +56,30 @@ describe('findSpecsInSource', () => {
     expect(adminSetFees?.target).toBe('amm::pool::admin_set_fees');
   });
 
+  it('captures hex-address targets (regression: R3-001 / R1-003)', () => {
+    // The Asymptotic guide explicitly recommends `target = 0x2::...` for
+    // specs that target framework functions. The earlier `[A-Za-z_][\w:]*`
+    // regex rejected the hex prefix and produced `target: null` for these
+    // -- which broke /specify's idempotency check.
+    const src = `module x::y;
+#[spec(prove, target = 0x2::transfer::public_transfer)]
+public fun framework_spec<T: key>(obj: T, recipient: address) {
+    0x2::transfer::public_transfer(obj, recipient)
+}
+`;
+    const specs = findSpecsInSource(stripComments(src), '/abs/x.move');
+    expect(specs).toHaveLength(1);
+    expect(specs[0]!.target).toBe('0x2::transfer::public_transfer');
+  });
+
+  it('captures multi-digit hex-address targets', () => {
+    const src = `#[spec(prove, target = 0x42a::mod::fn)]
+public fun ok_spec() { abort 0 }
+`;
+    const specs = findSpecsInSource(stripComments(src), '/abs/x.move');
+    expect(specs[0]!.target).toBe('0x42a::mod::fn');
+  });
+
   it('preserves boogie_opt verbatim in attrs', () => {
     const specs = findSpecsInSource(stripComments(SAMPLE), '/abs/pool.move');
     const adminSetFees = specs.find((s) => s.function_name === 'admin_set_fees_spec');

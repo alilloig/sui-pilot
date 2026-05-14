@@ -15,7 +15,7 @@ import { info, warn } from './logger.js';
 import { requireBinary } from './binary.js';
 import { findPackageRoot, inspectPackage } from './move-toml.js';
 import { parseProverOutput, Finding } from './parse-output.js';
-import { ProveTimeoutError, SuiProverError, INVALID_ARGUMENT, PROVE_SPAWN_FAILED } from './errors.js';
+import { SuiProverError, INVALID_ARGUMENT, PROVE_SPAWN_FAILED } from './errors.js';
 
 export interface ProveArgs {
   path: string;                       // file or directory; auto-walks to Move.toml
@@ -37,7 +37,6 @@ export interface ProveResult {
 }
 
 const DEFAULT_TIMEOUT_SECONDS = 60;
-const HARD_KILL_GRACE_MS = 5_000;
 
 /**
  * Run sui-prover and return a structured result. Throws SuiProverError
@@ -72,8 +71,12 @@ export async function prove(args: ProveArgs): Promise<ProveResult> {
   if (args.target_module) cliArgs.push('--modules', args.target_module);
   if (args.verbose) cliArgs.push('--verbose');
 
-  // Filter extra_args against the supported-flag set captured at startup,
-  // so we never forward something the binary will reject.
+  // Filter user-supplied `extra_args` against the binary's actual flag set
+  // (parsed from `--help`). Core flags above (`--path`, `--timeout`,
+  // `--functions`, `--modules`, `--verbose`) are NOT filtered -- they're
+  // load-bearing for the wrapper's contract, so if a future binary release
+  // removes one we want a hard error, not silent degradation. The gate
+  // applies only to the escape-hatch path that users opt into.
   if (args.extra_args && args.extra_args.length > 0) {
     const supported = new Set(binary.supportedFlags);
     for (const ea of args.extra_args) {
@@ -91,11 +94,12 @@ export async function prove(args: ProveArgs): Promise<ProveResult> {
 
   info('Invoking sui-prover', { binary: binary.path, cliArgs });
   const startedAt = Date.now();
-  const { stdout, stderr, exitCode, signal } = await spawnProver(
-    binary.path,
-    cliArgs,
-    timeoutSeconds * 1000 + HARD_KILL_GRACE_MS
-  );
+  // No artificial wall-clock kill: `--timeout` is the binary's per-spec budget,
+  // and a single `prove_package` call can verify N specs (whole-package or
+  // `target_module`), so an N×timeout ceiling is the only honest upper bound
+  // -- and we don't know N here. Trust the binary's self-management; the user
+  // can always SIGINT the parent process.
+  const { stdout, stderr, exitCode, signal } = await spawnProver(binary.path, cliArgs);
   const duration = Date.now() - startedAt;
 
   const parsed = parseProverOutput(stdout, stderr, exitCode ?? -1);
@@ -137,29 +141,18 @@ interface SpawnResult {
 /**
  * Spawn the prover binary with an explicit argv list (no shell). Captures
  * stdout/stderr into strings and resolves with the full result when the
- * process exits. A hard-kill timer prevents runaway processes.
+ * process exits.
  *
- * Why spawn instead of execFile: prover runs can be long-lived and we
- * want to enforce a hard timeout independent of node's exec buffer. The
- * MCP tool's logical timeout (`--timeout` flag to the binary) is the
- * primary mechanism; the spawn-level timeout is a safety net.
+ * No wrapper-level kill: `--timeout` is the binary's per-spec budget. A
+ * single call may verify N specs, so the wrapper cannot derive a correct
+ * wall-clock ceiling without knowing N. Trust the binary's self-management.
  */
-function spawnProver(binaryPath: string, args: string[], hardTimeoutMs: number): Promise<SpawnResult> {
+function spawnProver(binaryPath: string, args: string[]): Promise<SpawnResult> {
   return new Promise((resolveSpawn, rejectSpawn) => {
     const child = spawn(binaryPath, args, { stdio: ['ignore', 'pipe', 'pipe'] });
 
     let stdoutBuf = '';
     let stderrBuf = '';
-    let timedOut = false;
-
-    const timer = setTimeout(() => {
-      timedOut = true;
-      try {
-        child.kill('SIGKILL');
-      } catch {
-        // already exited
-      }
-    }, hardTimeoutMs);
 
     child.stdout.on('data', (chunk: Buffer) => {
       stdoutBuf += chunk.toString('utf8');
@@ -169,16 +162,10 @@ function spawnProver(binaryPath: string, args: string[], hardTimeoutMs: number):
     });
 
     child.on('error', (err) => {
-      clearTimeout(timer);
       rejectSpawn(new SuiProverError(`Failed to spawn sui-prover: ${err.message}`, PROVE_SPAWN_FAILED));
     });
 
     child.on('close', (code, signal) => {
-      clearTimeout(timer);
-      if (timedOut) {
-        rejectSpawn(new ProveTimeoutError(Math.floor(hardTimeoutMs / 1000)));
-        return;
-      }
       resolveSpawn({ stdout: stdoutBuf, stderr: stderrBuf, exitCode: code, signal });
     });
   });

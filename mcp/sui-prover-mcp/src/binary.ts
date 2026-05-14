@@ -26,6 +26,13 @@ const PROBE_TIMEOUT_MS = 5_000;
 export function discoverBinary(explicitPath?: string): string | null {
   if (explicitPath && existsSync(explicitPath)) return explicitPath;
 
+  // SUI_PROVER_BIN lets tests (and operators with non-PATH installs)
+  // point at a specific binary without changing the call site. Tests use
+  // this to swap in a mock shell script; operators with multiple installs
+  // pin a version.
+  const envPath = process.env['SUI_PROVER_BIN'];
+  if (envPath && existsSync(envPath)) return envPath;
+
   try {
     const stdout = execFileSync('which', ['sui-prover'], {
       encoding: 'utf8',
@@ -44,7 +51,10 @@ export function getBinaryVersion(binaryPath: string): string | null {
       encoding: 'utf8',
       timeout: PROBE_TIMEOUT_MS,
     });
-    const match = stdout.trim().match(/(\d+\.\d+\.\d+)/);
+    // Capture core MAJOR.MINOR.PATCH plus any pre-release suffix
+    // (e.g. "0.0.0-mock", "1.6.0-rc1") so version drift remains visible
+    // to the operator instead of being silently truncated.
+    const match = stdout.trim().match(/(\d+\.\d+\.\d+(?:-[\w.-]+)?)/);
     return match ? match[1]! : stdout.trim() || null;
   } catch {
     return null;
@@ -68,10 +78,33 @@ export function parseSupportedFlags(helpText: string): string[] {
   return [...flags].sort();
 }
 
+// Process-lifetime cache. /specify runs `prove_package` per externally-
+// reachable function on the same package, so without this we'd re-spawn
+// `which` + `--version` + `--help` (three sync child processes) on every
+// tool call. The probe is cached against the explicit-path argument so
+// tests using different mock-binary paths don't collide.
+const probeCache = new Map<string, BinaryInfo>();
+
+/**
+ * Clear the binary-probe cache. Tests use this between scenarios; not
+ * needed in production unless the operator swaps the binary mid-session.
+ */
+export function clearBinaryCache(): void {
+  probeCache.clear();
+}
+
 export function probeBinary(explicitPath?: string): BinaryInfo {
+  const key = explicitPath ?? '';
+  const cached = probeCache.get(key);
+  if (cached) return cached;
+
   const path = discoverBinary(explicitPath);
   if (!path) {
-    return { found: false, path: null, version: null, helpText: null, supportedFlags: [] };
+    const miss: BinaryInfo = {
+      found: false, path: null, version: null, helpText: null, supportedFlags: [],
+    };
+    probeCache.set(key, miss);
+    return miss;
   }
 
   const version = getBinaryVersion(path);
@@ -82,9 +115,11 @@ export function probeBinary(explicitPath?: string): BinaryInfo {
     helpText = help.helpText;
     supportedFlags = help.flags;
   } catch {
-    // Help-probe failure is non-fatal -- return what we have.
+    // Help-probe failure is non-fatal -- cache what we have.
   }
-  return { found: true, path, version, helpText, supportedFlags };
+  const info: BinaryInfo = { found: true, path, version, helpText, supportedFlags };
+  probeCache.set(key, info);
+  return info;
 }
 
 export function requireBinary(explicitPath?: string): BinaryInfo & { path: string } {
