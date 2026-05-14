@@ -26,3 +26,15 @@ Always search and read these docs before writing code for these ecosystems.
 ```bash
 ./sync-docs.sh            # Pull latest from upstream MystenLabs repos
 ```
+
+## Vendored MystenLabs Skills
+
+`MystenLabs/skills` is vendored as a submodule at `.mysten-skills/` (declares `branch = main` and `update = merge`, so a single `git submodule update --init --recursive --remote --merge` fast-forwards it). Each upstream skill is exposed to Claude Code via a symlink `skills/<name> -> ../.mysten-skills/<name>`, so the working tree always reflects the current submodule pin without any copy step.
+
+Re-materialize symlinks (idempotent; run after the submodule moves or upstream adds/removes skills):
+
+```bash
+./scripts/sync-mysten-skills.sh
+```
+
+Local sui-pilot skills under `skills/` (real directories — `move-code-quality`, `move-code-review`, `move-pr-review`, `move-tests`, `oz-math`) take precedence; the sync script refuses to overwrite them.
