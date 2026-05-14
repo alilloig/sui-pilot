@@ -243,56 +243,85 @@ function parseEmojiLines(stdout: string, stderr: string): SubResult {
   const FAILED = /❌\s+([\w:]+)(?:\s+at\s+(\S+))?/;
   const SKIPPED = /⏭️?\s+([\w:]+)(?:\s+at\s+(\S+))?/;
 
+  // Dedup per-spec emoji verdicts. The 1.5.3 prover emits 3 sub-checks per
+  // spec (`<spec>_Check`, `<spec>_Assume`, `<spec>_SpecNoAbortCheck`) — each
+  // as its own ✅/❌/⏭️ line. The user-visible "spec count" is the number of
+  // unique base spec names, not the line count.
+  const verifiedSpecs = new Set<string>();
+  const failedSpecs = new Set<string>();
+  const skippedSpecs = new Set<string>();
+
   for (const line of lines) {
     const trimmed = line.trim();
     if (trimmed.length === 0) continue;
 
     let m: RegExpMatchArray | null;
 
-    // ✅ verified
+    // ✅ verified — count unique base spec names only
     m = trimmed.match(VERIFIED);
     if (m) {
-      out.verified += 1;
+      verifiedSpecs.add(stripSubcheckSuffix(m[1]!));
       // Don't emit a finding per verified spec — keeps the response compact
-      // on green runs. The count in summary.verified is the signal.
+      // on green runs. The deduped count in summary.verified is the signal.
       continue;
     }
 
-    // ❌ failed
+    // ❌ failed — first sub-check failure per spec wins (others are
+    // typically downstream of the same root cause)
     m = trimmed.match(FAILED);
     if (m) {
-      out.failed += 1;
-      const specName = m[1]!;
-      out.findings.push({
-        kind: 'failed',
-        severity: 'error',
-        message: trimmed,
-        location: m[2] ? parseLocation(m[2]) : null,
-        spec: specName.includes('::') ? specName : null,
-        function_under_test: deriveFunctionUnderTest(specName),
-        counterexample: null,
-      });
+      const subcheckName = m[1]!;
+      const baseName = stripSubcheckSuffix(subcheckName);
+      if (!failedSpecs.has(baseName)) {
+        failedSpecs.add(baseName);
+        out.findings.push({
+          kind: 'failed',
+          severity: 'error',
+          message: trimmed,
+          location: m[2] ? parseLocation(m[2]) : null,
+          spec: baseName.includes('::') ? baseName : null,
+          function_under_test: deriveFunctionUnderTest(baseName),
+          counterexample: null,
+        });
+      }
       continue;
     }
 
     // ⏭️ skipped (info: tells the caller the spec exists but isn't proven)
     m = trimmed.match(SKIPPED);
     if (m) {
-      out.skipped += 1;
-      const specName = m[1]!;
-      out.findings.push({
-        kind: 'skipped',
-        severity: 'info',
-        message: trimmed,
-        location: m[2] ? parseLocation(m[2]) : null,
-        spec: specName.includes('::') ? specName : null,
-        function_under_test: deriveFunctionUnderTest(specName),
-        counterexample: null,
-      });
+      const subcheckName = m[1]!;
+      const baseName = stripSubcheckSuffix(subcheckName);
+      if (!skippedSpecs.has(baseName)) {
+        skippedSpecs.add(baseName);
+        out.findings.push({
+          kind: 'skipped',
+          severity: 'info',
+          message: trimmed,
+          location: m[2] ? parseLocation(m[2]) : null,
+          spec: baseName.includes('::') ? baseName : null,
+          function_under_test: deriveFunctionUnderTest(baseName),
+          counterexample: null,
+        });
+      }
     }
   }
 
+  out.verified = verifiedSpecs.size;
+  out.failed = failedSpecs.size;
+  out.skipped = skippedSpecs.size;
   return out;
+}
+
+/**
+ * Strip the prover's per-spec sub-check suffix from a verdict line.
+ * The 1.5.3 binary appends `_Check` (postcondition), `_Assume` (modular
+ * soundness), or `_SpecNoAbortCheck` (or `_NoAbortCheck`) to each spec
+ * name. We collapse them to the base spec name so `summary.verified`
+ * reports the number of unique specs the user actually authored.
+ */
+function stripSubcheckSuffix(name: string): string {
+  return name.replace(/_(Check|Assume|SpecNoAbortCheck|NoAbortCheck)$/, '');
 }
 
 /** Parse a "path.move:line[:col]" location pointer. */

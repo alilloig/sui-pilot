@@ -68,20 +68,43 @@ sui-prover: verification timed out (60s)
     expect(result.findings[0]!.message).toContain('137');
   });
 
-  it('parses 1.5.3 ✅ verified lines into summary.verified', () => {
+  it('parses 1.5.3 ✅ verified lines into summary.verified (dedups subchecks)', () => {
+    // The 1.5.3 prover emits 3 subchecks per spec (_Check, _Assume,
+    // _SpecNoAbortCheck) plus one _SpecNoAbortCheck per axiom file. Input
+    // below has 1 spec (calc_invariant_full_spec) with 2 of its 3 subchecks
+    // visible + 1 axiom-file marker, representing the spec count of 2 unique
+    // specs (one spec function + one axiom-file marker collapse to two base
+    // names after suffix stripping).
     const stdout = `🔄 0x15::specify_axioms_SpecNoAbortCheck
 ✅ 0x15::specify_axioms_SpecNoAbortCheck
 🔄 amm_math::geometric_mean_calculations::calc_invariant_full_spec_Check
 ✅ amm_math::geometric_mean_calculations::calc_invariant_full_spec_Check
 ✅ amm_math::geometric_mean_calculations::calc_invariant_full_spec_Assume
+✅ amm_math::geometric_mean_calculations::calc_invariant_full_spec_SpecNoAbortCheck
 Verification successful
 `;
     const result = parseProverOutput(stdout, '', 0);
-    expect(result.summary.verified).toBe(3);
+    // 2 unique base spec names: `0x15::specify_axioms` (after stripping
+    // _SpecNoAbortCheck) and `amm_math::...::calc_invariant_full_spec` (after
+    // stripping all 3 subcheck suffixes). NOT 4 — that would be the bug this
+    // test guards against (counting per-subcheck instead of per-spec).
+    expect(result.summary.verified).toBe(2);
     expect(result.summary.failed).toBe(0);
     expect(result.summary.overall).toBe('verified_all');
     // No findings emitted for verified specs — count is the signal.
     expect(result.findings.filter((f) => f.kind === 'verified')).toHaveLength(0);
+  });
+
+  it('dedups ❌ failed subchecks into one finding per unique base spec', () => {
+    const stdout = `❌ pkg::mod::bad_spec_Check at /abs/path/foo.move:42:3
+❌ pkg::mod::bad_spec_Assume at /abs/path/foo.move:42:3
+❌ pkg::mod::bad_spec_SpecNoAbortCheck at /abs/path/foo.move:42:3
+Verification failed
+`;
+    const result = parseProverOutput(stdout, '', 1);
+    expect(result.summary.failed).toBe(1);
+    expect(result.findings.filter((f) => f.kind === 'failed')).toHaveLength(1);
+    expect(result.findings.find((f) => f.kind === 'failed')?.spec).toBe('pkg::mod::bad_spec');
   });
 
   it('parses ⏭️ skipped lines as info-severity findings', () => {
@@ -102,7 +125,7 @@ Verification successful
   });
 
   it('parses ❌ failed lines and assigns the failed kind', () => {
-    const stdout = `❌ pkg::mod::bad_spec at /abs/path/foo.move:42:3
+    const stdout = `❌ pkg::mod::bad_spec_Check at /abs/path/foo.move:42:3
 Verification failed
 `;
     const result = parseProverOutput(stdout, '', 1);
@@ -114,8 +137,8 @@ Verification failed
   });
 
   it('strips ANSI escape codes before matching', () => {
-    const ansified = '[1A[2K✅ pkg::mod::foo_spec\n';
-    expect(stripAnsi(ansified)).toBe('✅ pkg::mod::foo_spec\n');
+    const ansified = '[1A[2K✅ pkg::mod::foo_spec_Check\n';
+    expect(stripAnsi(ansified)).toBe('✅ pkg::mod::foo_spec_Check\n');
     const result = parseProverOutput(ansified, '', 0);
     expect(result.summary.verified).toBe(1);
   });
@@ -173,7 +196,7 @@ fatal: Could not read from remote repository.
   });
 
   it('sets summary.overall = verified_all on a clean exit with verifications', () => {
-    const result = parseProverOutput('✅ a::b::c_spec\nVerification successful\n', '', 0);
+    const result = parseProverOutput('✅ a::b::c_spec_Check\nVerification successful\n', '', 0);
     expect(result.summary.overall).toBe('verified_all');
   });
 

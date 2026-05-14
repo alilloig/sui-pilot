@@ -91,7 +91,9 @@ Before launching Phase 2's per-function loop, two cheap checks decide *what* get
 2. If every public function body in the callee's module is `abort 0` or `native`, the module is a **stub** — its bytecode interface is published but the real source isn't shipped (common with `published-at` deps and proprietary fixed-point math packages).
 3. **If any stub callee is detected**, surface it in `.specify-progress.json` under `callee_quality[]` and warn the user: *"Module `<X>` is a stub (every body is `abort 0`). Specifying functions that call into it requires axiomatic modeling — see `references/spec-patterns.md` §4.10 — or every verification will be vacuous (the prover concludes every caller path aborts)."*
 
-The right escape is the canonical `#[spec(skip, target = <stub_fn>)]` idiom documented in `references/spec-patterns.md` §4 and Phase 4.5 below.
+The right escape is the canonical `#[spec(skip, target = <stub_fn>)]` idiom documented in `references/spec-patterns.md` §4.10 and Phase 4.5 below.
+
+## Phase 2 — Build cascade context (lazy, per-function)
 
 For each function the user is about to spec:
 
