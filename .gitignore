@@ -19,10 +19,12 @@ dist/
 *.log
 .pnpm-debug.log*
 
-# Ship the prebuilt move-lsp MCP bundle so marketplace installs work
-# without a post-install build step.
+# Ship the prebuilt MCP bundles so marketplace installs work without a
+# post-install build step. One un-ignore line per packaged MCP.
 !mcp/move-lsp-mcp/dist/
 !mcp/move-lsp-mcp/dist/**
+!mcp/sui-prover-mcp/dist/
+!mcp/sui-prover-mcp/dist/**
 
 # Build artifacts
 *.tsbuildinfo

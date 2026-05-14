@@ -1,6 +1,6 @@
 {
   "name": "sui-pilot",
-  "description": "Sui Move development plugin with LSP integration, comprehensive documentation, and code quality tools",
+  "description": "Sui Move development plugin with LSP integration, comprehensive documentation, code quality tools, and formal-verification wrapper",
   "author": { "name": "alilloig" },
   "keywords": [
     "sui",
@@ -10,12 +10,19 @@
     "walrus",
     "seal",
     "language-server",
-    "diagnostics"
+    "diagnostics",
+    "formal-verification",
+    "sui-prover"
   ],
   "mcpServers": {
     "move-lsp": {
       "command": "node",
       "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/move-lsp-mcp/dist/index.js"],
+      "env": {}
+    },
+    "sui-prover": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/sui-prover-mcp/dist/index.js"],
       "env": {}
     }
   }

@@ -20,6 +20,9 @@ tools:
   - mcp__move-lsp__move_code_actions
   - mcp__move-lsp__move_inlay_hints
   - mcp__move-lsp__move_rename
+  - mcp__sui-prover__prove_package
+  - mcp__sui-prover__list_specs
+  - mcp__sui-prover__prover_capabilities
 model: opus
 color: blue
 ---
