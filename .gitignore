@@ -38,6 +38,9 @@ docs/*
 # Eval run outputs — produced by evals/run-comparison.sh, not source-controlled.
 evals/results/
 
+# GitHub Pages staging directory — assembled by the pages.yml workflow.
+_site/
+
 # Sui Move build artifacts inside eval fixtures
 evals/fixtures/**/build/
 evals/fixtures/**/Move.lock

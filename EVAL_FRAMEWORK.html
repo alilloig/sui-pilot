@@ -133,7 +133,7 @@
 <main>
 
 <h1>Evaluating Claude Code context for Sui Move development</h1>
-<p class="lede">A doc-first plugin claims to make Claude Code better at writing Sui Move code than the bare model. That's an empirical claim — and most teams ship plugins without measuring it. This is a write-up of one attempt to measure it honestly, including the parts where the answer wasn't what we hoped, and the eval framework that fell out of the work.</p>
+<p class="lede">A doc-first plugin claims to make Claude Code better at writing Sui Move than the bare model — an empirical claim most teams ship without measuring. This is one attempt to measure it honestly, including where the answer wasn't what we hoped, and the eval framework that fell out of the work.</p>
 
 <p class="meta">
   <strong>Subject:</strong> <a href="https://github.com/alilloig/sui-pilot" target="_blank">sui-pilot</a>,
@@ -161,59 +161,59 @@
 <!-- ============================================================ -->
 <h2 id="why">1. Why measure this at all</h2>
 
-<p>Training drift on Sui and Move is real and fast. The Sui framework, the Move standard library, and the <code>@mysten/*</code> TypeScript SDK ship breaking changes monthly. A model with a January-2026 cutoff will confidently generate code patterns that no longer compile, deprecated APIs that have been removed, and signatures that have changed shape.</p>
+<p>Training drift on Sui and Move is fast: the Sui framework, the Move stdlib, and the <code>@mysten/*</code> SDK ship breaking changes monthly. A January-2026-cutoff model will confidently emit code that no longer compiles, APIs that have been removed, and signatures that have changed shape.</p>
 
-<p>Plugins like sui-pilot exist to fix this. The pitch is: <em>"ground the agent in current bundled docs so it doesn't generate from stale training memory"</em>. That's a falsifiable empirical claim, not a self-evident one. You can imagine plausible reasons it might not deliver:</p>
+<p>Plugins like sui-pilot exist to fix this. The pitch — <em>"ground the agent in current bundled docs so it doesn't generate from stale training memory"</em> — is an empirical claim, not a self-evident one. Plausible reasons it might not deliver:</p>
 
 <ul>
-  <li>The model might already <em>know</em> the right answer for common patterns and not need to read docs.</li>
-  <li>The agent might not actually <em>reach for</em> the bundled docs even when they're available.</li>
-  <li>The added context might <em>crowd out</em> the model's reasoning budget on simple tasks.</li>
-  <li>The plugin's curation choices (which docs, in what form, with what routing) might be wrong.</li>
+  <li>The model already <em>knows</em> the right answer for common patterns and doesn't need to read docs.</li>
+  <li>The agent doesn't actually <em>reach for</em> the bundled docs even when they're available.</li>
+  <li>The added context <em>crowds out</em> the model's reasoning budget on simple tasks.</li>
+  <li>Curation choices (which docs, in what form, with what routing) are wrong.</li>
 </ul>
 
-<p>Without measurement, all of these stay as untestable beliefs. With measurement, they become questions you can answer with a fixture suite and a couple of hours of compute.</p>
+<p>Without measurement, these stay untestable beliefs. With a fixture suite and a couple of hours of compute, they're answerable.</p>
 
 <div class="callout">
-  <strong>Why this matters beyond sui-pilot:</strong> the same framework that measures sui-pilot's plugin shape can measure <em>any</em> Claude Code customization for Sui — a competing plugin, a different prompt strategy in a skill, a new MCP integration, a model upgrade, a fresh batch of bundled docs. The framework is the durable artifact; sui-pilot is the first thing it was pointed at.
+  <strong>Why this matters beyond sui-pilot:</strong> the same framework can measure <em>any</em> Claude Code customization for Sui — a competing plugin, a different skill prompt, a new MCP integration, a model upgrade, a fresh doc batch. The framework is the durable artifact; sui-pilot is the first thing it was pointed at.
 </div>
 
 <!-- ============================================================ -->
 <h2 id="what">2. What sui-pilot is</h2>
 
-<p>sui-pilot is a Claude Code plugin that bundles documentation for the Sui ecosystem and exposes development tooling:</p>
+<p>sui-pilot is a Claude Code plugin that bundles Sui-ecosystem docs and dev tooling:</p>
 
 <ul>
-  <li><strong>~695 doc files</strong> across five corpora (<code>.sui-docs/</code>, <code>.move-book-docs/</code>, <code>.walrus-docs/</code>, <code>.seal-docs/</code>, <code>.ts-sdk-docs/</code>) bundled into the plugin install. The agent reaches for them via <code>Glob</code>/<code>Grep</code> when answering.</li>
-  <li><strong>A slim always-loaded preamble</strong> (<code>agents/sui-pilot-agent.md</code>, ~2.9 KB) — a topic-routing table that tells the agent which corpus has what. No precomputed file index.</li>
-  <li><strong>Five procedural slash skills</strong> (<code>/move-code-quality</code>, <code>/move-code-review</code>, <code>/move-pr-review</code>, <code>/move-tests</code>, <code>/oz-math</code>), each a self-contained Markdown skill body the agent loads when invoked.</li>
-  <li><strong>An MCP server</strong> (<code>move-lsp</code>) that bridges <code>move-analyzer</code> (the official Move LSP) into Claude Code, exposing <code>move_diagnostics</code>, <code>move_hover</code>, <code>move_completions</code>, <code>move_goto_definition</code>.</li>
+  <li><strong>~695 doc files</strong> across five corpora (<code>.sui-docs/</code>, <code>.move-book-docs/</code>, <code>.walrus-docs/</code>, <code>.seal-docs/</code>, <code>.ts-sdk-docs/</code>). The agent reaches for them via <code>Glob</code>/<code>Grep</code>.</li>
+  <li><strong>A slim always-loaded preamble</strong> (<code>agents/sui-pilot-agent.md</code>, ~2.9 KB) — a topic-routing table, no precomputed file index.</li>
+  <li><strong>Five procedural slash skills</strong> (<code>/move-code-quality</code>, <code>/move-code-review</code>, <code>/move-pr-review</code>, <code>/move-tests</code>, <code>/oz-math</code>), loaded on invocation.</li>
+  <li><strong>An MCP server</strong> (<code>move-lsp</code>) bridging <code>move-analyzer</code> (the official Move LSP) — exposes <code>move_diagnostics</code>, <code>move_hover</code>, <code>move_completions</code>, <code>move_goto_definition</code>.</li>
 </ul>
 
-<p>That's the entire surface. No matcher pipeline, no hooks, no precomputed indexes — the agent reaches for docs when it needs them, and you type a slash command when you want a procedural skill.</p>
+<p>That's the entire surface. No matcher pipeline, no hooks, no precomputed indexes — the agent reaches for docs when needed, you type a slash command for a procedural skill.</p>
 
 <!-- ============================================================ -->
 <h2 id="experiment">3. The experiment: adopting then rolling back a sibling-plugin pattern</h2>
 
 <h3>3.1 The hypothesis</h3>
 
-<p>Several Claude Code plugins have converged on a particular architecture pattern for skill injection: a hook-based matcher that watches tool calls and prompts, scores them against per-skill signals (path globs, bash patterns, import patterns, prompt phrases), and injects the top-scoring skill bodies plus extracted chunks from a curated relational graph (<code>vercel.md</code> for vercel-plugin, etc.). Vercel's own Claude Code plugin is a serious reference implementation.</p>
+<p>Several Claude Code plugins converge on a skill-injection pattern: a hook-based matcher that watches tool calls and prompts, scores them against per-skill signals (path globs, bash patterns, import patterns, prompt phrases), and injects top-scoring skill bodies plus chunks from a curated relational graph (<code>vercel.md</code> for vercel-plugin). Vercel's plugin is a serious reference implementation.</p>
 
-<p>The hypothesis: <em>that pattern would make sui-pilot meaningfully better</em>. So we adopted it on a branch (<code>feat/v2-graph-port</code>), drawing heavily on vercel-plugin's implementation as the reference. Three layers landed:</p>
+<p>Hypothesis: <em>that pattern would make sui-pilot meaningfully better</em>. We adopted it on <code>feat/v2-graph-port</code>, drawing heavily on vercel-plugin. Three layers landed:</p>
 
 <ol>
   <li><strong>Slim always-loaded preamble</strong> — replaced the legacy 19.4 KB pipe-delimited file index with a 2.9 KB topic-routing table.</li>
-  <li><strong>Ecosystem graph</strong> — a hand-curated <code>sui.md</code> (445 lines, 13 sections) with cross-references between concepts and skill markers, modelled on <code>vercel.md</code>.</li>
-  <li><strong>Hooks pipeline</strong> — a SessionStart profiler, a PreToolUse path/bash/import matcher, a UserPromptSubmit prompt scorer, byte budgets, dedup, a <code>/sui-pilot-doctor</code> health check, a build step that precompiled skill frontmatter into a manifest. ~7,500 LOC of TypeScript source / ~15 K LOC including compiled JS.</li>
+  <li><strong>Ecosystem graph</strong> — a hand-curated <code>sui.md</code> (445 lines, 13 sections) cross-referencing concepts and skill markers, modelled on <code>vercel.md</code>.</li>
+  <li><strong>Hooks pipeline</strong> — SessionStart profiler, PreToolUse path/bash/import matcher, UserPromptSubmit prompt scorer, byte budgets, dedup, <code>/sui-pilot-doctor</code> health check, a build step precompiling skill frontmatter into a manifest. ~7,500 LOC TS / ~15 K LOC including compiled JS.</li>
 </ol>
 
-<p>This is the architecture that vercel-plugin uses. The bet was that it would transfer.</p>
+<p>This is vercel-plugin's architecture. The bet was that it would transfer.</p>
 
 <h3>3.2 The check</h3>
 
-<p>We built a 15-task A/B comparison suite covering common Sui/Move tasks — Move 2024 syntax migrations, OTW pattern, dynamic object fields, transfer policies, randomness, Walrus blob anchoring, Seal access policies, SDK 2.0 migration. Each task starts from a fixture (a minimal Move package or TS source tree), the model is given a prompt to make a specific change, and a grader checks whether the post-state satisfies pass criteria.</p>
+<p>We built a 15-task A/B suite over common Sui/Move tasks — Move 2024 syntax, OTW, dynamic object fields, transfer policies, randomness, Walrus blob anchoring, Seal access policies, SDK 2.0 migration. Each task: fixture in (minimal Move package or TS tree), prompt to make a change, grader checks the post-state against pass criteria.</p>
 
-<p>We ran the suite twice with the v1 and v2-with-matcher arms:</p>
+<p>We ran it with v1 and v2-with-matcher:</p>
 
 <table>
   <thead>
@@ -225,25 +225,25 @@
   </tbody>
 </table>
 
-<p>Tie on functional outcome. The literal gap was four grader artefacts in opposite directions — TODO-comment false positives on v1, idiomatic-form false negatives on v2. After adjudication: parity. The eval also flagged a <em>verbose-TODO regression</em> on v2: tasks 09 / 14 / 15 showed v2 deferring implementation to TODO comments more often, plausibly because the matcher over-injected reading material and the agent satisficed on implementation.</p>
+<p>Tie on functional outcome. The literal gap was four grader artefacts in opposite directions — TODO-comment false positives on v1, idiomatic-form false negatives on v2; after adjudication, parity. The eval also flagged a <em>verbose-TODO regression</em> on v2 (tasks 09 / 14 / 15 deferred implementation to TODO comments more often, plausibly because the matcher over-injected reading material and the agent satisficed).</p>
 
-<p>That run killed the confidence that the borrowed pattern was earning its complexity. The matcher solves prompt-disambiguation for plugins with many competing skills (vercel-plugin ships ~19); sui-pilot ships <strong>5 explicitly-named slash skills</strong>, so the disambiguation problem doesn't exist here. The pattern is well-designed for the problem it solves; sui-pilot just doesn't have that problem.</p>
+<p>That killed our confidence that the borrowed pattern was earning its complexity. The matcher solves prompt-disambiguation for plugins with many competing skills (vercel-plugin ships ~19); sui-pilot ships <strong>5 explicitly-named slash skills</strong> — no disambiguation problem to solve. Well-designed pattern; wrong host plugin.</p>
 
 <h3>3.3 The rollback</h3>
 
 <p>We rolled back the borrowed parts in a single commit:</p>
 
 <ul>
-  <li>The entire <code>hooks/</code> tree (matcher, profiler, lexical index, manifest builder, doctor) — ~15 K LOC including the compiled <code>.mjs</code> bundles.</li>
-  <li>The <code>sui.md</code> ecosystem graph and <code>sui-session.md</code> nudge — both consumed only by the hooks.</li>
-  <li>The generated <code>skill-manifest.json</code> and the script that built it.</li>
-  <li>The doctor + verify scripts + <code>/sui-pilot-doctor</code> slash command.</li>
+  <li>The entire <code>hooks/</code> tree (matcher, profiler, lexical index, manifest builder, doctor) — ~15 K LOC including compiled <code>.mjs</code>.</li>
+  <li><code>sui.md</code> ecosystem graph and <code>sui-session.md</code> nudge — both consumed only by hooks.</li>
+  <li>Generated <code>skill-manifest.json</code> and its build script.</li>
+  <li>Doctor + verify scripts + <code>/sui-pilot-doctor</code> slash command.</li>
   <li>Matcher metadata frontmatter from all 5 skills.</li>
 </ul>
 
-<p>~17,389 LOC net deletion across 57 files. We kept the slim preamble (which the eval validated as a clean win on always-loaded bytes regardless of the matcher) and the eval harness itself (the load-bearing piece — see §5).</p>
+<p>~17,389 LOC net deletion across 57 files. Kept: the slim preamble (eval validated as a clean win on always-loaded bytes regardless of the matcher) and the eval harness itself (load-bearing — see §5).</p>
 
-<p>Then we re-ran the suite:</p>
+<p>Re-ran the suite:</p>
 
 <table>
   <thead>
@@ -261,7 +261,7 @@
 <!-- ============================================================ -->
 <h2 id="framework">4. The eval framework</h2>
 
-<p>The eval harness in <code>evals/</code> was built ad-hoc to validate the rollback, but generalises to any A/B comparison between Claude Code plugin shapes targeting Sui Move development. The rest of this section is its operator-and-design narrative.</p>
+<p>The harness in <code>evals/</code> was built ad-hoc to validate the rollback but generalises to any A/B between Claude Code plugin shapes for Sui Move. Operator-and-design notes below.</p>
 
 <h3>4.1 Architecture</h3>
 
@@ -370,7 +370,7 @@
   </tbody>
 </table>
 
-<p>Authoring guidance: pick a category that surfaces the comparison you care about, not whatever's easiest to write. Single-file substring-matched tasks (the tier-1 shape) are usually the wrong tool — both architectures converge fast and the eval tells you nothing.</p>
+<p>Authoring tip: pick a category that surfaces the comparison you care about, not whatever's easiest. Single-file substring-matched tasks (tier-1 shape) usually tell you nothing — both architectures converge fast.</p>
 
 <h3>4.3 Pass-criteria types</h3>
 
@@ -381,13 +381,13 @@
     <tr><th>Field</th><th>Purpose</th></tr>
   </thead>
   <tbody>
-    <tr><td><code>containsString</code></td><td>The target file must contain the literal substring after the model's edit. Matches inside Move/TS comments are rejected.</td></tr>
-    <tr><td><code>containsRegex</code></td><td>Perl-compatible regex variant. Supersedes <code>containsString</code> when both present. Use when accepting multiple valid forms (e.g. accepting both <code>coin::create_currency(otw,</code> and <code>coin::create_currency&lt;DEMO&gt;(otw,</code>).</td></tr>
-    <tr><td><code>doesNotContainString</code> / <code>doesNotContainRegex</code></td><td>Negative checks — the substring/pattern must not appear (excluding comments). The regex variant lets you use word boundaries (<code>\bTransactionBlock\b</code>) so legitimate longer identifiers like <code>dryRunTransactionBlock</code> survive.</td></tr>
+    <tr><td><code>containsString</code></td><td>Target file must contain the literal substring after the edit. Matches inside Move/TS comments are rejected.</td></tr>
+    <tr><td><code>containsRegex</code></td><td>Perl-compatible regex variant. Supersedes <code>containsString</code> when both present. Use when accepting multiple valid forms (e.g. both <code>coin::create_currency(otw,</code> and <code>coin::create_currency&lt;DEMO&gt;(otw,</code>).</td></tr>
+    <tr><td><code>doesNotContainString</code> / <code>doesNotContainRegex</code></td><td>Negative checks (comments excluded). Regex variant lets you use word boundaries (<code>\bTransactionBlock\b</code>) so identifiers like <code>dryRunTransactionBlock</code> survive.</td></tr>
     <tr><td><code>alsoContainsString</code> / <code>alsoContainsRegex</code></td><td>Second positive check, same semantics.</td></tr>
     <tr><td><code>additionalFiles</code></td><td>Array of <code>{file, ...checks}</code> for multi-file tasks. Each entry checked independently.</td></tr>
-    <tr><td><code>compileAfter: true</code></td><td>Runs <code>sui move build --build-env mainnet</code> on the post-state. Pass requires exit 0. Skipped (not failed) when <code>sui</code> isn't on PATH.</td></tr>
-    <tr><td><code>rubric</code></td><td>Replaces literal checks with an LLM-graded scorecard for ambiguous tasks: 4 criteria scored 1–5 each, gated on <code>sum &gt;= passThreshold</code>.</td></tr>
+    <tr><td><code>compileAfter: true</code></td><td>Runs <code>sui move build --build-env mainnet</code>. Pass requires exit 0. Skipped (not failed) when <code>sui</code> isn't on PATH.</td></tr>
+    <tr><td><code>rubric</code></td><td>LLM-graded scorecard for ambiguous tasks: 4 criteria scored 1–5, gated on <code>sum &gt;= passThreshold</code>.</td></tr>
   </tbody>
 </table>
 
@@ -403,11 +403,11 @@
   <li><strong>Rubric</strong>: for ambiguous tasks, the scorer rates each rubric criterion 1–5 and gates on the sum.</li>
 </ol>
 
-<p>The first failing criterion is the reason; otherwise PASS. Output is a self-contained HTML report (<code>score.html</code>) with headline pass rates, per-task tables, a "differentiators" section listing tasks where versions disagree (the architecturally interesting cases), a per-category breakdown, token economics from the aggregated <code>tokens.csv</code>, and a plain-English verdict paragraph.</p>
+<p>First failing criterion is the reason; otherwise PASS. Output is a self-contained <code>score.html</code> with headline pass rates, per-task tables, a "differentiators" section (tasks where versions disagree — the architecturally interesting cases), per-category breakdown, token economics from <code>tokens.csv</code>, and a plain-English verdict.</p>
 
 <h3>4.5 Why no "no-plugin" control arm?</h3>
 
-<p>Considered, dropped. <code>claude --bare</code> refuses OAuth/keychain auth and requires <code>ANTHROPIC_API_KEY</code> (Console-API billed, separate from Claude Max plans), and the disable-the-plugin alternative needs a plugin-state restore dance that's too fragile for the marginal information it produces. The plugin's qualitative value over no-plugin is already obvious; the interesting comparison is between <em>plugin shapes</em> (matcher pipeline vs slim, pipe-delimited preamble vs topic-routing table, etc.).</p>
+<p>Considered, dropped. <code>claude --bare</code> requires <code>ANTHROPIC_API_KEY</code> (Console-API billed, separate from Claude Max), and the disable-the-plugin alternative needs a fragile plugin-state restore dance. The plugin's value over no-plugin is obvious; the interesting comparison is between <em>plugin shapes</em> (matcher vs slim, pipe-delimited preamble vs topic-routing table, etc.).</p>
 
 <!-- ============================================================ -->
 <h2 id="results">5. Results</h2>
@@ -421,21 +421,21 @@
   <tbody>
     <tr>
       <td><strong>2026-04-30</strong><br><span class="smallcaps">15 tasks</span></td>
-      <td>main &nbsp;vs&nbsp; v2 with the borrowed matcher pipeline</td>
+      <td>main &nbsp;vs&nbsp; v2 with borrowed matcher pipeline</td>
       <td>15/15 &nbsp;vs&nbsp; 13/15 literal<br>(13/13 functional after adjudication)</td>
-      <td>The borrowed matcher pipeline doesn't deliver quality lift. v2 showed a suspected verbose-TODO regression. Killed our confidence in the architecture.</td>
+      <td>Matcher pipeline delivers no quality lift; v2 showed a suspected verbose-TODO regression. Killed confidence in the architecture.</td>
     </tr>
     <tr>
       <td><strong>2026-05-11 (i)</strong><br><span class="smallcaps">15 tasks</span></td>
       <td>main &nbsp;vs&nbsp; v2 after rollback</td>
       <td>14/15 &nbsp;vs&nbsp; 14/15 literal</td>
-      <td>Dead heat. Bit-identical outputs on every passing task. The rollback introduced zero regression.</td>
+      <td>Dead heat. Bit-identical outputs on every passing task; zero regression.</td>
     </tr>
     <tr>
       <td><strong>2026-05-11 (ii)</strong><br><span class="smallcaps">27 tasks</span></td>
       <td>main &nbsp;vs&nbsp; v2 after rollback, denser suite</td>
       <td>15/27 &nbsp;vs&nbsp; 15/27 literal<br>(25/27 each with compile gate ignored)</td>
-      <td>Dead heat across every individual task. v2 ~10% more expensive on the public Anthropic rate card (token economics, not quality). The maintenance-burden win (−17 K LOC) is unchanged.</td>
+      <td>Dead heat across every task. v2 ~10% more expensive on public Anthropic rates (token economics, not quality). Maintenance win (−17 K LOC) intact.</td>
     </tr>
   </tbody>
 </table>
@@ -458,12 +458,12 @@
 </table>
 
 <div class="callout">
-  <strong>Byte-identical on the most ambiguous fixture.</strong> On <code>task-22-naming-cleanup</code> (the most open-ended task in the suite — "apply Move Book naming conventions to this messy module"), both architectures emit <em>byte-identical</em> Move source code. If there was an architectural delta in how the two arms <em>think</em>, it didn't show up in what they <em>wrote</em>.
+  <strong>Byte-identical on the most ambiguous fixture.</strong> On <code>task-22-naming-cleanup</code> ("apply Move Book naming conventions to this messy module" — the most open-ended task in the suite), both architectures emit <em>byte-identical</em> Move source. Whatever architectural delta exists in how they <em>think</em>, it didn't show up in what they <em>wrote</em>.
 </div>
 
 <h3>5.3 Per-category breakdown (compile-gate-ignored view)</h3>
 
-<p>An environmental <code>sui move build</code> issue in the Tier-2 run uniformly killed 10 compile-gate tasks in both arms (fixed in a follow-up commit). The compile-gate-ignored column is the honest signal:</p>
+<p>An environmental <code>sui move build</code> issue in the Tier-2 run uniformly killed 10 compile-gate tasks in both arms (fixed in a follow-up). Compile-gate-ignored is the honest signal:</p>
 
 <table>
   <thead>
@@ -483,31 +483,31 @@
 
 <div class="verdict">
   <p><strong>Is the rollback safe?</strong> Yes, conclusively. Quality parity across every difficulty tier; byte-identical outputs on the most ambiguous fixture.</p>
-  <p><strong>Does the slim shape deliver productivity gain over the pipe-delimited preamble?</strong> No measurable gain on this fixture set. The slim preamble trades smaller cached preamble (−8 % <code>cache_create</code>) for more per-task doc reading (+26 % <code>cache_read</code>, +17 % output tokens) — net ~10 % more expensive on the public Anthropic rate card. The "slim preamble saves tokens" claim is true in isolation but doc-first per-task reads more than compensate on fresh <code>claude -p</code> invocations.</p>
-  <p><strong>So why ship the slim shape?</strong> Maintenance complexity: −17 K LOC of borrowed-but-unused machinery removed. A smaller surface area to maintain, debug, and explain, for no quality cost.</p>
+  <p><strong>Does the slim shape deliver productivity gain over the pipe-delimited preamble?</strong> No measurable gain on this fixture set. The slim preamble trades smaller cached preamble (−8 % <code>cache_create</code>) for more per-task doc reading (+26 % <code>cache_read</code>, +17 % output tokens) — net ~10 % more expensive on public Anthropic rates. The "slim preamble saves tokens" claim holds in isolation; doc-first per-task reads more than compensate on fresh <code>claude -p</code> invocations.</p>
+  <p><strong>So why ship the slim shape?</strong> Maintenance complexity: −17 K LOC of borrowed-but-unused machinery gone. Smaller surface to maintain, debug, and explain — for no quality cost.</p>
 </div>
 
 <!-- ============================================================ -->
 <h2 id="lessons">6. What we learned</h2>
 
 <h4>Lesson 1</h4>
-<p><strong>Borrowed architecture patterns are hypotheses, not conclusions.</strong> Adopting the matcher pipeline was a defensible bet — the pattern is well-engineered, broadly used, validated by a serious team. But the value any pattern delivers depends on the host plugin's shape, and sui-pilot's shape (5 explicitly-named slash skills) doesn't match the shape the matcher solves (many overlapping skills, ambiguous prompts). When copying a pattern from a sibling plugin, name the <em>problem</em> the pattern solves first; if your plugin doesn't have that problem, the pattern is overhead.</p>
+<p><strong>Borrowed architecture patterns are hypotheses, not conclusions.</strong> Adopting the matcher was defensible — well-engineered pattern, broadly used, validated by a serious team. But the value any pattern delivers depends on the host plugin's shape, and sui-pilot's (5 named slash skills) doesn't match what the matcher solves (many overlapping skills, ambiguous prompts). When copying from a sibling plugin, name the <em>problem</em> the pattern solves first; if your plugin doesn't have it, the pattern is overhead.</p>
 
 <h4>Lesson 2</h4>
-<p><strong>Eval before refactor.</strong> The 15-task suite caught what review wouldn't have. The rollback was justified by data, not vibes. Significant architectural decisions for plugins like this should land an eval baseline first — even a small one. Each iteration of the eval (precut, postcut, denser) revealed something the previous one couldn't have.</p>
+<p><strong>Eval before refactor.</strong> The 15-task suite caught what review wouldn't have — the rollback was justified by data, not vibes. Land an eval baseline before significant architectural decisions, even a small one. Each iteration (precut, postcut, denser) revealed something the previous couldn't.</p>
 
 <h4>Lesson 3</h4>
-<p><strong>Substring grading is noisy, and the grader is the living artifact.</strong> Half the work on this project was iteratively tightening the grader as the suite surfaced new false-positive and false-negative classes: TODO-comment substring matches, idiomatic Move 2024 forms the grader didn't recognise, RPC-method-name false positives (the <code>dryRunTransactionBlock</code> bug), un-passed <code>--build-env</code> flags. Plan for the grader to be edited every run for the first half-dozen runs. Comment-exclusion, regex variants, and word-boundary patterns are not optional features.</p>
+<p><strong>Substring grading is noisy; the grader is the living artifact.</strong> Half the work was iteratively tightening it as the suite surfaced new false-positive and false-negative classes: TODO-comment substring matches, idiomatic Move 2024 forms the grader missed, RPC-method-name false positives (the <code>dryRunTransactionBlock</code> bug), un-passed <code>--build-env</code> flags. Plan to edit the grader every run for the first half-dozen. Comment-exclusion, regex variants, and word-boundary patterns are not optional.</p>
 
 <!-- ============================================================ -->
 <h2 id="next">7. What's next</h2>
 
 <ul>
-  <li><strong>Grader sophistication.</strong> Current grader is substring + regex + comment exclusion + compile + LLM rubric. Next step: per-task <code>sui move test</code> runs to validate generated tests <em>behave</em> correctly, not just compile. For TS tasks, <code>tsc --noEmit</code> against the post-state would catch type errors.</li>
-  <li><strong>A denser, harder suite.</strong> The Tier-2 fixtures still under-stress the model. Real-world Move repos with planted issues, multi-package workspaces, and ambiguous specs that require trade-off decisions would surface architectural deltas the current suite misses.</li>
-  <li><strong>Cross-plugin eval pattern.</strong> This harness is sui-pilot-centric (Move/TS fixtures, sui-pilot's bundled docs assumed). Extracting it into a reusable Claude Code eval pattern (akin to the corpus-QA skill pattern) would let hypothetical <code>walrus-pilot</code> / <code>seal-pilot</code> projects use the same scaffolding.</li>
-  <li><strong>CI integration.</strong> Currently on-demand. Wiring <code>score.html</code>'s aggregate pass-rate into CI as a regression gate (block merges where v2 pass-rate &lt; current main on a frozen subset) would prevent silent skill degradation. Cost-aware design needed — running 54 <code>claude -p</code> per PR is non-trivial.</li>
-  <li><strong>Cross-model comparison.</strong> The harness uses whatever model <code>claude -p</code> defaults to. Wiring <code>--model</code> through the runner would let you A/B the same task set across Opus / Sonnet / Haiku and see which gives the most bang per token on Sui work.</li>
+  <li><strong>Grader sophistication.</strong> Current: substring + regex + comment exclusion + compile + LLM rubric. Next: per-task <code>sui move test</code> to validate generated tests <em>behave</em>, not just compile. For TS, <code>tsc --noEmit</code> on the post-state to catch type errors.</li>
+  <li><strong>Denser, harder suite.</strong> Tier-2 fixtures still under-stress the model. Real-world Move repos with planted issues, multi-package workspaces, and trade-off-laden specs would surface architectural deltas the current suite misses.</li>
+  <li><strong>Cross-plugin pattern.</strong> This harness is sui-pilot-centric. Extracting it into a reusable Claude Code eval pattern (akin to corpus-QA) would let hypothetical <code>walrus-pilot</code> / <code>seal-pilot</code> projects use the same scaffolding.</li>
+  <li><strong>CI integration.</strong> Wiring <code>score.html</code>'s aggregate pass-rate into CI as a regression gate (block merges where v2 &lt; current main on a frozen subset) would prevent silent skill degradation. Cost-aware design needed — 54 <code>claude -p</code> per PR is non-trivial.</li>
+  <li><strong>Cross-model comparison.</strong> Wire <code>--model</code> through the runner to A/B the same suite across Opus / Sonnet / Haiku and see which gives the most bang per token on Sui work.</li>
 </ul>
 
 <!-- ============================================================ -->
@@ -516,13 +516,13 @@
 <p>The harness is intentionally generic. To evaluate any Sui-related Claude Code customization, replace the comparison axis:</p>
 
 <ul>
-  <li><strong>Comparing two prompts for the same skill</strong> — point <code>--v1-ref</code> and <code>--v2-ref</code> at two branches that differ only in <code>skills/your-skill/SKILL.md</code>.</li>
-  <li><strong>Comparing two models</strong> — wire <code>--model</code> into the runner's <code>claude_cmd</code> array and run the same suite under both. Then compare quality, tokens, and latency.</li>
-  <li><strong>Comparing a new MCP integration</strong> — branch the plugin with the new MCP wired in, run the same suite.</li>
-  <li><strong>Comparing two bundled-doc strategies</strong> — branch the plugin with different doc subsets, run the same suite, see which docs the agent actually reaches for and whether the answers differ.</li>
+  <li><strong>Two prompts for the same skill</strong> — point <code>--v1-ref</code> and <code>--v2-ref</code> at branches that differ only in <code>skills/your-skill/SKILL.md</code>.</li>
+  <li><strong>Two models</strong> — wire <code>--model</code> into the runner's <code>claude_cmd</code> array and run both. Compare quality, tokens, latency.</li>
+  <li><strong>A new MCP integration</strong> — branch with the MCP wired in, run the same suite.</li>
+  <li><strong>Two bundled-doc strategies</strong> — branch with different doc subsets, see which docs the agent actually reaches for and whether the answers differ.</li>
 </ul>
 
-<p>Pick fixtures that target your skill's <em>claimed value</em>. A code-review skill should be evaluated against real-world Move code with planted issues, scored via the LLM rubric on whether the review caught them. A test-generation skill should be evaluated by running <code>sui move test</code> on the generated tests and checking they're meaningful (test the public API, not just the happy path). A migration skill should be evaluated with <code>containsRegex</code> for the new API form and <code>doesNotContainRegex</code> with word boundaries for the deprecated one.</p>
+<p>Pick fixtures that target your skill's <em>claimed value</em>. A code-review skill: real-world Move code with planted issues, LLM rubric on whether the review caught them. A test-generation skill: <code>sui move test</code> on the generated tests, checking they're meaningful (public API, not just happy path). A migration skill: <code>containsRegex</code> for the new API form and <code>doesNotContainRegex</code> with word boundaries for the deprecated one.</p>
 
 <p>The harness doesn't care what your skill does — it cares that there's a measurable post-state. Make the post-state observable, and you can measure it.</p>
 
