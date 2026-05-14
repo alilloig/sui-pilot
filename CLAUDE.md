@@ -12,11 +12,12 @@ Always search and read these docs before writing code for these ecosystems.
 | Walrus storage, blobs, Sites, operators | `.walrus-docs/` | 84 |
 | Seal secrets, encryption, key servers, access control | `.seal-docs/` | 14 |
 | TypeScript SDK, dapp-kit, React hooks, kiosk, payment-kit | `.ts-sdk-docs/` | 115 |
+| Nautilus off-chain compute, TEE enclaves, attestation, PCRs, on-chain verification | `.sui-docs/sui-stack/nautilus/` | 7 |
 
 ## Usage
 
 1. The `sui-pilot-agent` subagent auto-loads the slim doc-first directive in `agents/sui-pilot-agent.md`. Commands routing through it (`/sui-pilot`, `/move-pr-review`, etc.) are docs-first out of the box.
-2. If you are developing on this repo directly, use `Glob` and `Grep` against the appropriate `.<source>-docs/` directory for your topic. When unsure which source, search all five.
+2. If you are developing on this repo directly, use `Glob` and `Grep` against the appropriate `.<source>-docs/` directory for your topic. When unsure which source, search across all corpora.
 3. Walrus and Seal build on Sui — Sui docs may also be relevant. For Move language questions (syntax, idioms, language semantics), prefer `.move-book-docs/` first.
 4. `.move-book-docs/packages/` holds Move source examples referenced from the Move Book prose (`file=` directives) — read them when an example would clarify a pattern.
 
