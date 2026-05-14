@@ -8,7 +8,7 @@ A beginner's guide to making Claude Code into a competent Sui/Move developer tha
 
 **sui-pilot is a Claude Code plugin** that fixes the single biggest problem with using LLMs for Sui/Move work: training data goes stale fast, and a model fresh out of pretraining will confidently generate Move 2023 syntax, deprecated framework calls, and APIs that no longer exist.
 
-The plugin solves this by shipping the official Mysten Labs documentation — 695 files across five sources — directly into your Claude Code session, plus a slim always-loaded preamble that points the agent at the right corpus, plus a handful of procedural slash commands for the common workflows. It also wires `move-analyzer` (the official Move language server) into Claude through MCP, so the agent can run real compiler diagnostics instead of guessing whether code compiles.
+The plugin solves this by shipping the official Mysten Labs documentation plus the Sui Prover guide — 747 files across six corpora — directly into your Claude Code session, plus a slim always-loaded preamble that points the agent at the right corpus, plus a handful of procedural slash commands for the common workflows. It also wires `move-analyzer` (the official Move language server) into Claude through MCP, so the agent can run real compiler diagnostics instead of guessing whether code compiles.
 
 After installing this guide, you can ask Claude to write Move 2024, audit a Sui contract for security, generate `test_scenario`-style unit tests, or do a multi-agent PR review — and the answers come back grounded in the bundled docs and verified against `move-analyzer`, not invented from training memory.
 
@@ -28,8 +28,8 @@ After installing this guide, you can ask Claude to write Move 2024, audit a Sui 
   │  │     ~2.9 KB doc-first directive)            │
   │  ├── commands/  (6 slash commands)             │
   │  ├── skills/    (5 procedural skills)          │
-  │  └── .{sui,move-book,walrus,seal,ts-sdk}-docs/ │
-  │      (695 documentation files, lazy-grepped)   │
+  │  └── .<source>-docs/  (6 corpora)              │
+  │      (747 documentation files, lazy-grepped)   │
   └──────────┬─────────────────────────────────────┘
              │ MCP (stdio)
   ┌──────────▼─────────────┐         ┌─────────────────────┐

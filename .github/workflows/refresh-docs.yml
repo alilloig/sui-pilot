@@ -37,7 +37,7 @@ jobs:
         # git status (not git diff) so upstream-added files (untracked) count as drift.
         run: |
           if [ -z "$(git status --porcelain --untracked-files=all -- \
-              .sui-docs .move-book-docs .walrus-docs .seal-docs .ts-sdk-docs)" ]; then
+              .sui-docs .move-book-docs .walrus-docs .seal-docs .ts-sdk-docs .sui-prover-docs)" ]; then
             echo "drifted=false" >> "$GITHUB_OUTPUT"
             echo "No upstream doc changes this run."
           else

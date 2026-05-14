@@ -1,5 +1,5 @@
 {
-  "syncTimestamp": "2026-05-14T08:05:34Z",
+  "syncTimestamp": "2026-05-14T14:00:46Z",
   "sources": {
     "sui": "MystenLabs/sui@main",
     "walrus": "MystenLabs/walrus@main",

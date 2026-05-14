@@ -2,13 +2,13 @@
 
 > Documentation copilot for AI agents working with Sui blockchain, Move language, Walrus storage, Seal secrets management, the Sui TypeScript SDK, and the Sui Prover.
 
-This repository bundles ~715 documentation files across six ecosystems, designed for AI agent consumption via `Glob` and `Grep`.
+This repository bundles ~747 documentation files across six ecosystems, designed for AI agent consumption via `Glob` and `Grep`.
 
 ## Docs
 
-- [Sui blockchain docs](.sui-docs/): 339 MDX files — concepts, guides, references, on-chain finance
+- [Sui blockchain docs](.sui-docs/): 369 MDX files — concepts, guides, references, on-chain finance
 - [Move Book docs](.move-book-docs/): 143 files — language tutorial + reference (syntax, types, abilities, idioms)
-- [Walrus storage docs](.walrus-docs/): 84 MDX files — blob storage, Walrus Sites, SDK, operators
+- [Walrus storage docs](.walrus-docs/): 86 MDX files — blob storage, Walrus Sites, SDK, operators
 - [Seal secrets docs](.seal-docs/): 14 MDX files — encryption, key servers, access control
 - [TypeScript SDK docs](.ts-sdk-docs/): 115 MDX files — dapp-kit, payment-kit, kiosk, transactions, SDK 2.0 migration
 - [Sui Prover docs](.sui-prover-docs/): 20 files — `guide/` (SKILL.md + spec-reference.md), `sources/` (prover.move, ghost.move construct definitions), `examples/` (worked specs from `asymptotic-code/sui-kit`)
