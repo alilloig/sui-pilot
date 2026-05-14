@@ -67,8 +67,9 @@ Run quality checks in order:
 1. `move_diagnostics` MCP tool for compiler errors
 2. `/move-code-quality` for Move 2024 compliance
 3. `/move-code-review` for security issues (if substantial changes)
+4. `/specify` for formal verification when introducing or modifying externally reachable functions (`public` non-package + `entry`) and the user wants prover-backed guarantees
 
-Skip steps 2-3 for trivial fixes (typos, single-line changes).
+Skip steps 2-4 for trivial fixes (typos, single-line changes). Step 4 is opt-in per change — it's interactive and writes `#[spec(prove)]` twin functions into the user's `.move` files, so only run it when the user asks for formal specs.
 
 ## When LSP Unavailable
 
