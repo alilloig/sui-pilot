@@ -27,26 +27,26 @@ jobs:
         with:
           package_json_file: mcp/move-lsp-mcp/package.json
 
-      - name: Install dependencies
+      - name: Install dependencies (move-lsp-mcp)
         working-directory: mcp/move-lsp-mcp
         run: pnpm install
 
-      - name: Build MCP server
+      - name: Build MCP server (move-lsp-mcp)
         working-directory: mcp/move-lsp-mcp
         run: pnpm build
 
-      - name: Verify committed bundle matches source
+      - name: Verify committed bundle matches source (move-lsp-mcp)
         # Only diff the runtime bundle — sourcemap `sources` paths leak the
         # local pnpm store layout and differ across environments, so they're
         # not a stable reproducibility signal.
         run: |
           if ! git diff --exit-code mcp/move-lsp-mcp/dist/index.js; then
             echo ""
-            echo "::error::dist/index.js is out of sync with src/. Run 'pnpm --dir mcp/move-lsp-mcp build' and recommit."
+            echo "::error::move-lsp-mcp/dist/index.js is out of sync with src/. Run 'pnpm --dir mcp/move-lsp-mcp build' and recommit."
             exit 1
           fi
 
-      - name: Enforce MCP bundle size budget
+      - name: Enforce move-lsp-mcp bundle size budget
         # ~600 KB ceiling on the minified ESM bundle. Current size ~480 KB
         # (mostly ajv via @modelcontextprotocol/sdk). Bumping this ceiling
         # should be a deliberate choice, not a silent drift from dep growth.
@@ -55,13 +55,52 @@ jobs:
           SIZE=$(wc -c < mcp/move-lsp-mcp/dist/index.js)
           echo "Bundle size: ${SIZE} bytes (budget: ${BUDGET_BYTES})"
           if [ "$SIZE" -gt "$BUDGET_BYTES" ]; then
-            echo "::error::MCP bundle exceeds ${BUDGET_BYTES} bytes (current: ${SIZE}). Investigate dependency growth before raising the budget."
+            echo "::error::move-lsp-mcp bundle exceeds ${BUDGET_BYTES} bytes (current: ${SIZE}). Investigate dependency growth before raising the budget."
             exit 1
           fi
 
-      - name: Run unit tests
+      - name: Run unit tests (move-lsp-mcp)
         working-directory: mcp/move-lsp-mcp
         run: set -o pipefail; pnpm test -- --reporter=verbose 2>&1 | grep -E '(✓|✗|PASS|FAIL|test/unit)'
+
+      - name: Install dependencies (sui-prover-mcp)
+        working-directory: mcp/sui-prover-mcp
+        run: pnpm install
+
+      - name: Build MCP server (sui-prover-mcp)
+        working-directory: mcp/sui-prover-mcp
+        run: pnpm build
+
+      - name: Verify committed bundle matches source (sui-prover-mcp)
+        run: |
+          if ! git diff --exit-code mcp/sui-prover-mcp/dist/index.js; then
+            echo ""
+            echo "::error::sui-prover-mcp/dist/index.js is out of sync with src/. Run 'pnpm --dir mcp/sui-prover-mcp build' and recommit."
+            exit 1
+          fi
+
+      - name: Enforce sui-prover-mcp bundle size budget
+        # ~350 KB ceiling on the minified ESM bundle. Current size ~260 KB.
+        # This MCP only depends on @modelcontextprotocol/sdk; growth past
+        # the ceiling means a new heavy dep crept in.
+        run: |
+          BUDGET_BYTES=350000
+          SIZE=$(wc -c < mcp/sui-prover-mcp/dist/index.js)
+          echo "Bundle size: ${SIZE} bytes (budget: ${BUDGET_BYTES})"
+          if [ "$SIZE" -gt "$BUDGET_BYTES" ]; then
+            echo "::error::sui-prover-mcp bundle exceeds ${BUDGET_BYTES} bytes (current: ${SIZE}). Investigate dependency growth before raising the budget."
+            exit 1
+          fi
+
+      - name: Run unit tests (sui-prover-mcp)
+        # SKIP_PROVER_NETWORK=1 disables the warm-cache prove() round-trip --
+        # it requires a sui-prover binary plus a network clone of
+        # asymptotic-code/sui-prover@main into ~/.move, neither of which
+        # CI runners get for free.
+        working-directory: mcp/sui-prover-mcp
+        env:
+          SKIP_PROVER_NETWORK: '1'
+        run: pnpm test
 
       - name: Verify plugin structure
         run: |
@@ -81,6 +120,7 @@ jobs:
           test -d .walrus-docs && echo "✓ .walrus-docs exists ($(count_doc_files .walrus-docs) doc files)"
           test -d .seal-docs && echo "✓ .seal-docs exists ($(count_doc_files .seal-docs) doc files)"
           test -d .ts-sdk-docs && echo "✓ .ts-sdk-docs exists ($(count_doc_files .ts-sdk-docs) doc files)"
+          test -d .sui-prover-docs && echo "✓ .sui-prover-docs exists ($(count_doc_files .sui-prover-docs) doc files)"
 
       - name: Enforce slim-preamble budget
         # v2: agents/sui-pilot-agent.md is always-loaded into every session via
@@ -95,13 +135,13 @@ jobs:
             echo "::error::$AGENT_FILE exceeds ${AGENT_BUDGET_BYTES} bytes (current: ${SIZE}). Slim it or raise the cap deliberately."
             exit 1
           fi
-          for needle in '.sui-docs' '.move-book-docs' '.walrus-docs' '.seal-docs' '.ts-sdk-docs'; do
+          for needle in '.sui-docs' '.move-book-docs' '.walrus-docs' '.seal-docs' '.ts-sdk-docs' '.sui-prover-docs'; do
             if ! grep -qF "$needle" "$AGENT_FILE"; then
               echo "::error::$AGENT_FILE missing routing entry: $needle"
               exit 1
             fi
           done
-          echo "✓ $AGENT_FILE within budget and routes all five corpora"
+          echo "✓ $AGENT_FILE within budget and routes all six corpora"
 
       - name: Smoke test move-pr-review scripts
         run: bash skills/move-pr-review/scripts/tests/smoke.sh
@@ -127,6 +167,14 @@ jobs:
         working-directory: mcp/move-lsp-mcp
         run: pnpm install
 
-      - name: Type check
+      - name: Type check (move-lsp-mcp)
         working-directory: mcp/move-lsp-mcp
+        run: pnpm exec tsc --noEmit
+
+      - name: Install dependencies (sui-prover-mcp)
+        working-directory: mcp/sui-prover-mcp
+        run: pnpm install
+
+      - name: Type check (sui-prover-mcp)
+        working-directory: mcp/sui-prover-mcp
         run: pnpm exec tsc --noEmit
