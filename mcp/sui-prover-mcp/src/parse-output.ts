@@ -235,12 +235,13 @@ function parseEmojiLines(stdout: string, stderr: string): SubResult {
   const lines = `${stdout}\n${stderr}`.split('\n');
   const out: SubResult = { verified: 0, failed: 0, skipped: 0, timeouts: 0, findings: [] };
 
-  // Note: the actual emoji characters '✅', '❌', '⏭️' contain multi-byte
-  // sequences and a trailing variation selector on the skip arrow. Match
-  // explicit code points to be robust against editor normalization.
-  const VERIFIED = /(?:✅|✅)\s+([\w:]+)/;
-  const FAILED = /(?:❌|❌)\s+([\w:]+)(?:\s+at\s+(\S+))?/;
-  const SKIPPED = /(?:⏭|⏭️|⏭️?)\s+([\w:]+)(?:\s+at\s+(\S+))?/;
+  // The skip arrow `⏭` may appear with or without its U+FE0F variation
+  // selector depending on whether the terminal applied emoji presentation;
+  // the trailing `️?` covers both forms. `✅` (U+2705) and `❌`
+  // (U+274C) are single code points and need no variant.
+  const VERIFIED = /✅\s+([\w:]+)/;
+  const FAILED = /❌\s+([\w:]+)(?:\s+at\s+(\S+))?/;
+  const SKIPPED = /⏭️?\s+([\w:]+)(?:\s+at\s+(\S+))?/;
 
   for (const line of lines) {
     const trimmed = line.trim();
@@ -309,8 +310,7 @@ function parseLocation(raw: string): FindingLocation | null {
  * format takes precedence — this pass is additive.
  */
 function parseLegacyLines(stdout: string, stderr: string): SubResult {
-  const combined = `${stdout}\n${stderr}`;
-  const lines = combined.split('\n');
+  const lines = `${stdout}\n${stderr}`.split('\n');
   const out: SubResult = { verified: 0, failed: 0, skipped: 0, timeouts: 0, findings: [] };
 
   for (let i = 0; i < lines.length; i++) {
