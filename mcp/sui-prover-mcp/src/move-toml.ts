@@ -24,6 +24,13 @@ export interface PackageInfo {
   explicitFrameworkDeps: string[]; // ["Sui", "MoveStdlib", ...] when found
 }
 
+export interface GitDependency {
+  name: string;            // dependency block name, e.g. "utilities"
+  url: string;             // git URL, e.g. "git@github.com:Org/repo.git"
+  rev?: string | null;     // branch/tag/commit if declared
+  subdir?: string | null;  // optional subdir under the repo
+}
+
 /**
  * Walk up from `start` (file or dir) until a Move.toml is found. Returns
  * the directory containing Move.toml. Throws MoveTomlNotFoundError if the
@@ -86,6 +93,58 @@ function extractField(toml: string, field: string): string | null {
   const re = new RegExp(`^\\s*${field}\\s*=\\s*"([^"]+)"`, 'm');
   const m = scope.match(re);
   return m ? m[1]! : null;
+}
+
+/**
+ * Parse git dependency declarations from a Move.toml string. Recognizes both
+ * the block form (`[dependencies.NAME]` with a `git = "..."` line) and the
+ * inline form (`NAME = { git = "...", rev = "...", subdir = "..." }`).
+ *
+ * Pure string parsing — no shell-outs. Used by `prover_capabilities` to
+ * surface the dep list so the caller can probe reachability itself.
+ */
+export function parseGitDependencies(toml: string): GitDependency[] {
+  const out: GitDependency[] = [];
+
+  // Block form: [dependencies.NAME] followed by indented `git = "..."` etc
+  const blockRe = /\[dependencies\.([\w-]+)\]([\s\S]*?)(?=^\[|$(?![\s\S]))/gm;
+  for (const m of toml.matchAll(blockRe)) {
+    const name = m[1]!;
+    const body = m[2]!;
+    const gitMatch = body.match(/^\s*git\s*=\s*"([^"]+)"/m);
+    if (!gitMatch) continue;
+    const revMatch = body.match(/^\s*rev\s*=\s*"([^"]+)"/m);
+    const subdirMatch = body.match(/^\s*subdir\s*=\s*"([^"]+)"/m);
+    out.push({
+      name,
+      url: gitMatch[1]!,
+      rev: revMatch ? revMatch[1]! : null,
+      subdir: subdirMatch ? subdirMatch[1]! : null,
+    });
+  }
+
+  // Inline form inside [dependencies]: NAME = { git = "...", rev = "...", subdir = "..." }
+  const depSection = toml.match(/\[dependencies\][\s\S]*?(?=^\[[\w-]+\]|$(?![\s\S]))/m);
+  if (depSection) {
+    const inlineRe = /^\s*([\w-]+)\s*=\s*\{([^}]*)\}/gm;
+    for (const m of depSection[0].matchAll(inlineRe)) {
+      const name = m[1]!;
+      const inner = m[2]!;
+      const gitMatch = inner.match(/\bgit\s*=\s*"([^"]+)"/);
+      if (!gitMatch) continue;
+      if (out.some((d) => d.name === name)) continue;
+      const revMatch = inner.match(/\brev\s*=\s*"([^"]+)"/);
+      const subdirMatch = inner.match(/\bsubdir\s*=\s*"([^"]+)"/);
+      out.push({
+        name,
+        url: gitMatch[1]!,
+        rev: revMatch ? revMatch[1]! : null,
+        subdir: subdirMatch ? subdirMatch[1]! : null,
+      });
+    }
+  }
+
+  return out;
 }
 
 /**

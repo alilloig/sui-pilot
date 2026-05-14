@@ -11,11 +11,11 @@
  */
 
 import { execFileSync } from 'child_process';
-import { existsSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 import { homedir } from 'os';
 import { join } from 'path';
 import { probeBinary } from './binary.js';
-import { inspectPackage } from './move-toml.js';
+import { inspectPackage, parseGitDependencies, GitDependency } from './move-toml.js';
 
 export interface CapabilitiesArgs {
   move_toml_path?: string;          // optional: a package to probe for setup warnings
@@ -26,7 +26,13 @@ export interface Capabilities {
     found: boolean;
     path: string | null;
     version: string | null;
-    supported_flags: string[];
+    /**
+     * Flags accepted by the **sui-prover** binary (parsed from `sui-prover --help`).
+     * NOT the same as the Sui CLI's `sui move build` flag set — passing one of
+     * these to `sui move build` will fail. Use them only when constructing
+     * `extra_args` for `prove_package`.
+     */
+    sui_prover_flags: string[];
   };
   cloud: {
     available: boolean;             // ~/.asymptotic/sui_prover.toml exists
@@ -37,10 +43,22 @@ export interface Capabilities {
     version: string | null;
   };
   setup_warnings: SetupWarning[];   // only populated when move_toml_path is given
+  /**
+   * Git dependencies declared in the supplied Move.toml ({} when move_toml_path
+   * is omitted). The MCP does not probe reachability — it's the caller's job
+   * to run `git ls-remote --exit-code <url>` for each entry before trusting
+   * that `sui move build` will succeed. Surfaces the most common /specify
+   * blocker (private-repo deps the local SSH identity can't access) without
+   * requiring shell-out from the wrapper itself.
+   */
+  git_dependencies: GitDependency[];
 }
 
 export interface SetupWarning {
-  kind: 'explicit_framework_dep' | 'edition_mismatch' | 'missing_movetoml';
+  kind:
+    | 'explicit_framework_dep'
+    | 'edition_mismatch'
+    | 'missing_movetoml';
   message: string;
   details?: Record<string, unknown>;
 }
@@ -85,7 +103,7 @@ export function capabilities(args: CapabilitiesArgs): Capabilities {
       found: binary.found,
       path: binary.path,
       version: binary.version,
-      supported_flags: binary.supportedFlags,
+      sui_prover_flags: binary.supportedFlags,
     },
     cloud: {
       available: existsSync(configPath),
@@ -93,7 +111,21 @@ export function capabilities(args: CapabilitiesArgs): Capabilities {
     },
     sui_toolchain: probeSuiToolchain(),
     setup_warnings: setupWarnings,
+    git_dependencies: args.move_toml_path ? safeParseGitDeps(args.move_toml_path) : [],
   };
+}
+
+/** Parse git deps but never throw — returns [] on any read/parse error. */
+function safeParseGitDeps(movetomlPath: string): GitDependency[] {
+  try {
+    const path = movetomlPath.endsWith('Move.toml')
+      ? movetomlPath
+      : join(movetomlPath, 'Move.toml');
+    if (!existsSync(path)) return [];
+    return parseGitDependencies(readFileSync(path, 'utf8'));
+  } catch {
+    return [];
+  }
 }
 
 function probeSuiToolchain(): { found: boolean; version: string | null } {

@@ -9,15 +9,21 @@ description: "Walks the user through writing `#[spec(prove)]` formal specificati
 
 ## Non-interactive (eval) mode
 
-Before doing anything else, run `echo "${SPECIFY_AUTO_DEFAULTS:-}"` via Bash. If the output is exactly `1`, this run is in **non-interactive mode** — the calling harness (typically `evals/run-comparison.sh` or a similar headless rig) cannot answer `AskUserQuestion` prompts. Honor this contract:
+This skill is **interactive by default** — every gate runs through `AskUserQuestion`. Non-interactive mode activates via **either** of two triggers:
+
+1. **Environment-flag trigger.** Before doing anything else, run `echo "${SPECIFY_AUTO_DEFAULTS:-}"` via Bash. If the output is exactly `1`, this run is in non-interactive mode (typically because `evals/run-comparison.sh` or a similar headless rig is driving it).
+2. **Verbal-directive trigger.** The user has explicitly said something like *"don't stop"*, *"don't pause"*, *"work autonomously"*, *"no questions"*, *"proceed without asking"*, or *"no-pause"* in the current conversation. A `Stop` hook with an autonomy-oriented condition counts as such a directive.
+
+When non-interactive mode is active:
 
 - **Skip every `AskUserQuestion` gate.** Pick the first option (the suggested default) and announce the choice in plain text instead.
-- **Abort hard on any `setup_warning`.** Don't surface "proceed anyway" — write the warning to `.specify-report.html`, exit Phase 0, and return.
+- **Surface a single-line acknowledgement in chat** the first time you enter the non-interactive branch: *"Entering non-interactive mode (trigger: <env-flag | verbal-directive>) — picking defaults at every gate."* The elision must be auditable; never skip an `AskUserQuestion` silently.
+- **Abort hard on any `setup_warning` of severity error.** Don't surface "proceed anyway" — write the warning to `.specify-report.html`, exit Phase 0, and return. (Warnings of severity `info` like `private_dependency` advisories surface in the report but don't abort.)
 - **Cap iterations at 1.** The Phase 4 loop tries once per function; failures get marked `needs_human` immediately instead of looping. Eval harnesses care about the discovery + draft signal, not multi-attempt convergence.
 - **Cap prioritization batch.** Process every pending function in default priority order — no user picks.
 - **Persist progress as usual.** `.specify-progress.json` and `.specify-report.html` must still land at the package root so the eval scorer can read them.
 
-Interactive mode (`SPECIFY_AUTO_DEFAULTS` unset or `=0`) is the default — every gate runs normally.
+Interactive mode (neither trigger active) is the default — every gate runs normally.
 
 ## Architecture
 
@@ -34,12 +40,19 @@ This skill is a multi-phase, per-function orchestrator. It uses:
 
 ## Phase 0 — Validate (single shot)
 
-1. Call `mcp__sui-prover__prover_capabilities` with `move_toml_path` set to the user's package root.
-2. Call `mcp__move-lsp__move_diagnostics` with `scope: 'file'` on any one `.move` file under `sources/` to confirm the package compiles before we start writing into it.
-3. If `binary.found === false`:
-   - **Interactive mode** (`SPECIFY_AUTO_DEFAULTS` unset or `=0`): STOP, ask the user to `brew install asymptotic-code/sui-prover/sui-prover`.
-   - **Non-interactive mode** (`SPECIFY_AUTO_DEFAULTS=1`): enter **discovery-only** mode -- Phase 1 still runs and writes `.specify-progress.json` (so eval rigs like `task-28-specify-discovery` get the function set on a runner that lacks the binary); skip the per-function prove loop (Phase 4.6) entirely; mark every discovered function with `status: "discovery_only"` in the progress file; emit a `.specify-report.html` noting the binary was absent; exit cleanly.
-4. If `setup_warnings` is non-empty (explicit `Sui`/`MoveStdlib` deps, non-2024 edition):
+Phase 0 is a **hard gate**. If any of the four checks below surfaces an error, write the diagnostic to `.specify-progress.json` (with structured `blocker.kind`) and `.specify-report.html`, then exit — do not proceed to Phase 1. The cost of running Phase 1's discovery sweep on an un-buildable package is wasted budget; the LSP and dep-reachability checks here cost <1s and save minutes downstream.
+
+1. **Binary probe.** Call `mcp__sui-prover__prover_capabilities` with `move_toml_path` set to the user's package root. Read the response: `binary.found`, `binary.sui_prover_flags` (the flag list belongs to **sui-prover**, not `sui move build` — don't forward it to the Sui CLI), `setup_warnings`, `git_dependencies`.
+
+2. **Compile-health gate.** Call `mcp__move-lsp__move_diagnostics` with `scope: 'file'` on any one `.move` file under `sources/`. **If it returns any `severity: 'error'` diagnostic referencing `unresolved external module`, `unresolved named address`, `unbound module`, or a git-fetch failure**, the package is un-buildable as-is — record `blocker.kind = "compile_unresolvable"` and exit Phase 0. Do not proceed to function inventory until diagnostics return at least one resolvable file.
+
+3. **Dep-reachability gate** (interactive: prompt; non-interactive: warn + continue). For each entry in `git_dependencies`, run `git ls-remote --exit-code --quiet <url> HEAD` with a 3s timeout. Unreachable URLs (auth failure, repo missing, timeout) are likely private repos the local SSH identity can't access — surface them as `setup_warnings` of kind `private_dependency` and either prompt the user (Option A: grant access, B: substitute a local clone via `[dependencies.NAME]` with `local = "..."`, C: skip the package, D: proceed anyway) or, in non-interactive mode, record the unreachable list in `.specify-progress.json` under `blocker.unreachable_deps[]` and continue with a soft warning. **The single most common /specify blocker on real packages is private-dep unreachability — surface it before Phase 1's inventory sweep.**
+
+4. **Binary missing.** If `binary.found === false`:
+   - **Interactive mode**: STOP, ask the user to `brew install asymptotic-code/sui-prover/sui-prover`.
+   - **Non-interactive mode** (`SPECIFY_AUTO_DEFAULTS=1` or verbal-directive): enter **discovery-only** mode — Phase 1 still runs and writes `.specify-progress.json` (so eval rigs like `task-28-specify-discovery` get the function set on a runner that lacks the binary); skip the per-function prove loop (Phase 4.6) entirely; mark every discovered function with `status: "discovery_only"` in the progress file; emit a `.specify-report.html` noting the binary was absent; exit cleanly.
+
+5. **setup_warnings.** If `setup_warnings` is non-empty (explicit `Sui`/`MoveStdlib` deps, non-2024 edition, private deps surfaced by step 3):
    - Surface every warning verbatim.
    - **AskUserQuestion (single batch)**: "fix Move.toml myself first / proceed anyway (specs may not compile) / abort". Default suggestion: "fix first".
    - **Non-interactive mode**: abort hard (per the contract at the top of this file); the eval harness needs a deterministic exit.
@@ -62,7 +75,23 @@ Per the plan, the target set is `public` (non-package) + `entry`. Use the regex 
 
 Report a one-line summary: "N externally-reachable functions: M verified, K pending, P partial".
 
-## Phase 2 — Build cascade context (lazy, per-function)
+## Phase 1.5 — Scope decision + callee-quality probe
+
+Before launching Phase 2's per-function loop, two cheap checks decide *what* gets specified and *how rigorously*:
+
+**(a) Scope decision.** If `N > 25`, ask the user how to scope:
+
+- **AskUserQuestion (single batch)**, options: "spec the whole package (large — may take a session) / pick a prioritized subset (recommended, default) / pick a single module to start with / single function".
+- **Non-interactive mode**: pick "prioritized subset" using the Phase 3 ranking (invariant > swap > deposit/withdraw > getters > admin caps). Codify the heuristic instead of improvising; the eval harness needs reproducible scope.
+- For *math kernel* packages with an `invariant`-named function family, the invariant is almost always the right first target — it's the smallest atomic spec and every downstream swap/deposit/withdraw spec depends on its semantics.
+
+**(b) Callee-quality probe.** Before drafting any spec, sample the callees called inside the target functions:
+
+1. For each external callee not already in the target set, `Read` its source.
+2. If every public function body in the callee's module is `abort 0` or `native`, the module is a **stub** — its bytecode interface is published but the real source isn't shipped (common with `published-at` deps and proprietary fixed-point math packages).
+3. **If any stub callee is detected**, surface it in `.specify-progress.json` under `callee_quality[]` and warn the user: *"Module `<X>` is a stub (every body is `abort 0`). Specifying functions that call into it requires axiomatic modeling — see `references/spec-patterns.md` §4.10 — or every verification will be vacuous (the prover concludes every caller path aborts)."*
+
+The right escape is the canonical `#[spec(skip, target = <stub_fn>)]` idiom documented in `references/spec-patterns.md` §4 and Phase 4.5 below.
 
 For each function the user is about to spec:
 
@@ -157,7 +186,28 @@ fun <name>_spec(...) { ... }
 
 **Idempotency rule.** If the marker block already exists, splice the new spec into it. Never duplicate a `#[spec(...)]` for the same function — if one exists, ask the user (4.4-style) whether to refine or overwrite.
 
-**Cross-module fallback.** If the colocated spec causes a compile error (the prover SKILL.md edge case — see `references/spec-patterns.md` §3), offer to create a sidecar `<pkg>_specs/` package and emit the spec there with `target = pkg::mod::fn`. **AskUserQuestion before creating files outside the user's package directory.**
+**Sidecar axiom file** (recommended when the package has stub callees, large axiom counts, or any cross-package targets). Instead of inlining axiom declarations next to every spec block, create `sources/specify_axioms.move` inside the target package:
+
+```move
+module <pkg>::specify_axioms;
+
+#[spec_only]
+use prover::prover::{fresh};
+use utilities::fixed;
+
+// Opaque summaries for stub callees. `skip` tells the prover not to verify
+// the body; `target = …` registers this function as the abstract contract
+// substituted at call sites of the target.
+#[spec(skip, target = fixed::mul_down)]
+fun mul_down_spec(_a: u256, _b: u256): u256 { fresh() }
+
+#[spec(skip, target = fixed::ln)]
+fun ln_spec(_x: u256): u256 { fresh() }
+```
+
+This is the canonical way to axiomatize external/stubbed dependencies. Specs in the target file then reference the real callees naturally and the prover substitutes the spec summaries. See `references/spec-patterns.md` §4.10 for the full pattern.
+
+**Cross-module fallback.** If the colocated spec causes a compile error, offer to create a sidecar `<pkg>_specs/` package and emit the spec there with `target = pkg::mod::fn`. **AskUserQuestion before creating files outside the user's package directory.**
 
 ### 4.6 Verify (MCP)
 
@@ -165,13 +215,21 @@ fun <name>_spec(...) { ... }
 
 ### 4.7 Diagnose failures
 
-If `findings` contains a failure for this spec, consult `references/failure-taxonomy.md` — each `findings[].kind` maps to a documented remediation:
+If `findings` contains a failure for this spec, consult `references/failure-taxonomy.md` — each `findings[].kind` maps to a documented remediation. Common kinds:
 
 - `ensures_failed` → narrow postcondition or strengthen preconditions
 - `asserts_failed` → missing/incorrect mirror of an `assert!`
 - `abort_unspecified` → add an `asserts()` for an implicit abort path
 - `timeout` → try `--split-paths`, then per-spec `boogie_opt` tuning
 - `no_spec` on a callee → spec that callee first, or add `no_opaque` to bypass
+- `spec_target_body_no_call` → spec function with `#[spec(target = X)]` must call `X` in its body, or use `#[spec(skip, target = X)]` for an opaque axiom
+- `dep_address_conflict` → duplicate `[addresses]` entries; reconcile in `Move.toml`
+- `unresolved_named_address` / `unresolved_module` → missing entry in `[addresses]` or `[dependencies]`
+- `dep_fetch_failure` → private repo or network failure (rerun Phase 0 step 3)
+- `function_not_found` → `target_function` doesn't match any spec in the package (typo, or stale build cache; the spec must follow the `<fn>_spec` naming convention)
+- `no_specs_to_prove` → the package compiled but no `#[spec(prove)]` block exists yet (expected on the first run; abnormal after Phase 3)
+
+Use `summary.overall` (one of `verified_all` / `failed_some` / `no_specs` / `compile_failure` / `timeout` / `error`) as the single trustworthy "did this run succeed?" signal — don't try to reconcile `summary.verified === 0` with `findings.length > 0` yourself, the MCP already did it.
 
 ### 4.8 Iterate (AskUserQuestion)
 
@@ -215,5 +273,6 @@ Any run starts at Phase 0 → Phase 1, then loads `.specify-progress.json` and s
 - **Never emit legacy MSL syntax.** No `aborts_if`, no `pragma`, no free `axiom`. See `references/spec-patterns.md` for the modern equivalents.
 - **Never duplicate a `#[spec(...)]` for the same function.** Idempotency via the marker block.
 - **Never strip per-spec `boogie_opt` tokens.** They are load-bearing on hard specs (the AMM `withdraw_spec` uses three).
+- **Never delete downstream tasks on a Phase 0 blocker.** If `/specify` hits a hard blocker (unreachable deps, compile failure, missing binary), leave queued Phase 2–4 tasks as `pending` or move them to a `blocked` status — the resumption breadcrumb in `.specify-progress.json` must stay coherent with the session task list so the user can resume cleanly after fixing the blocker.
 - **`AskUserQuestion` is the only user-input channel.** No free-form prompts. Batch sub-questions by topic.
 - **For document deliverables outside chat, prefer self-contained HTML.** The Phase 5 audit report is the user's record.

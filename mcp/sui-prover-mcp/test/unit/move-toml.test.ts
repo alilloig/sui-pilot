@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { detectExplicitFrameworkDeps, inspectPackage } from '../../src/move-toml.js';
+import { detectExplicitFrameworkDeps, inspectPackage, parseGitDependencies } from '../../src/move-toml.js';
 
 describe('detectExplicitFrameworkDeps', () => {
   it('returns no deps for the prover-recommended minimal Move.toml', () => {
@@ -101,6 +101,66 @@ edition = "decoy"
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe('parseGitDependencies', () => {
+  it('extracts the block form [dependencies.NAME]', () => {
+    const toml = `[package]
+name = "amm-math"
+edition = "2024"
+
+[dependencies.utilities]
+git = "git@github.com:AftermathFinance/utilities.git"
+subdir = "packages/utils"
+rev = "main"
+`;
+    const deps = parseGitDependencies(toml);
+    expect(deps).toHaveLength(1);
+    expect(deps[0]).toEqual({
+      name: 'utilities',
+      url: 'git@github.com:AftermathFinance/utilities.git',
+      rev: 'main',
+      subdir: 'packages/utils',
+    });
+  });
+
+  it('extracts the inline form NAME = { git = "..." }', () => {
+    const toml = `[package]
+name = "foo"
+
+[dependencies]
+Sui = { git = "https://github.com/MystenLabs/sui.git", subdir = "crates/sui-framework/packages/sui-framework", rev = "framework/testnet" }
+`;
+    const deps = parseGitDependencies(toml);
+    expect(deps).toHaveLength(1);
+    expect(deps[0]?.name).toBe('Sui');
+    expect(deps[0]?.url).toBe('https://github.com/MystenLabs/sui.git');
+    expect(deps[0]?.rev).toBe('framework/testnet');
+    expect(deps[0]?.subdir).toBe('crates/sui-framework/packages/sui-framework');
+  });
+
+  it('extracts multiple block-form deps without dedup duplicates', () => {
+    const toml = `[package]
+name = "amm"
+
+[dependencies.ProtocolFeeVault]
+git = "git@github.com:AftermathFinance/amm-protocol-fee-vault.git"
+subdir = "protocol-fee-vault"
+rev = "development"
+
+[dependencies.AftermathFaucet]
+git = "git@github.com:AftermathFinance/test-coins.git"
+rev = "main"
+`;
+    const deps = parseGitDependencies(toml);
+    expect(deps).toHaveLength(2);
+    expect(deps.map((d) => d.name).sort()).toEqual(['AftermathFaucet', 'ProtocolFeeVault']);
+  });
+
+  it('returns [] for a TOML with no git deps', () => {
+    expect(parseGitDependencies('[package]\nname = "x"\n')).toEqual([]);
+    expect(parseGitDependencies('[package]\nname = "x"\n\n[addresses]\nx = "0x0"\n')).toEqual([]);
   });
 });
 
