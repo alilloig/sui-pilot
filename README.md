@@ -12,13 +12,13 @@ A Claude Code plugin that transforms Claude into a Sui/Move development expert.
 
 Sui Move evolves rapidly. LLM training data goes stale fast, and agents confidently generate outdated patterns, deprecated APIs, and incorrect syntax.
 
-sui-pilot solves this by bundling **695 documentation files** from five Mysten Labs sources directly into your Claude Code environment:
+sui-pilot solves this by bundling **727 documentation files** from five Mysten Labs sources directly into your Claude Code environment:
 
 | Source        | Files | Topics                                                                  |
 | ------------- | ----- | ----------------------------------------------------------------------- |
-| **Sui**       | 339   | Blockchain, Move language, objects, transactions, SDKs, DeFi standards  |
+| **Sui**       | 369   | Blockchain, Move language, objects, transactions, SDKs, DeFi standards  |
 | **Move Book** | 143   | Move language tutorial + reference: syntax, types, abilities, idioms    |
-| **Walrus**    | 84    | Decentralized blob storage, Walrus Sites, HTTP API, node operations     |
+| **Walrus**    | 86    | Decentralized blob storage, Walrus Sites, HTTP API, node operations     |
 | **Seal**      | 14    | Secrets management, encryption, key servers, access control policies    |
 | **TS SDK**    | 115   | TypeScript SDK, dapp-kit, payment-kit, kiosk, React hooks, transactions |
 
@@ -243,9 +243,9 @@ sui-pilot/
 ├── mcp/move-lsp-mcp/             # MCP server wrapping move-analyzer (prebuilt bundle)
 ├── evals/                        # 15-task A/B eval harness (run-comparison.sh, tasks.json, fixtures)
 ├── scripts/                      # sync-docs.sh helpers
-├── .sui-docs/                    # 339 Sui documentation files
+├── .sui-docs/                    # 369 Sui documentation files
 ├── .move-book-docs/              # 143 Move Book files (+ packages/ examples)
-├── .walrus-docs/                 # 84 Walrus documentation files
+├── .walrus-docs/                 # 86 Walrus documentation files
 ├── .seal-docs/                   # 14 Seal documentation files
 └── .ts-sdk-docs/                 # 115 TS SDK documentation files
 ```
