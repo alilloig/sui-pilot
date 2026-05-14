@@ -44,24 +44,37 @@ describe('integration: sui-prover MCP wrapper', () => {
     expect(caps.setup_warnings.find((w) => w.kind === 'explicit_framework_dep')).toBeUndefined();
   });
 
-  // Deferred to Phase 4 evals: spawning the real prover on a cold cache
-  // takes minutes (git fetch + Boogie setup), which is too slow for unit
-  // CI. Phase 4 will run this against the pre-warmed AMM fixture inside
-  // evals/run-comparison.sh. The wrapper shape is already exercised by
-  // the list_specs and prover_capabilities tests above; the spawn path
-  // itself is plain Node child_process.
-  it.skip('prove returns a structured response shape (phase 4)', async () => {
-    const result = await prove({ path: FIXTURE, timeout_seconds: 30 });
-    expect(result.binary.path).toMatch(/sui-prover$/);
-    expect(result.package.name).toBe('tiny');
-    expect(result.invocation.args).toContain('--path');
-    expect(result.invocation.args).toContain('--timeout');
-    expect(typeof result.invocation.duration_ms).toBe('number');
-    expect(Array.isArray(result.findings)).toBe(true);
-    expect(typeof result.raw_stdout).toBe('string');
-    expect(typeof result.raw_stderr).toBe('string');
-  });
+  // Round-trip the wrapper's prove() against the tiny fixture. Skipped
+  // when the binary is missing AND when SKIP_PROVER_NETWORK=1 is set --
+  // the first invocation on a fresh checkout clones the sui-prover Move
+  // dep into ~/.move and downloads framework crates (a one-off ~30-60s
+  // cost). CI without network or with a stricter time budget should
+  // export SKIP_PROVER_NETWORK=1.
+  const itIfWarm =
+    hasBinary && process.env['SKIP_PROVER_NETWORK'] !== '1' ? it : it.skip;
+
+  itIfWarm(
+    'prove() returns the structured response shape /specify consumes',
+    async () => {
+      const result = await prove({ path: FIXTURE, timeout_seconds: 90 });
+      expect(result.binary.path).toMatch(/sui-prover$/);
+      expect(result.binary.version).toMatch(/^\d+\.\d+\.\d+/);
+      expect(result.package.name).toBe('tiny');
+      expect(result.package.edition).toMatch(/^2024/);
+      expect(result.invocation.args).toContain('--path');
+      expect(result.invocation.args).toContain('--timeout');
+      expect(typeof result.invocation.duration_ms).toBe('number');
+      expect(result.invocation.duration_ms).toBeGreaterThan(0);
+      expect(Array.isArray(result.findings)).toBe(true);
+      expect(typeof result.raw_stdout).toBe('string');
+      expect(typeof result.raw_stderr).toBe('string');
+      // The tiny fixture's safe_increment_spec verifies cleanly on a
+      // warm cache -- assert that here so we catch parser regressions
+      // that would mask a real success as "failed".
+      expect(result.summary.failed).toBe(0);
+    },
+    180_000
+  );
 });
 
-// Avoid unused-import lint when the prove path is skipped.
 void itIfBinary;

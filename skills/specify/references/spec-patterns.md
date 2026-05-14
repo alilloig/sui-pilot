@@ -21,11 +21,12 @@ Classification rules:
 - `macro` → excluded (compile-time, not runtime-callable).
 - private `fun` (no visibility token) → excluded.
 
-Attribute look-behind for `#[test_only]` / `#[test]` / `#[allow(...)]`:
+Attribute exclusion for `#[test_only]` / `#[test]`:
 
-- Scan back **only** to the previous non-empty, non-attribute line — not a fixed character window.
-- If any attribute on the immediately preceding `#[...]` block matches `test_only` or `test`, exclude the function.
-- This matters because the naive 200-char look-behind over-matches: a `#[test_only]` 3 lines earlier taints all subsequent functions in the file.
+- The `FN_DECL` regex already consumes any leading `#[...]` attribute block via the `(?:\s*#\[[^\]]*\][^\n]*\n)*` prefix, so `match[0]` (the whole match) covers the attribute *and* the `fun NAME` declaration.
+- **Implementation:** test `match[0]` itself for `/#\[\s*(?:test_only|test)\b/`. If it matches, exclude the function.
+- **Do NOT** scan backward from `match.index` — that points to the start of the attribute block, not the `fun` keyword, so any look-behind from there picks up content that belongs to the *previous* function and produces false negatives on the function under inspection.
+- **Do NOT** use a fixed character window (e.g. 200 chars). The naive form over-matches: a `#[test_only]` 3 lines earlier taints all subsequent functions in the file.
 
 ## 2. Canonical spec body shape
 

@@ -41,6 +41,11 @@ evals/results/
 # GitHub Pages staging directory — assembled by the pages.yml workflow.
 _site/
 
-# Sui Move build artifacts inside eval fixtures
+# Sui Move build artifacts inside eval and MCP test fixtures
 evals/fixtures/**/build/
 evals/fixtures/**/Move.lock
+mcp/sui-prover-mcp/test/fixtures/**/build/
+mcp/sui-prover-mcp/test/fixtures/**/Move.lock
+
+# Stray sui-prover debug logs that the binary drops in cwd
+sui-prover.log.*
