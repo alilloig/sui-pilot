@@ -38,6 +38,10 @@ docs/*
 # Eval run outputs — produced by evals/run-comparison.sh, not source-controlled.
 evals/results/
 
+# Per-run /specify evaluation artifacts (HTML reports + status pages).
+# Published privately via the sui-pilot-fv-lab repo, not from sui-pilot.
+evals/specify-*/
+
 # GitHub Pages staging directory — assembled by the pages.yml workflow.
 _site/
 
