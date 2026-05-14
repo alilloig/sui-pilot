@@ -12,7 +12,7 @@ Always search and read these docs before writing code for these ecosystems.
 | Walrus storage, blobs, Sites, operators | `.walrus-docs/` | 84 |
 | Seal secrets, encryption, key servers, access control | `.seal-docs/` | 14 |
 | TypeScript SDK, dapp-kit, React hooks, kiosk, payment-kit | `.ts-sdk-docs/` | 115 |
-| Nautilus off-chain compute: TEE enclaves, attestation, PCRs, on-chain verification | `.sui-docs/sui-stack/nautilus/` | 7 |
+| Nautilus off-chain compute, TEE enclaves, attestation, PCRs, on-chain verification | `.sui-docs/sui-stack/nautilus/` | 7 |
 
 ## Usage
 
