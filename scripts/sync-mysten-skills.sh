@@ -30,6 +30,18 @@ if [[ ! -d "$SRC_ROOT" ]]; then
   exit 1
 fi
 
+# Fail fast if the submodule directory exists but is empty / un-checked-out.
+# Without this guard, the cleanup loop below would interpret "no upstream
+# SKILL.md" as "upstream removed every skill" and wipe every committed symlink.
+shopt -s nullglob
+upstream_skills=("$SRC_ROOT"/*/SKILL.md)
+shopt -u nullglob
+if [[ ${#upstream_skills[@]} -eq 0 ]]; then
+  echo "ERROR: ${SRC_ROOT} contains no */SKILL.md — submodule not initialized?" >&2
+  echo "       Run 'git submodule update --init --recursive' first." >&2
+  exit 1
+fi
+
 mkdir -p "$DST_ROOT"
 
 linked=0
@@ -40,8 +52,8 @@ removed=0
 # 1) Create / refresh symlinks for every upstream skill with a SKILL.md.
 for src in "$SRC_ROOT"/*/; do
   name="$(basename "$src")"
-  skip_contains "$name" && { echo "  [skip ] $name (excluded)"; ((skipped++)); continue; }
-  [[ -f "$src/SKILL.md" ]] || { echo "  [skip ] $name (no SKILL.md)"; ((skipped++)); continue; }
+  skip_contains "$name" && { echo "  [skip ] $name (excluded)"; skipped=$((skipped + 1)); continue; }
+  [[ -f "$src/SKILL.md" ]] || { echo "  [skip ] $name (no SKILL.md)"; skipped=$((skipped + 1)); continue; }
 
   dst="$DST_ROOT/$name"
   expected="../.mysten-skills/$name"
@@ -56,13 +68,13 @@ for src in "$SRC_ROOT"/*/; do
     fi
   elif [[ -e "$dst" ]]; then
     echo "  [CONFL] $name — real dir/file at $dst; refusing to overwrite" >&2
-    ((conflicts++))
+    conflicts=$((conflicts + 1))
     continue
   else
     ln -s "$expected" "$dst"
     echo "  [link ] $name"
   fi
-  ((linked++))
+  linked=$((linked + 1))
 done
 
 # 2) Remove stale symlinks in skills/ that point into .mysten-skills/ but whose
@@ -76,7 +88,7 @@ for dst in "$DST_ROOT"/*; do
   if skip_contains "$name" || [[ ! -f "$SRC_ROOT/$name/SKILL.md" ]]; then
     rm "$dst"
     echo "  [unlnk] $name"
-    ((removed++))
+    removed=$((removed + 1))
   fi
 done
 
