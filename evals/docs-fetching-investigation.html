@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<title>sui-pilot doc-fetching investigation — 2026-05-19 behavioral notes</title>
+<style>
+:root { color-scheme: light; }
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; max-width: 1080px; margin: 2rem auto; padding: 0 1.25rem; color: #1f2328; line-height: 1.55; }
+h1 { font-size: 1.6rem; margin: 0 0 .25rem; }
+h2 { font-size: 1.15rem; margin-top: 2rem; border-bottom: 1px solid #d0d7de; padding-bottom: .25rem; }
+h3 { font-size: 1rem; margin-top: 1.4rem; color: #1f2328; }
+p.meta { color: #57606a; font-size: .92rem; margin-top: .25rem; }
+code { background: #f6f8fa; padding: .05rem .35rem; border-radius: 4px; font-size: .88em; }
+table { border-collapse: collapse; width: 100%; margin: .75rem 0 1rem; font-size: .93rem; }
+th, td { border: 1px solid #d0d7de; padding: .4rem .6rem; text-align: left; vertical-align: top; }
+th { background: #f6f8fa; font-weight: 600; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.bench { font-size: .85rem; color: #57606a; }
+.tag { display: inline-block; background: #ddf4ff; color: #0969da; padding: 0 .4rem; border-radius: 4px; font-size: .8rem; margin-right: .25rem; }
+.tag-method { background: #fff8c5; color: #7d4e00; }
+.tag-question { background: #f0e6ff; color: #6e2bcc; }
+ul { margin: .4rem 0; padding-left: 1.25rem; }
+li { margin: .25rem 0; }
+</style>
+</head><body>
+
+<h1>sui-pilot doc-fetching — behavioral investigation notes</h1>
+<p class="meta">
+  <strong>Captured:</strong> 2026-05-19 &nbsp;·&nbsp;
+  <strong>Source run:</strong> <code>evals/results/2026-05-19T12-20-07Z/</code> &nbsp;·&nbsp;
+  <strong>Purpose:</strong> seed observations for the next iteration on sui-pilot's doc-discovery layer.
+</p>
+<p>
+  This is a notes document. It is deliberately not a verdict and does not validate or invalidate any prior
+  hypothesis about which doc-discovery shape is "best". It records the behavioral deltas we actually saw
+  between two configurations of the agent prompt and the methodology issues that surfaced, so the next
+  iteration can start from concrete signal instead of starting over.
+</p>
+
+<h2>What was run, very briefly</h2>
+<p>
+  A 4-task NFT-app build (Move package + Vite/React/dApp Kit frontend) was issued to two configurations
+  of the <code>sui-pilot-agent</code> system prompt:
+</p>
+<ul>
+  <li><strong>Slim only</strong> — the 7-row routing table that points at the bundled <code>.&lt;source&gt;-docs/</code> corpora.</li>
+  <li><strong>Slim + always-loaded ecosystem graph</strong> — the same routing table with the 445-line
+      relational knowledge graph (recovered from the Vercel-port-era <code>sui.md</code>) appended to the
+      agent prompt so the cross-link map is always present.</li>
+</ul>
+<p>
+  Bundled corpora, skills, MCP servers, fixtures, model, and prompts were byte-identical across the two
+  configurations. The only difference was the agent-file content. The Sui NFT minting bootcamp
+  (<code>~/workspace/sui-move-bootcamp/</code>) was used as a <em>hidden</em> reference for grading; the
+  per-task fixtures were empty scaffolds that the model built into a working dapp.
+</p>
+
+<h2>Behavioral observations</h2>
+
+<h3><span class="tag">obs-1</span> Subagent-dispatch likelihood diverges</h3>
+<p>
+  With the always-loaded ecosystem graph present, the agent dispatched background subagents for work
+  on at least two of four tasks (visible in the parent transcripts as "the earlier background search
+  has completed" / "acknowledged — that was the background <code>find</code> from earlier"). The slim-only
+  configuration tended to keep the work in-process. We don't yet know what in the prompt context tips
+  the decision toward delegation, but the cross-link map (with its many <code>📖 docs:</code> pointers)
+  is a plausible trigger.
+</p>
+
+<h3><span class="tag">obs-2</span> Parent-level output tokens are no longer a usage proxy when subagents are in play</h3>
+<p>
+  Task-level output tokens swing by two orders of magnitude on the <em>same</em> prompt. Example:
+</p>
+<table>
+  <thead><tr><th>Task</th><th>Slim parent output</th><th>Graph parent output</th></tr></thead>
+  <tbody>
+    <tr><td><code>task-nft-01-move-package</code></td><td class="num">27,081</td><td class="num">34</td></tr>
+    <tr><td><code>task-nft-02-dapp-kit-setup</code></td><td class="num">177</td><td class="num">8,186</td></tr>
+    <tr><td><code>task-nft-03-mint-and-list-components</code></td><td class="num">11,655</td><td class="num">248</td></tr>
+    <tr><td><code>task-nft-04-full-stack-smoke</code></td><td class="num">30,434</td><td class="num">25,944</td></tr>
+  </tbody>
+</table>
+<p>
+  The 34/248/177 entries are runs where the work happened in a subagent; the parent only emitted a closing
+  ack. The <em>usage</em> JSON block we currently aggregate is the parent's only. Conclusion: any future
+  cost or productivity claim made from <code>tokens.csv</code> as-is is partially fiction. Task-04 is the
+  most representative single cell because both arms kept the work in-process.
+</p>
+
+<h3><span class="tag">obs-3</span> Wall time and cache-read volume both drop with the graph present</h3>
+<table>
+  <thead><tr><th></th><th>Slim</th><th>Graph</th><th>Δ</th></tr></thead>
+  <tbody>
+    <tr><th>Arm wall time</th><td>~78 min</td><td>~23 min</td><td class="num">~−71%</td></tr>
+    <tr><th>Total cache reads</th><td class="num">12,853,209</td><td class="num">9,227,368</td><td class="num">~−28%</td></tr>
+    <tr><th>Task-04 cache reads (in-process for both)</th><td class="num">8,871,182</td><td class="num">7,585,488</td><td class="num">~−15%</td></tr>
+    <tr><th>Cache-hit ratio</th><td class="num">96.8%</td><td class="num">97.4%</td><td class="num">~+0.6 pp</td></tr>
+  </tbody>
+</table>
+<p>
+  Wall time is partly confounded by <span class="tag">obs-1</span>. The task-04 cache-read delta is the
+  cleanest single number — the always-loaded graph appears to shave some opportunistic
+  <code>Glob</code>/<code>Grep</code> loops the slim arm would otherwise issue, at the cost of more
+  static input. Sample size is one task; do not over-fit.
+</p>
+
+<h3><span class="tag">obs-4</span> Codegen quality is indistinguishable on the three solvable tasks</h3>
+<p>
+  Spot-checking diffs: same module shape, same Move 2024 idioms, same dApp Kit hooks, same
+  four-moveCall PTB with the hero handle threaded correctly, same React Query / <code>getObject</code>
+  pattern for the shared registry, same SDK 2.0 / gRPC client choice, no SDK 1.x leakage in either
+  arm. The behavioral difference is in <em>how</em> the answer is produced, not <em>what</em> the answer is.
+</p>
+
+<h3><span class="tag">obs-5</span> The same prompt at different points in a session can take wildly different time</h3>
+<p>
+  The smoke run of <code>task-nft-02</code> (single task, single config) took ~3 minutes; the same task
+  inside the full multi-task run took ~52 minutes. Same prompt, same fixture, same agent file. The
+  agent's strategy is sensitive to whatever else is in its working state (cache priming order, MCP/skill
+  load order, doc files already-read in-session). Single-task wall-clock samples are noisy.
+</p>
+
+<h3><span class="tag">obs-6</span> Cache-hit ratios are already very high in both configurations</h3>
+<p>
+  96.8% and 97.4%. The bulk of context loaded across the run is being cached effectively. Differences
+  between configurations are in the <em>volume</em> of context loaded (~28% delta in cache reads) more
+  than in <em>how often</em> that context hits the cache.
+</p>
+
+<h2>Methodology issues that need cleaning up before any rerun</h2>
+
+<h3><span class="tag tag-method">meth-1</span> Subagent token rollups</h3>
+<p>
+  The harness aggregates <code>.usage</code> from the parent <code>claude -p</code> response only. When
+  the agent dispatches subagents (Phase F-style fanout, background search), those subagents' input/output
+  tokens never appear in <code>tokens.csv</code>. The aggregator needs to walk the JSON tree (or the
+  per-task transcript) for nested <code>usage</code> blocks before token-economics claims hold.
+</p>
+
+<h3><span class="tag tag-method">meth-2</span> Diff pollution from <code>.remember</code> SessionStart hooks</h3>
+<p>
+  Every per-task tmpdir collected a <code>.remember/</code> directory written by the <code>remember</code>
+  plugin's SessionStart hook (logs and a <code>.gitignore</code>). These show up as ~30–50 line additions
+  in every <code>.diff</code>. The literal pass criteria still pass, but the diff size becomes a poor proxy
+  for "what the model actually wrote". Two options: (a) instruct the runner to delete <code>.remember/</code>
+  before diffing, or (b) <code>git diff --</code>-style filter the diff to <code>.move</code>/<code>.ts</code>
+  /<code>.tsx</code>/<code>package.json</code>/<code>Move.toml</code> when scoring.
+</p>
+
+<h3><span class="tag tag-method">meth-3</span> <code>compileAfter</code> only knows the tmpdir root</h3>
+<p>
+  <code>task-nft-04</code> ships a Move package under <code>$tmpdir/move/hero/</code>. The harness invokes
+  <code>sui move build</code> at <code>$tmpdir</code> and fails uniformly because there is no
+  <code>Move.toml</code> at the root. We added <code>tsBuildSubdir</code> for the TS pipeline already;
+  mirror it with <code>compileSubdir</code> for Move, then re-run task-04. Without that, the rubric on
+  task-04 never gets exercised because the literal compile gate fires first.
+</p>
+
+<h3><span class="tag tag-method">meth-4</span> Path-case sensitivity in <code>passCriteria.additionalFiles</code></h3>
+<p>
+  Tasks expected <code>src/dApp-kit.ts</code>; both arms wrote <code>src/dapp-kit.ts</code>. On macOS APFS
+  these are the same file; in the diff they are not the same path string. Either normalize comparisons or
+  rewrite criteria to use lowercased / glob paths.
+</p>
+
+<h3><span class="tag tag-method">meth-5</span> Scorer prompt label drift</h3>
+<p>
+  <code>compare-prompt.md</code> still carries preamble text describing the original
+  <em>matcher-pipeline vs slim</em> comparison; the auto-scored <code>score.html</code> from this run
+  swapped the v1/v2 labels in its prose as a result. The numbers were fine. Parameterizing the labels
+  per run (passing arm descriptors as placeholders the way <code>RESULTS_DIR</code> already is) would
+  prevent that.
+</p>
+
+<h2>Open questions for next iterations</h2>
+<ul>
+  <li><span class="tag tag-question">q1</span> What in the prompt context tips the agent toward
+      subagent dispatch? Is it the cross-link density of the ecosystem graph, the additional surface area
+      for delegation, or something else? Cheap experiment: ablate the graph down to just the Legend +
+      one section and see if delegation behavior persists.</li>
+  <li><span class="tag tag-question">q2</span> If the graph's value is mostly cost reduction at parity
+      quality, is there a subset that captures most of the win at a fraction of the always-loaded cost?
+      Worth running with the graph trimmed to the Legend + ABILITIES + Sui object-model section only.</li>
+  <li><span class="tag tag-question">q3</span> Are the <code>📖 docs:</code> pointers in the graph
+      actually followed? Instrument the transcript scanner to count tool calls whose paths match
+      pointers that appear in the prompt context vs. ones discovered ad-hoc; that separates
+      "graph is used as a TOC" from "graph is read and ignored".</li>
+  <li><span class="tag tag-question">q4</span> Is the same wall-time / cache-read delta present on
+      task categories that aren't NFT-flavored — multi-file refactors, stale-training-API tasks
+      (<code>task-02-sdk-2-client</code>, etc.), token-pressure tasks (<code>task-27-long-prompt-spec</code>)?
+      The existing 28-task suite was not re-run in this batch; doing so would generalize the signal.</li>
+  <li><span class="tag tag-question">q5</span> Does always-loading the graph change behavior in
+      negative ways for short, mechanical tasks (typo fixes, single-line edits) where the extra context
+      is pure overhead? Quick check: run the smallest existing tasks
+      (<code>task-01-module-syntax</code>, <code>task-04-vector-method-syntax</code>) with the graph
+      present and compare token economics.</li>
+  <li><span class="tag tag-question">q6</span> Background subagents are eating cost that doesn't
+      surface in <code>tokens.csv</code>. After <span class="tag tag-method">meth-1</span> is fixed,
+      re-score the same captured transcripts (no re-run cost) and check whether the cost-reduction
+      story holds when total billed tokens are honest.</li>
+</ul>
+
+<h2>Pointers</h2>
+<ul>
+  <li>Auto-scored report (with v1/v2 label inversion in prose; numbers OK): <code>evals/results/2026-05-19T12-20-07Z/score.html</code></li>
+  <li>Corrected eval report: <code>evals/results/2026-05-19T12-20-07Z/eval-report.html</code></li>
+  <li>Per-task raw artifacts: <code>evals/results/2026-05-19T12-20-07Z/{v1,v2}/</code></li>
+  <li>Plan: <code>~/.claude/plans/elegant-baking-kahn.md</code></li>
+  <li>Reference dapp (hidden during eval): <code>~/workspace/sui-move-bootcamp/F1/</code> @ tag <code>eval/nft-app-ref-2026-05-19</code></li>
+</ul>
+
+</body></html>
