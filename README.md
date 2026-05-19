@@ -353,7 +353,7 @@ The trade-off is ~2 KB of context per session (vs. zero when only skills are inv
 For local iteration on the plugin, clone the repo and load it with `--plugin-dir` instead of installing from the marketplace:
 
 ```bash
-git clone https://github.com/alilloig/sui-pilot.git
+git clone https://github.com/contract-hero/sui-pilot.git
 cd sui-pilot
 
 # Build the MCP bundle after changes to mcp/move-lsp-mcp/src/
@@ -370,7 +370,7 @@ Commit the rebuilt `mcp/move-lsp-mcp/dist/index.js` whenever `src/` changes — 
 
 ## Support
 
-- **Report issues**: [github.com/alilloig/sui-pilot/issues](https://github.com/alilloig/sui-pilot/issues)
+- **Report issues**: [github.com/contract-hero/sui-pilot/issues](https://github.com/contract-hero/sui-pilot/issues)
 - **Release history**: See [CHANGELOG.md](./CHANGELOG.md)
 
 ---
