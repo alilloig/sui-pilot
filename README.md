@@ -31,10 +31,10 @@ The Move Book corpus also ships with `.move-book-docs/packages/` — Move source
 
 Two self-contained explainers, published via GitHub Pages — read them before installing if you want to *see* what sui-pilot does and *why* it's shaped this way:
 
-- **[Inside Claude's context, step by step](https://alilloig.github.io/sui-pilot/SUI_PILOT_TOUR.html)** — interactive tour of a real Sui workflow showing exactly what enters Claude's context window at each step (bundled docs, MCP calls, skill payloads, agent file). The fastest way to understand what the plugin actually does at runtime.
-- **[Evaluating Claude Code context for Sui Move development](https://alilloig.github.io/sui-pilot/EVAL_FRAMEWORK.html)** — the 27-task A/B eval methodology that shaped v2: scoring rubric, three committed baselines, and the honest framing axis (parity, not improvement). Read this if you're building context-injection plugins of your own.
+- **[Inside Claude's context, step by step](https://contract-hero.github.io/sui-pilot/SUI_PILOT_TOUR.html)** — interactive tour of a real Sui workflow showing exactly what enters Claude's context window at each step (bundled docs, MCP calls, skill payloads, agent file). The fastest way to understand what the plugin actually does at runtime.
+- **[Evaluating Claude Code context for Sui Move development](https://contract-hero.github.io/sui-pilot/EVAL_FRAMEWORK.html)** — the 27-task A/B eval methodology that shaped v2: scoring rubric, three committed baselines, and the honest framing axis (parity, not improvement). Read this if you're building context-injection plugins of your own.
 
-Both are also reachable from the [landing page](https://alilloig.github.io/sui-pilot/).
+Both are also reachable from the [landing page](https://contract-hero.github.io/sui-pilot/).
 
 ---
 
@@ -252,7 +252,7 @@ sui-pilot/
 └── .sui-prover-docs/             # 20 Sui Prover files (guide + sources + examples)
 ```
 
-For the onboarding walkthrough, see [`SUI_PILOT_FOR_DUMMIES.md`](SUI_PILOT_FOR_DUMMIES.md). For why we adopted a matcher pipeline from a sibling plugin and then rolled it back, see [`NOTES.md`](NOTES.md). For the polished, shareable explainers of the eval methodology and the runtime context tour, see [Learning artifacts](#learning-artifacts) above — also published live at [alilloig.github.io/sui-pilot](https://alilloig.github.io/sui-pilot/).
+For the onboarding walkthrough, see [`SUI_PILOT_FOR_DUMMIES.md`](SUI_PILOT_FOR_DUMMIES.md). For why we adopted a matcher pipeline from a sibling plugin and then rolled it back, see [`NOTES.md`](NOTES.md). For the polished, shareable explainers of the eval methodology and the runtime context tour, see [Learning artifacts](#learning-artifacts) above — also published live at [contract-hero.github.io/sui-pilot](https://contract-hero.github.io/sui-pilot/).
 
 ---
 
